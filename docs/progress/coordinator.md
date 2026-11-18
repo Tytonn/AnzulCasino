@@ -2,7 +2,7 @@
 
 Running status for the whole build. The coordinator owns this file; the Foundation thread keeps it current while Stage 1 runs.
 
-Last updated: 2026-11-18 09:15 UTC
+Last updated: 2026-11-18 09:35 UTC
 
 ## Stage
 
@@ -26,7 +26,7 @@ Last updated: 2026-11-18 09:15 UTC
 
 ## Blocked
 
-- **The Stage 1 exit check** waits on Tyton's three items below. Deploy previews build on every push to pull request #1, but the build container cannot open them yet: its network blocks `*.netlify.app`. Tyton will allow the preview's hostname and the Ably hosts when he is at a computer (deferred on 2026-11-18, he was on his phone). Everything the exit check covers passes locally on the local live relay.
+- **The Stage 1 exit check** waits on Tyton's three items below. Deploy previews build on every push to pull request #1, but the build container cannot open them yet: its network blocks `*.netlify.app`. Tyton will allow the preview's hostname and the Ably hosts when he is at a computer (deferred on 2026-11-18, he was on his phone). Everything the exit check covers passes locally on the local live relay, and the browser tests now set up a fresh preview themselves (sample players and a season, through the site's API), so the check is one command once the three items arrive. Lanes test their own previews the same way (`docs/LANE_GUIDE.md`, Testing on a preview).
 
 ## Needs from Tyton
 
