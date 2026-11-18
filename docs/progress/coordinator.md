@@ -2,7 +2,7 @@
 
 Running status for the whole build. The coordinator owns this file; the Foundation thread keeps it current while Stage 1 runs.
 
-Last updated: 2026-11-18 05:40 UTC
+Last updated: 2026-11-18 05:50 UTC
 
 ## Stage
 
@@ -12,21 +12,26 @@ Last updated: 2026-11-18 05:40 UTC
 
 | Thread | Lane | Branch | Stage | Status |
 | --- | --- | --- | --- | --- |
-| Foundation | foundation | `foundation` | Stage 1 | Building deliverable 1 (repo setup). Pull request open early so Tyton can watch the preview. |
+| Foundation | foundation | `foundation` | Stage 1 | Deliverable 1 (repo setup) pushed. Building deliverable 2 (database). Pull request #1 open as a draft. |
 
 ## Merged to main
 
 - 2026-11-18: one starter commit (README only), with Tyton's approval, so `foundation` has a base. Commit message carries `[skip netlify]` so it costs no deploy credits.
 
+## Netlify
+
+- **Project:** `playanzul` (https://playanzul.netlify.app), team Tyton, created 2026-11-18 by Tyton from `Tytonn/AnzulCasino`. Production branch `main`, build settings left empty (`netlify.toml` sets them), functions directory `netlify/functions`.
+- **Auto publishing is locked** (Tyton, 2026-11-18), so production only changes when Tyton publishes a deploy by hand. Deploy previews are not affected.
+- **Credits and the lock.** Netlify's docs say "each successful production deploy consumes 15 credits" and that a locked site still builds new deploys. They do not say whether a locked build that is never published is charged. Plan as if every push to `main` costs 15 credits whether or not it is published, and confirm on the first merge under Usage & billing > Account usage insights > Credits.
+
 ## Blocked
 
-- **Deploy previews.** Need the Netlify project linked to `Tytonn/AnzulCasino`. Tyton has not said yet whether a Netlify project exists.
+- Nothing right now. Deploy previews should start on the next push to pull request #1.
 
 ## Needs from Tyton
 
-1. Netlify: does a Netlify project already exist for this repo? If not, import it now that `main` exists. Steps are in `docs/progress/foundation.md` under Needs from Tyton.
-2. Ably: an API key in the Netlify environment variable `ABLY_API_KEY` (needed at deliverable 7). Steps in `docs/progress/foundation.md`.
-3. `ADMIN_BOOTSTRAP_CODE` in Netlify, with a separate Deploy Previews value that Tyton shares with the Foundation thread (needed at deliverable 3).
+1. Ably: an API key in the Netlify environment variable `ABLY_API_KEY` (needed at deliverable 7). Steps in `docs/progress/foundation.md`.
+2. `ADMIN_BOOTSTRAP_CODE` in Netlify, with a separate Deploy Previews value that Tyton shares with the Foundation thread (needed at deliverable 3).
 
 ## Decisions
 
@@ -44,6 +49,7 @@ Last updated: 2026-11-18 05:40 UTC
 | 2026-11-18 | **Spec addition: Ranks** (Economy > Ranks). Replace the flat daily bonus; streak bonus stays. Owner: **economy** lane. In code they are called tiers, because "rank" already means leaderboard place. | Tyton |
 | 2026-11-18 | **Spec addition: Shop** (Steal, shields and vault > Shop). Ranks, shield charges, one extra steal attempt per game day. Owner: **heist** lane (the page); other lanes supply items through their manifests. | Tyton |
 | 2026-11-18 | **Spec addition: Giveaways** (Economy > Giveaways). Chat drops, owner **economy**. Admin giveaways, owner **admin**. Rebuy stays. | Tyton |
+| 2026-11-18 | **Netlify project `playanzul`** created from the repo; **auto publishing locked**, so production deploys go live only when Tyton publishes them. | Tyton |
 | 2026-11-18 | **Spec addition: Simulation** (Tune it before the first season). About 2,000 games per player per month with frequent all-ins, plus the rank and giveaway report. Owner: **heist** lane. | Tyton |
 
 ### What Foundation builds for the additions
@@ -71,6 +77,11 @@ Only the shared pieces, not the features:
 | all `*_pct` and `*_rate` values | unchanged | unchanged |
 
 Provisional defaults with no number in the spec (the owning lane tunes them with the simulation): extra steal attempt price, chat drop frequency, pot size and winner count.
+
+## Context
+
+- The players are Tyton's friend group, the **Anzul** Discord server. That is where the names come from: the site is Anzul Casino, the Netlify project is `playanzul`. Use "Anzul" in the logo and the shell. No new features follow from this.
+- **Branding** (shared by Tyton, 2026-11-18): the server icon is a white stylized "A" on black, its right stroke a curved sail shape, with a four-point sparkle on the left. The wordmark is "ANZUL" in heavy capitals. The Foundation thread redraws it as a clean SVG for the shell logo and favicon (deliverable 8). The screenshot itself is not shipped.
 
 ## Open questions
 

@@ -6,7 +6,7 @@ Branch `foundation`. Last updated 2026-11-18 by the Foundation thread.
 
 - **GitHub repo** `Tytonn/AnzulCasino`: empty. No commits and no branches, so there is no `main` to branch from.
 - **Tyton's local folder** `C:\Users\techn\Downloads\anzulcasino`: empty.
-- **Netlify**: not visible from the build container. Its network blocks `app.netlify.com` and `api.netlify.com`, and there is no Netlify token. Whether a Netlify project exists, and what it is linked to, is a question for Tyton.
+- **Netlify**: not visible from the build container. Its network blocks `app.netlify.com` and `api.netlify.com`, and there is no Netlify token. Tyton created the project `playanzul` from this repo on 2026-11-18 and locked auto publishing.
 
 So nothing needs keeping or changing. Stage 1 starts from an empty repo.
 
@@ -68,7 +68,7 @@ Netlify bills the database about 10 credits for every hour it is awake. It sleep
 ## Needs from Tyton
 
 1. ~~Permission for one starter commit on `main`.~~ Approved 2026-11-18.
-2. **Netlify project.** If one already exists, tell me its name and which repo it is linked to. If not, once `main` exists:
+2. ~~**Netlify project.**~~ Done 2026-11-18: `playanzul`, auto publishing locked. The steps were:
    1. app.netlify.com > **Add new project** > **Import an existing project** > **GitHub** > `Tytonn/AnzulCasino`.
    2. Branch to deploy: `main`. Leave the build settings empty; `netlify.toml` sets them.
    3. Keep Deploy Previews on for pull requests (the default).
