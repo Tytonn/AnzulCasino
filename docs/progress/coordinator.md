@@ -2,7 +2,7 @@
 
 Running status for the whole build. The coordinator owns this file; the Foundation thread keeps it current while Stage 1 runs.
 
-Last updated: 2026-11-18 07:15 UTC
+Last updated: 2026-11-18 08:05 UTC
 
 ## Stage
 
@@ -12,7 +12,7 @@ Last updated: 2026-11-18 07:15 UTC
 
 | Thread | Lane | Branch | Stage | Status |
 | --- | --- | --- | --- | --- |
-| Foundation | foundation | `foundation` | Stage 1 | Deliverables 1 to 7 pushed (repo, database, accounts, wallet and ledger, config, season basics, live layer), plus the shared parts of every spec addition so far. Deliverable 7 (live layer) done locally; the Ably path waits for the preview. Building deliverable 8 (shell). Pull request #1 open as a draft. |
+| Foundation | foundation | `foundation` | Stage 1 | Deliverables 1 to 8 pushed (repo, database, accounts, wallet and ledger, config, season basics, live layer, shell), plus the shared parts of every spec addition so far. Tested locally, including two-browser tests at 1440 and 375; the Ably path waits for the preview. Building deliverable 9 (game kit). Pull request #1 open as a draft. |
 
 ## Merged to main
 
@@ -77,7 +77,7 @@ Only the shared pieces, not the features:
 - A `gif` kind for chat messages, with the Klipy id and URLs in `meta` (and `replyTo` for a GIF reply to a system post), and `KLIPY_API_KEY` in the server's environment variables. The picker, the search endpoint and the URL checks are the social lane's.
 - For work, slut and crime: config keys at the final values (`work_*`, `hustle_*` for the third command, `crime_*`, and `crime_chat_min`), ledger reasons `work`, `hustle_win`, `hustle_fine`, `crime_win`, `crime_fine`, and `work_ready_at`, `hustle_ready_at`, `crime_ready_at` on each wallet. The button name (`hustle_name`, a new text kind of setting) and the flavor lines (`work_lines`, `hustle_win_lines`, `hustle_fine_lines`, `crime_win_lines`, `crime_fine_lines`, a new list-of-lines kind) are config too, so the admin lane's config editor covers them with no extra table. The line pools are short starters; the economy lane writes the full ones (40 or more for the third command) and hands them over as a shared change. A `_min` above its `_max` is refused. The rebuy's config keys, ledger reason and `daily_state.rebuy_claimed` column are gone.
 - For russian roulette: config keys for the join window, turn timer, solo edge and ante cap, and ledger reasons `pvp_ante` and `pvp_pot`. For race: config keys for the betting, running and result seconds (provisional 45, 20 and 10, so 75 in all) and the 5% edge.
-- In the shell (deliverable 8): the top-bar widget slot in feature manifests shows on desktop and phone in every room, so the economy lane can add the work and crime buttons without a shared edit.
+- In the shell (deliverable 8, done): the `top-bar` slot in feature manifests shows on desktop and phone in every room, so the economy lane adds the work, slut and crime buttons without a shared edit.
 
 ### Chip defaults after the 1/100 rebalance
 

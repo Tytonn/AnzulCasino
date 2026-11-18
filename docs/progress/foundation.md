@@ -1,6 +1,6 @@
 # Foundation (Stage 1)
 
-Branch `foundation`. Last updated 2026-11-18 by the Foundation thread.
+Branch `foundation`. Last updated 2026-11-18 by the Foundation thread (deliverable 8 pushed).
 
 ## What already exists
 
@@ -55,6 +55,7 @@ Then the exit check on the deploy preview: two browsers as different players see
 - **Locally in the container:** a real Postgres 16 for integration tests. The embedded database that Netlify's dev tools use (PGlite) runs one query at a time, so it cannot prove that locking stops double spends. Endpoints are tested by calling the function handlers directly.
 - **A small local live relay** stands in for Ably in local dev and CI, behind the same wrapper, so two-browser tests run without an Ably key. The real Ably path is tested on the deploy preview.
 - **On the deploy preview:** Playwright with two separate browser sessions, screenshots at 1440px and 375px.
+- **`npm run dev` answers `/api/*` in-process** (`scripts/dev/dev-api.ts`), calling the same function handlers Netlify runs, loaded through Vite so edits apply on the next request. Netlify's own local emulation rebuilt and cold-started a function for every request, about 3 seconds each. `NETLIFY_FUNCTIONS=emulate npm run dev` brings the emulation back. Previews and production always run the real Netlify runtime.
 
 ## Cost guardrails
 
@@ -98,10 +99,11 @@ None for Tyton right now. Answered on 2026-11-18:
 - **5. Config.** `shared/config.ts` (every tunable number, unit, limits, description) and `server/lib/config.ts` (`loadConfig`, `changeConfig`, `pendingConfigChanges`), `GET /api/config`, and `shared/game-day.ts` (4:00 AM Central on the wall clock, tested across both daylight saving changes).
 - **6. Season basics.** `server/lib/seasons.ts`: create (no overlaps), lazy start with starting balances, late joiners, `requireBetsOpen` by database time, `standings`. `GET /api/season`, `GET /api/leaderboard`, `GET`/`POST /api/seasons` (admin). `npm run db:seed:local` and the browser tests use the same sample data.
 - **7. Live layer.** `shared/events.ts` types every event (lanes add theirs by extending the maps from their own files). `server/lib/live.ts` publishes after the commit to Ably, the local relay or nowhere, never failing a request, with a channel prefix per deploy. `GET /api/live/token` gives a token that can only listen, share presence on `presence`, and hear the player's own channel. A season start, a new season and a late joiner are announced, and `/api/season` and `/api/leaderboard` carry the same versions as the events. In the browser, `src/live/` has the client (each event once, resync on connect, on a lost resume and after a hidden tab, one online entry per player, recovery with a fresh token), the local and Ably transports (Ably loads only when used), and the hooks (`useLiveEvent`, `useResync`, `useOnlinePlayers`, `usePresenceRoom`, `usePlaying`, `useAwayAfter`, `useLiveStatus`). A browser test with two players proves presence, room changes, server news and leaving on the local relay. The Ably path waits for the preview and `ABLY_API_KEY`.
+- **8. Shell.** Desktop (1440), tablet (768 to 1100, the sidebar behind a button) and phone (375, a tab bar with chat and the leaderboard as sheets) layouts on the `midnight` tokens: the left rail with who is in each room, the top bar (animated wallet and vault, a widget slot, the season clock, sound, the account menu), the ticker, and the sidebar with the live leaderboard (rows slide and show arrows when ranks change), who is online and where, and chat. The Floor has a card per room with who is inside and the last win. Rooms and pages that lanes have not built show a placeholder naming the lane. Sign-in, signup and reset pages, and a small admin setup page for invite codes, reset codes and seasons until the admin lane's panel lands. Server: `GET`/`POST /api/chat`, `DELETE /api/chat/:id` (admin), `GET /api/players`, `GET /api/ticker`, and `server/lib/chat.ts` (`systemPost`, `insertChatMessage`) for lanes. The shared UI kit is in `src/kit/` (API client with retries for keyed requests, toasts, avatars, player names with tier colors and badges, animated numbers, the server clock offset, sound settings, query hooks). Browser tests at 1440 and 375: two players see each other online and in which room, open each other's cards, chat both ways with mentions, and drop out of the list when a tab closes; logging in returns to the page asked for; the Floor, a room and setup render at both sizes.
 
 ## Not done
 
-Deliverables 8 to 11 and the exit check.
+Deliverables 9 to 11 and the exit check.
 
 ## Decisions
 
@@ -120,6 +122,12 @@ Deliverables 8 to 11 and the exit check.
 - **Flavor lines and the third button's name are config values**, of two new kinds: `lines` (a list of plain-text lines, at most 100 of 120 characters) and `text` (one name of up to 20 characters). They take effect at once, since they cannot change an outcome. The admin lane's config editor covers them, and no table is shared between the economy and admin lanes.
 - **Ranges are guarded**: `CONFIG_PAIRS` lists every `_min`/`_max` pair, and `changeConfig` refuses a minimum above its maximum, so game code can draw from a range without checking it.
 - **The rebuy is gone** (Tyton, Nov 18): its config keys and ledger reason are removed, and migration `20261118065153_core_work_crime` drops `daily_state.rebuy_claimed` (always false; production has no tables yet).
+- **Manifests and slots.** Games declare `src/games/<id>/manifest.ts` (`defineGame`), features `src/features/<name>/manifest.ts` (`defineFeature`). Vite finds them with `import.meta.glob`, so adding a lane never edits the shell. Feature slots: `top-bar` (every room, desktop and phone, for the work, slut and crime buttons), `profile-actions`, `profile-sections`, `chat-composer` (the GIF picker), `chat-message`, `banner`, `overlay` and `shop-items`. A lane can add its own slot by extending `SlotProps`. A slot component that throws is hidden, not the page.
+- **Every spec room and page exists from day one** (`src/shell/planned.ts`), with its icon and a placeholder naming the lane, so links and the rail are complete. A manifest with the same id or path replaces the placeholder.
+- **Rounds carry a `summary` line and a `big_bet` flag** (migration `20261118072308_core_round_summary`), written at settle, so the ticker and History need no per-game code to describe a round.
+- **Chat deletes are soft** (`deleted_at`), so the audit log can point at the message; the body never goes into the audit row. The list leaves deleted messages out. Chat is limited by the route (60 a minute) and by `chat_burst_count` per `chat_burst_seconds` (5 per 10 seconds).
+- **The browser's leaderboard stays current from `standing.changed` events** without refetching: it re-sorts locally, keeps players the server ranked level (everyone at the season start) level until one of them moves, and refetches only for a player it does not know. Gold is for a sole leader.
+- **Logging out reloads the page** on `/login`, so nothing of the player stays in memory on a shared device (caches, the live connection, every store). If the server cannot be reached, the player is told and stays signed in, because the session cookie would still be there.
 
 ## Shared changes for lanes to know
 
