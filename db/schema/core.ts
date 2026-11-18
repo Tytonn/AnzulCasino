@@ -246,8 +246,17 @@ export const gameRounds = pgTable(
     secret: jsonb('secret'),
     /** One line for the ticker and History, such as "Heads". Set at settle. */
     summary: text('summary'),
-    /** The stake was at least big_bet_pct of net worth when it was placed. */
+    /** The stake was at least big_bet_pct of net worth when it was placed, or all-in. */
     bigBet: boolean('big_bet').notNull().default(false),
+    /** The stake emptied the wallet. A won all-in is celebrated like a 10x win. */
+    allIn: boolean('all_in').notNull().default(false),
+    /**
+     * Counts the round's changes (start 0, each action and the settle add 1),
+     * so browsers can tell newer room news from older (shared/rounds.ts).
+     */
+    steps: integer('steps').notNull().default(0),
+    /** The player's last move. An open round idle past round_timeout_minutes is finished for them. */
+    actedAt: ts('acted_at').notNull().defaultNow(),
     sharedRoundId: bigId('shared_round_id').references(() => sharedRounds.id),
     startedAt: ts('started_at').notNull().defaultNow(),
     settledAt: ts('settled_at'),
@@ -261,6 +270,11 @@ export const gameRounds = pgTable(
     index('game_rounds_feed_idx').on(t.seasonId, t.settledAt),
     index('game_rounds_player_idx').on(t.seasonId, t.userId, t.startedAt),
     index('game_rounds_shared_idx').on(t.sharedRoundId),
+    // Finding open rounds left idle, game by game.
+    index('game_rounds_idle_idx')
+      .on(t.game, t.actedAt)
+      .where(sql`${t.status} = 'open'`),
+    check('game_rounds_steps_check', sql`${t.steps} >= 0`),
     check('game_rounds_status_check', oneOf(t.status, ROUND_STATUSES)),
     check('game_rounds_stake_check', sql`${t.stake} >= 0`),
     check('game_rounds_payout_check', sql`${t.payout} is null or ${t.payout} >= 0`),

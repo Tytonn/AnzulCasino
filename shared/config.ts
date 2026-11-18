@@ -423,6 +423,13 @@ export const CONFIG = {
     'A bet at or above this share of net worth is flagged as a big bet in the room.',
     { min: 1 },
   ),
+  big_win_times: number(
+    'games',
+    'times',
+    10,
+    'A win paying this many times the bet or more gets the full celebration and a post in chat. So does any won all-in.',
+    { min: 2, max: 10_000 },
+  ),
   round_timeout_minutes: number(
     'games',
     'minutes',

@@ -18,6 +18,7 @@
  */
 
 import type { ChatMessage } from './chat.ts'
+import type { RoundView } from './rounds.ts'
 import type { SeasonPhase } from './seasons.ts'
 
 /** Logical channel names. The live layer adds a prefix per deploy. */
@@ -80,22 +81,18 @@ export type ChatMessageEvent = ChatMessage
 
 // ---------------------------------------------------------------- room:<game> (everyone)
 
-/** Public round events. `detail` is the game's own public shape, never its secret. */
+/**
+ * Public round events. The round's `detail` is the game's own public shape,
+ * never its secret. Version: `roundVersion(round)` (shared/rounds.ts).
+ */
 export interface RoomEvents {
-  'round.started': RoomRoundEvent
-  'round.action': RoomRoundEvent
-  'round.settled': RoomRoundEvent
+  /** A player placed a bet: their seat shows the stake, and glows for a big bet. */
+  'round.started': RoundView
+  /** A move within a round, such as a card dealt or a tile opened. */
+  'round.action': RoundView
+  /** The round is over: its payout, multiplier and summary are set. */
+  'round.settled': RoundView
   'seat.emote': { userId: string; emote: string }
-}
-
-export interface RoomRoundEvent {
-  roundId: number
-  userId: string
-  stake: number
-  payout: number | null
-  status: 'open' | 'settled' | 'void'
-  detail: unknown
-  bigBet: boolean
 }
 
 // ---------------------------------------------------------------- user:<id> (that player only)

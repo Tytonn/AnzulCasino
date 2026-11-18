@@ -14,29 +14,13 @@ import type { ComponentType } from 'react'
 
 import type { ChatMessage } from '../../shared/chat.ts'
 import type { PlayerSummary } from '../../shared/players.ts'
+import type { RoundView } from '../../shared/rounds.ts'
 import type { Icon } from '../kit/icons.tsx'
 
 /** A module loaded when first needed: `() => import('./Room.tsx')`. */
 export type Lazy<P = object> = () => Promise<{ default: ComponentType<P> }>
 
 // ---------------------------------------------------------------- games
-
-/** A saved round, as History and the ticker hand it to a game's replay. */
-export interface RoundView {
-  id: number
-  game: string
-  userId: string
-  stake: number
-  payout: number | null
-  /** Hundredths of a multiplier (250 is 2.50x), when the game has one. */
-  multiplier: number | null
-  status: 'open' | 'settled' | 'void'
-  /** The game's own public JSON. */
-  detail: unknown
-  summary: string | null
-  startedAt: string
-  settledAt: string | null
-}
 
 export interface GameManifest {
   /**

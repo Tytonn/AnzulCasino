@@ -99,6 +99,18 @@ export function formatChipsShort(amount: bigint | number): string {
   return formatChips(value)
 }
 
+/**
+ * A multiplier in hundredths for people: 200 -> "2x", 196 -> "1.96x",
+ * 1050 -> "10.5x". Rounds down to the hundredth.
+ */
+export function formatMultiplier(hundredths: number): string {
+  const value = Math.max(0, Math.trunc(hundredths))
+  const whole = Math.floor(value / 100)
+  const rest = value % 100
+  const decimals = rest === 0 ? '' : `.${String(rest).padStart(2, '0').replace(/0$/, '')}`
+  return `${grouping.format(whole)}${decimals}x`
+}
+
 /** Converts a wire amount to bigint, refusing anything that is not a safe integer. */
 export function fromWire(amount: number): bigint {
   if (!Number.isSafeInteger(amount)) throw new Error(`Not a whole number of hundredths: ${amount}`)
