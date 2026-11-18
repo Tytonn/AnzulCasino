@@ -16,6 +16,7 @@ import {
   SESSION_COOKIE,
   sessionCookie,
 } from '../lib/auth.ts'
+import { loadConfig } from '../lib/config.ts'
 import { db } from '../lib/db.ts'
 import { createApi, route } from '../lib/http.ts'
 import { login, redeemReset, signup, updateProfile } from './accounts.ts'
@@ -95,6 +96,14 @@ export const coreRoutes = [
     auth: 'user',
     async run({ now }) {
       return { now: now.getTime() }
+    },
+  }),
+  route({
+    method: 'GET',
+    path: '/api/config',
+    auth: 'user',
+    async run() {
+      return { config: await loadConfig(db()) }
     },
   }),
   route({

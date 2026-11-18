@@ -33,9 +33,25 @@ export function mulDiv(amount: bigint, numerator: bigint, denominator: bigint): 
   return product % denominator !== 0n && product < 0n ? q - 1n : q
 }
 
-/** A share in basis points (1/100 of a percent), rounded down: bp(amount, 150n) is 1.5%. */
-export function basisPoints(amount: bigint, points: bigint): bigint {
-  return mulDiv(amount, points, 10_000n)
+/**
+ * A share in basis points (1/100 of a percent), rounded down:
+ * basisPoints(amount, 150) is 1.5%. Every share in config is in basis points.
+ */
+export function basisPoints(amount: bigint, points: bigint | number): bigint {
+  if (typeof points === 'number' && !Number.isSafeInteger(points)) {
+    throw new Error(`Basis points must be whole, got ${points}`)
+  }
+  return mulDiv(amount, BigInt(points), 10_000n)
+}
+
+/** Basis points for people: 10000 -> "100%", 150 -> "1.5%", 5 -> "0.05%". */
+export function formatShare(points: number): string {
+  const sign = points < 0 ? '-' : ''
+  const abs = Math.abs(Math.trunc(points))
+  const whole = Math.floor(abs / 100)
+  const rest = abs % 100
+  if (rest === 0) return `${sign}${whole}%`
+  return `${sign}${whole}.${String(rest).padStart(2, '0').replace(/0$/, '')}%`
 }
 
 const grouping = new Intl.NumberFormat('en-US')

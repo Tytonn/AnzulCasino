@@ -87,7 +87,7 @@ const testApi = createApi([
         if (!parsed.ok) throw badRequest(parsed.error, 'invalid_bet')
         const problem = checkBetAmount(parsed.amount, wallet.balance, {
           minBet: CHIP,
-          maxBetPct: 100,
+          maxBetPct: 10_000,
         })
         if (problem) throw badRequest(problem, 'invalid_bet')
         const after = await debit(tx, {

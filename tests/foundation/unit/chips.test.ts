@@ -8,6 +8,7 @@ import {
   floorToChip,
   formatChips,
   formatChipsShort,
+  formatShare,
   fromWire,
   mulDiv,
 } from '../../../shared/chips.ts'
@@ -48,7 +49,17 @@ describe('chips', () => {
     expect(mulDiv(-101n, 3n, 2n)).toBe(-152n) // down, not toward zero
     expect(basisPoints(10_000n, 150n)).toBe(150n) // 1.5% of 100 chips
     expect(basisPoints(333n, 150n)).toBe(4n) // 4.995 -> 4
+    expect(basisPoints(10_000n, 30)).toBe(30n) // config values are numbers
+    expect(() => basisPoints(10_000n, 1.5)).toThrow()
     expect(floorToChip(10_799n)).toBe(10_700n)
+  })
+
+  it('shows basis points as percentages', () => {
+    expect(formatShare(10_000)).toBe('100%')
+    expect(formatShare(5_500)).toBe('55%')
+    expect(formatShare(150)).toBe('1.5%')
+    expect(formatShare(30)).toBe('0.3%')
+    expect(formatShare(5)).toBe('0.05%')
   })
 
   it('refuses wire amounts that are not safe integers', () => {
@@ -89,14 +100,14 @@ describe('typed bet amounts', () => {
   })
 
   it('checks limits in plain words', () => {
-    const limits = { minBet: chips(1), maxBetPct: 100 }
+    const limits = { minBet: chips(1), maxBetPct: 10_000 }
     expect(checkBetAmount(chips(5), chips(10), limits)).toBeNull()
     expect(checkBetAmount(chips(10), chips(10), limits)).toBeNull()
     expect(checkBetAmount(50n, chips(10), limits)).toBe('The smallest bet is 1.')
     expect(checkBetAmount(chips(11), chips(10), limits)).toBe('You only have 10 chips.')
     expect(checkBetAmount(0n, 0n, limits)).toBe('Your wallet is empty.')
-    expect(checkBetAmount(chips(6), chips(10), { minBet: chips(1), maxBetPct: 50 })).toMatch(
-      /largest bet right now is 5/,
+    expect(checkBetAmount(chips(6), chips(10), { minBet: chips(1), maxBetPct: 5_000 })).toBe(
+      'The largest bet right now is 5 (50% of your wallet).',
     )
   })
 })

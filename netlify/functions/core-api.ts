@@ -10,5 +10,5 @@ import { coreApi } from '../../server/core/api.ts'
 export default coreApi
 
 export const config: Config = {
-  path: ['/api/auth/*', '/api/me', '/api/time', '/api/invites'],
+  path: ['/api/auth/*', '/api/me', '/api/time', '/api/config', '/api/invites'],
 }

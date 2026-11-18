@@ -7,7 +7,7 @@
  *
  * Amounts are in hundredths. Anything finer than a hundredth rounds down.
  */
-import { CHIP, chipCount, formatChips } from './chips.ts'
+import { basisPoints, CHIP, chipCount, formatChips, formatShare } from './chips.ts'
 
 export type BetAmountResult =
   { ok: true; amount: bigint; keyword: 'all' | 'half' | null } | { ok: false; error: string }
@@ -40,10 +40,11 @@ export function parseBetAmount(text: string, balance: bigint): BetAmountResult {
   return { ok: true, amount, keyword: null }
 }
 
+/** The config values `min_bet` and `max_bet_pct`. */
 export interface BetLimits {
   /** Smallest bet, hundredths. */
   minBet: bigint
-  /** Largest bet as a share of the wallet, in percent. 100 allows all-in. */
+  /** Largest bet as a share of the wallet, in basis points. 10,000 (100%) allows all-in. */
   maxBetPct: number
 }
 
@@ -52,8 +53,9 @@ export function checkBetAmount(amount: bigint, balance: bigint, limits: BetLimit
   if (amount <= 0n) return balance <= 0n ? 'Your wallet is empty.' : 'Bet more than zero.'
   if (amount < limits.minBet) return `The smallest bet is ${formatChips(limits.minBet)}.`
   if (amount > balance) return `You only have ${chipCount(balance)}.`
-  const max = (balance * BigInt(limits.maxBetPct)) / 100n
-  if (amount > max)
-    return `The largest bet right now is ${formatChips(max)} (${limits.maxBetPct}% of your wallet).`
+  const max = basisPoints(balance, limits.maxBetPct)
+  if (amount > max) {
+    return `The largest bet right now is ${formatChips(max)} (${formatShare(limits.maxBetPct)} of your wallet).`
+  }
   return null
 }
