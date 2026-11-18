@@ -2,7 +2,7 @@
 
 Running status for the whole build. The coordinator owns this file; the Foundation thread keeps it current while Stage 1 runs.
 
-Last updated: 2026-11-18 07:08 UTC
+Last updated: 2026-11-18 07:15 UTC
 
 ## Stage
 
@@ -12,7 +12,7 @@ Last updated: 2026-11-18 07:08 UTC
 
 | Thread | Lane | Branch | Stage | Status |
 | --- | --- | --- | --- | --- |
-| Foundation | foundation | `foundation` | Stage 1 | Deliverables 1 to 6 pushed (repo, database, accounts, wallet and ledger, config, season basics), plus the shared parts of every spec addition so far. Building deliverable 7 (live layer). Pull request #1 open as a draft. |
+| Foundation | foundation | `foundation` | Stage 1 | Deliverables 1 to 7 pushed (repo, database, accounts, wallet and ledger, config, season basics, live layer), plus the shared parts of every spec addition so far. Deliverable 7 (live layer) done locally; the Ably path waits for the preview. Building deliverable 8 (shell). Pull request #1 open as a draft. |
 
 ## Merged to main
 

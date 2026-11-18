@@ -97,10 +97,11 @@ None for Tyton right now. Answered on 2026-11-18:
 - **4. Wallet and ledger.** `server/lib/wallet.ts` (`debit`, `credit`, `transfer`, `moveBetweenAccounts`, `lockWallets`, `ledgerMismatches`) and `server/lib/idempotency.ts` (`chipTransaction`). Tests prove 50 parallel bets cannot overdraw, parallel "all" bets take the wallet once, a repeated key changes nothing (also when sent 10 times at once), transfers in every direction never deadlock, and every balance equals its ledger sum. Removing the row lock or the lock order makes those tests fail.
 - **5. Config.** `shared/config.ts` (every tunable number, unit, limits, description) and `server/lib/config.ts` (`loadConfig`, `changeConfig`, `pendingConfigChanges`), `GET /api/config`, and `shared/game-day.ts` (4:00 AM Central on the wall clock, tested across both daylight saving changes).
 - **6. Season basics.** `server/lib/seasons.ts`: create (no overlaps), lazy start with starting balances, late joiners, `requireBetsOpen` by database time, `standings`. `GET /api/season`, `GET /api/leaderboard`, `GET`/`POST /api/seasons` (admin). `npm run db:seed:local` and the browser tests use the same sample data.
+- **7. Live layer.** `shared/events.ts` types every event (lanes add theirs by extending the maps from their own files). `server/lib/live.ts` publishes after the commit to Ably, the local relay or nowhere, never failing a request, with a channel prefix per deploy. `GET /api/live/token` gives a token that can only listen, share presence on `presence`, and hear the player's own channel. A season start, a new season and a late joiner are announced, and `/api/season` and `/api/leaderboard` carry the same versions as the events. In the browser, `src/live/` has the client (each event once, resync on connect, on a lost resume and after a hidden tab, one online entry per player, recovery with a fresh token), the local and Ably transports (Ably loads only when used), and the hooks (`useLiveEvent`, `useResync`, `useOnlinePlayers`, `usePresenceRoom`, `usePlaying`, `useAwayAfter`, `useLiveStatus`). A browser test with two players proves presence, room changes, server news and leaving on the local relay. The Ably path waits for the preview and `ABLY_API_KEY`.
 
 ## Not done
 
-Deliverables 7 to 11 and the exit check.
+Deliverables 8 to 11 and the exit check.
 
 ## Decisions
 
