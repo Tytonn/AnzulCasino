@@ -25,6 +25,7 @@ import { db } from './db.ts'
 import { ApiError, badRequest, forbidden, unauthorized } from './errors.ts'
 import { IDEMPOTENCY_HEADER, IDEMPOTENCY_KEY_PATTERN, sweepOldKeys } from './idempotency.ts'
 import { toJson } from './json.ts'
+import { setDeployContext } from './live.ts'
 import { enforce, type Limit, sweepOldWindows } from './rate-limit.ts'
 
 export type Method = 'GET' | 'POST' | 'PATCH' | 'DELETE'
@@ -151,6 +152,8 @@ export type AnyRoute = Route<unknown, Auth>
 
 export function createApi(routes: AnyRoute[]) {
   return async function handle(req: Request, context: Context): Promise<Response> {
+    // Live channel names carry the deploy (production, a preview, or local).
+    setDeployContext(context.deploy)
     const url = new URL(req.url)
     const method = req.method.toUpperCase() as Method
     const headers = new Headers()

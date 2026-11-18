@@ -19,5 +19,6 @@ export const config: Config = {
     '/api/seasons',
     '/api/leaderboard',
     '/api/invites',
+    '/api/live/*',
   ],
 }

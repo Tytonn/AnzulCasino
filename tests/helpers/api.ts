@@ -15,7 +15,13 @@ export interface ApiResult<T = any> {
   headers: Headers
 }
 
-export function apiClient(handler: Handler, options: { ip?: string } = {}) {
+export interface ApiClientOptions {
+  ip?: string
+  /** Netlify's deploy context, such as { context: 'deploy-preview', id: 'abc' }. */
+  deploy?: { context: string; id: string; published?: boolean }
+}
+
+export function apiClient(handler: Handler, options: ApiClientOptions = {}) {
   const jar = new Map<string, string>()
   const pending: Promise<unknown>[] = []
   const ip = options.ip ?? '203.0.113.7'
@@ -40,6 +46,7 @@ export function apiClient(handler: Handler, options: { ip?: string } = {}) {
     const context = {
       ip,
       params: {},
+      deploy: options.deploy,
       waitUntil: (promise: Promise<unknown>) => void pending.push(promise),
     } as unknown as Context
     const res = await handler(req, context)

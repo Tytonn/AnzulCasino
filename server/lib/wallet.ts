@@ -53,7 +53,8 @@ export interface Change extends Movement {
 export interface Balances {
   balance: bigint
   vault: bigint
-  /** The ledger row written for this change. */
+  tier: Tier
+  /** The ledger row written for this change. Live events use it as their version. */
   ledgerId: number
 }
 
@@ -91,6 +92,16 @@ const walletColumns = {
   vault: wallets.vault,
   tier: wallets.tier,
 }
+
+/**
+ * A wallet's latest ledger id, for a query on `wallets`: the version its live
+ * events carry, so a browser can tell fetched state from older news. Zero
+ * before any chips have moved.
+ */
+export const walletVersion = sql<number>`(
+  select coalesce(max(${ledger.id}), 0) from ${ledger}
+  where ${ledger.seasonId} = ${wallets.seasonId} and ${ledger.userId} = ${wallets.userId}
+)`.mapWith(Number)
 
 /** Locks a wallet for the rest of the transaction and returns it. */
 export async function lockWallet(tx: Tx, seasonId: number, userId: string): Promise<Wallet> {
@@ -131,9 +142,9 @@ export async function readWallet(
   executor: Executor,
   seasonId: number,
   userId: string,
-): Promise<Wallet | null> {
+): Promise<(Wallet & { version: number }) | null> {
   const [wallet] = await executor
-    .select(walletColumns)
+    .select({ ...walletColumns, version: walletVersion })
     .from(wallets)
     .where(and(eq(wallets.seasonId, seasonId), eq(wallets.userId, userId)))
   return wallet ?? null
@@ -154,7 +165,7 @@ async function apply(
       ...(netWorthMoves ? { netWorthAt: sql`now()` } : {}),
     })
     .where(and(eq(wallets.seasonId, change.seasonId), eq(wallets.userId, change.userId)))
-    .returning({ balance: wallets.balance, vault: wallets.vault })
+    .returning({ balance: wallets.balance, vault: wallets.vault, tier: wallets.tier })
   if (!updated) throw noWallet()
 
   const [row] = await tx

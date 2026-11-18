@@ -16,17 +16,19 @@ import {
   SESSION_COOKIE,
   sessionCookie,
 } from '../lib/auth.ts'
-import { CreateSeasonInput } from '../../shared/seasons.ts'
+import { CreateSeasonInput, type SeasonView } from '../../shared/seasons.ts'
 import { loadConfig } from '../lib/config.ts'
 import { db } from '../lib/db.ts'
 import { createApi, route } from '../lib/http.ts'
 import { chipTransaction } from '../lib/idempotency.ts'
+import { liveToken, publish } from '../lib/live.ts'
 import {
   createSeason,
   currentSeason,
   listSeasons,
   type Season,
   seasonSnapshot,
+  seasonStateEvent,
   standings,
   toSeasonView,
 } from '../lib/seasons.ts'
@@ -36,7 +38,12 @@ import { createCode, listCodes } from './invites.ts'
 /** Seasons as the API sends them, with their phase at `now` (database time). */
 async function seasonViews(now: Date) {
   const { final_freeze_hours } = await loadConfig(db())
-  return (season: Season | null) => (season ? toSeasonView(season, now, final_freeze_hours) : null)
+  function view(season: Season): SeasonView
+  function view(season: Season | null): SeasonView | null
+  function view(season: Season | null): SeasonView | null {
+    return season ? toSeasonView(season, now, final_freeze_hours) : null
+  }
+  return view
 }
 
 const FIFTEEN_MINUTES = 15 * 60
@@ -134,7 +141,12 @@ export const coreRoutes = [
       return {
         current: view(snapshot.current),
         next: view(snapshot.next),
-        wallet: wallet && { balance: wallet.balance, vault: wallet.vault, tier: wallet.tier },
+        wallet: wallet && {
+          balance: wallet.balance,
+          vault: wallet.vault,
+          tier: wallet.tier,
+          version: wallet.version,
+        },
       }
     },
   }),
@@ -168,7 +180,7 @@ export const coreRoutes = [
     async run(ctx) {
       const { input, user } = ctx
       const view = await seasonViews(ctx.now)
-      return chipTransaction(ctx, async (tx) => {
+      return chipTransaction(ctx, async (tx, afterCommit) => {
         const season = await createSeason(tx, {
           name: input.name,
           startsAt: input.startsAt,
@@ -177,8 +189,20 @@ export const coreRoutes = [
             input.startingBalance === undefined ? undefined : BigInt(input.startingBalance),
           actorId: user.id,
         })
-        return { season: view(season) }
+        const shown = view(season)
+        afterCommit(() => publish([seasonStateEvent(shown.id, shown.phase)]))
+        return { season: shown }
       })
+    },
+  }),
+  route({
+    method: 'GET',
+    path: '/api/live/token',
+    auth: 'user',
+    // A browser asks on connect and again before its token runs out.
+    limit: { limit: 30, windowSeconds: 60 },
+    async run({ user }) {
+      return liveToken(user.id)
     },
   }),
   route({

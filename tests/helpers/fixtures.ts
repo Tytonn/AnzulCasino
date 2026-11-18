@@ -11,7 +11,7 @@ import { wallets } from '../../db/schema/core.ts'
 import { createSession, SESSION_COOKIE } from '../../server/lib/auth.ts'
 import { db } from '../../server/lib/db.ts'
 import { credit } from '../../server/lib/wallet.ts'
-import { type ApiClient, apiClient } from './api.ts'
+import { type ApiClient, apiClient, type ApiClientOptions } from './api.ts'
 import type { TestDatabase } from './db.ts'
 
 type Handler = Parameters<typeof apiClient>[0]
@@ -61,8 +61,12 @@ export async function fundWallet(seasonId: number, userId: string, amount: bigin
 }
 
 /** An API client already logged in as the player. */
-export async function loggedIn(handler: Handler, userId: string): Promise<ApiClient> {
-  const client = apiClient(handler)
+export async function loggedIn(
+  handler: Handler,
+  userId: string,
+  options?: ApiClientOptions,
+): Promise<ApiClient> {
+  const client = apiClient(handler, options)
   client.cookies.set(SESSION_COOKIE, await createSession(db(), userId))
   return client
 }

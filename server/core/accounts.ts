@@ -23,6 +23,7 @@ import { ApiError, badRequest, conflict, forbidden, tooMany } from '../lib/error
 import { dummyPasswordHash, hashPassword, verifyPassword } from '../lib/passwords.ts'
 import { isUniqueViolation } from '../lib/pg-errors.ts'
 import { hit, peek } from '../lib/rate-limit.ts'
+import { publish, walletEvents } from '../lib/live.ts'
 import { joinSeason, startedSeason } from '../lib/seasons.ts'
 import { normalizeCode } from '../lib/rng.ts'
 
@@ -53,7 +54,7 @@ function sameSecret(given: string, expected: string): boolean {
 
 export async function signup(input: SignupInput): Promise<{ user: Me; token: string }> {
   const passwordHash = await hashPassword(input.password)
-  return db().transaction(async (tx) => {
+  const created = await db().transaction(async (tx) => {
     let role: Role = 'player'
     let inviteCode: string | null = null
 
@@ -102,11 +103,17 @@ export async function signup(input: SignupInput): Promise<{ user: Me; token: str
 
     // A late joiner gets the same starting balance as everyone else.
     const season = await startedSeason(tx)
-    if (season) await joinSeason(tx, season, user.id)
+    const joined = season && (await joinSeason(tx, season, user.id))
 
     const token = await createSession(tx, user.id)
-    return { user: toMe(user), token }
+    return { user: toMe(user), token, joined: season && joined ? { season, joined } : null }
   })
+  // After the commit: the new player appears on everyone's leaderboard.
+  if (created.joined) {
+    const { season, joined } = created.joined
+    await publish(walletEvents(season.id, created.user.id, joined))
+  }
+  return { user: created.user, token: created.token }
 }
 
 export async function login(input: LoginInput): Promise<{ user: Me; token: string }> {

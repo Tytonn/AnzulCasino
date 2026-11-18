@@ -15,13 +15,19 @@
 import { and, asc, desc, eq, gt, isNull, lt, lte, sql } from 'drizzle-orm'
 
 import { seasons, users, wallets } from '../../db/schema/core.ts'
-import { type SeasonStatus, type SeasonView, seasonPhase } from '../../shared/seasons.ts'
+import {
+  type SeasonPhase,
+  type SeasonStatus,
+  type SeasonView,
+  seasonPhase,
+} from '../../shared/seasons.ts'
 import type { Tier } from '../../shared/tiers.ts'
 import { writeAudit } from './audit.ts'
 import { loadConfig } from './config.ts'
 import { db, dbNow, type Executor, type Tx } from './db.ts'
 import { ApiError, badRequest, conflict } from './errors.ts'
-import { credit, readWallet, type Wallet } from './wallet.ts'
+import { liveEvent, type Outgoing, publish, walletEvents } from './live.ts'
+import { type Balances, credit, readWallet, type Wallet, walletVersion } from './wallet.ts'
 
 export interface Season {
   id: number
@@ -52,6 +58,14 @@ export function toSeasonView(season: Season, now: Date, finalFreezeHours: number
     status: season.status,
     phase: seasonPhase(season, now, finalFreezeHours),
   }
+}
+
+/**
+ * The news that a season was created, started or changed, for every browser:
+ * each one refetches the season, its wallet and the leaderboard.
+ */
+export function seasonStateEvent(seasonId: number, phase: SeasonPhase): Outgoing {
+  return liveEvent('feed', 'season.state', { seasonId, phase })
 }
 
 export interface NewSeason {
@@ -116,16 +130,17 @@ export async function createSeason(tx: Tx, input: NewSeason): Promise<Season> {
 
 /**
  * Gives a player their wallet and starting balance in a season, once. Returns
- * false if they already had one.
+ * the new balances, or null if they already had a wallet. Publish
+ * walletEvents() for them after the commit.
  */
-export async function joinSeason(tx: Tx, season: Season, userId: string): Promise<boolean> {
+export async function joinSeason(tx: Tx, season: Season, userId: string): Promise<Balances | null> {
   const [created] = await tx
     .insert(wallets)
     .values({ seasonId: season.id, userId })
     .onConflictDoNothing()
     .returning({ userId: wallets.userId })
-  if (!created) return false
-  await credit(tx, {
+  if (!created) return null
+  return credit(tx, {
     seasonId: season.id,
     userId,
     amount: season.startingBalance,
@@ -133,7 +148,6 @@ export async function joinSeason(tx: Tx, season: Season, userId: string): Promis
     refType: 'season',
     refId: season.id,
   })
-  return true
 }
 
 /**
@@ -182,7 +196,12 @@ export async function runningSeason(): Promise<Season | null> {
   const found = await findRunning(db())
   if (!found || found.status !== 'scheduled') return found
   const started = await db().transaction((tx) => startSeason(tx, found.id))
-  return started ?? (await findRunning(db()))
+  if (!started) return findRunning(db())
+  // Only the request that started it gets here, once per season.
+  const { final_freeze_hours } = await loadConfig(db())
+  const phase = seasonPhase(started, await dbNow(db()), final_freeze_hours)
+  await publish([seasonStateEvent(started.id, phase)])
+  return started
 }
 
 /**
@@ -247,7 +266,8 @@ async function nextScheduled(executor: Executor): Promise<Season | null> {
 export interface SeasonSnapshot {
   current: Season | null
   next: Season | null
-  wallet: Wallet | null
+  /** `version` is the wallet's latest ledger id, as its live events carry. */
+  wallet: (Wallet & { version: number }) | null
 }
 
 /**
@@ -261,7 +281,8 @@ export async function seasonSnapshot(userId: string): Promise<SeasonSnapshot> {
   const next = await nextScheduled(db())
   let wallet = current ? await readWallet(db(), current.id, userId) : null
   if (running && !wallet) {
-    await db().transaction((tx) => joinSeason(tx, running, userId))
+    const joined = await db().transaction((tx) => joinSeason(tx, running, userId))
+    if (joined) await publish(walletEvents(running.id, userId, joined))
     wallet = await readWallet(db(), running.id, userId)
   }
   return { current, next, wallet }
@@ -283,6 +304,8 @@ export interface Standing {
   balance: bigint
   vault: bigint
   netWorth: bigint
+  /** The wallet's latest ledger id: `standing.changed` events older than this are stale. */
+  version: number
 }
 
 /**
@@ -302,6 +325,7 @@ export async function standings(executor: Executor, seasonId: number): Promise<S
       tier: wallets.tier,
       balance: wallets.balance,
       vault: wallets.vault,
+      version: walletVersion,
     })
     .from(wallets)
     .innerJoin(users, eq(users.id, wallets.userId))
