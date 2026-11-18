@@ -20,9 +20,18 @@ export default defineConfig(({ mode }) => {
       devDatabase(),
       react(),
       tailwindcss(),
-      // With DATABASE_URL set, functions use that local Postgres instead of
-      // Netlify's embedded one (see server/lib/db.ts).
-      netlify({ database: { enabled: !process.env.DATABASE_URL } }),
+      netlify({
+        // With DATABASE_URL set, functions use that local Postgres instead of
+        // Netlify's embedded one (see server/lib/db.ts).
+        database: { enabled: !process.env.DATABASE_URL },
+        // Features this site does not use.
+        aiGateway: { enabled: false },
+        blobs: { enabled: false },
+        edgeFunctions: { enabled: false },
+        geolocation: { enabled: false },
+        images: { enabled: false },
+        server: { enabled: false },
+      }),
     ],
     server: { port: 8888, strictPort: true },
     build: { target: 'es2022', sourcemap: true },

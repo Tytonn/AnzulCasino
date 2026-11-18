@@ -56,4 +56,9 @@ export default defineConfig([
     languageOptions: { globals: globals.node },
     rules: { 'no-console': 'off' },
   },
+  {
+    // Tests read loosely typed JSON responses.
+    files: ['tests/**/*.ts'],
+    rules: { '@typescript-eslint/no-explicit-any': 'off' },
+  },
 ])
