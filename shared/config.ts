@@ -9,15 +9,20 @@
  * - `share`: basis points, where 100 is 1% and 10,000 is 100%. Every `_pct`
  *   and `_rate` key is a share. Use basisPoints() and formatShare() from
  *   shared/chips.ts.
+ * - `lines`: a list of short plain-text lines, such as the flavor lines
+ *   shown with a work or crime result.
  * - everything else: a whole number in the unit its name ends with.
  *
  * On the wire and in the table, every value is a plain number (chips as
- * hundredths).
+ * hundredths), except `lines`, which is an array of strings.
  *
  * Changes to the economy, ranks, giveaways, steals, shields and the vault
  * take effect at the next daily reset; the rest take effect at once (spec:
  * Admin and trust). Adding a key is a shared change: ask the foundation
  * owner, as for a ledger reason.
+ *
+ * A `_min` and `_max` pair is listed in CONFIG_PAIRS, and a change that
+ * would put the minimum above the maximum is refused.
  *
  * Absolute chip amounts are the spec's values after Tyton's 1/100 rebalance
  * (starting balance 100). Values marked provisional have no number in the
@@ -36,6 +41,7 @@ export const CONFIG_GROUPS = [
   'vault',
   'games',
   'social',
+  'lines',
 ] as const
 export type ConfigGroup = (typeof CONFIG_GROUPS)[number]
 
@@ -72,7 +78,16 @@ export interface NumberSetting extends SettingBase {
   max: number
 }
 
-export type ConfigSetting = ChipsSetting | NumberSetting
+export interface LinesSetting extends SettingBase {
+  unit: 'lines'
+  default: readonly string[]
+  /** Most lines the list may hold. It always holds at least one. */
+  maxLines: number
+  /** Longest line, in characters. */
+  maxLength: number
+}
+
+export type ConfigSetting = ChipsSetting | NumberSetting | LinesSetting
 
 /** A billion chips: far above any sane setting, far below the wire's safe-integer limit. */
 const MAX_CHIPS = 1_000_000_000n * CHIP
@@ -129,6 +144,11 @@ function number(
   }
 }
 
+/** Plain-text lines, such as flavor text. Up to 50 lines of up to 120 characters. */
+function lines(group: ConfigGroup, value: readonly string[], description: string): LinesSetting {
+  return { unit: 'lines', group, default: value, maxLines: 50, maxLength: 120, description }
+}
+
 export const CONFIG = {
   // Seasons
   starting_balance: chips(
@@ -157,8 +177,30 @@ export const CONFIG = {
   }),
   challenge_reward_min: chips('economy', 2, 'Smallest reward for finishing a challenge.'),
   challenge_reward_max: chips('economy', 4, 'Largest reward for finishing a challenge.'),
-  rebuy_amount: chips('economy', 5, 'Chips a broke player can claim once per game day.'),
-  rebuy_below: chips('economy', 3, 'A player whose net worth is under this can claim the rebuy.'),
+
+  // Work and crime (spec: Economy > Work and crime). They replace the rebuy.
+  work_cooldown_minutes: number(
+    'economy',
+    'minutes',
+    5,
+    'Minutes between presses of the work button.',
+    { min: 1, max: 1_440 },
+  ),
+  work_pay_min: chips('economy', 2, 'Least a press of the work button pays.'),
+  work_pay_max: chips('economy', 6, 'Most a press of the work button pays.'),
+  crime_cooldown_minutes: number('economy', 'minutes', 15, 'Minutes between crimes.', {
+    min: 1,
+    max: 1_440,
+  }),
+  crime_success_pct: share('economy', 4_500, 'Chance a crime pays instead of ending in a fine.'),
+  crime_pay_min: chips('economy', 8, 'Least a crime that works pays.'),
+  crime_pay_max: chips('economy', 25, 'Most a crime that works pays.'),
+  crime_fine_min: chips(
+    'economy',
+    2,
+    'Smallest fine for a failed crime. A fine never takes the wallet below zero.',
+  ),
+  crime_fine_max: chips('economy', 8, 'Largest fine for a failed crime.'),
 
   // Ranks (tiers in code). Unlock days count from 1, the season's first game day.
   tier_income_cap_hours: number(
@@ -371,6 +413,58 @@ export const CONFIG = {
   slots_edge_pct: share('games', 400, 'Slots house edge. The target return is 100% minus this.', {
     max: 2_000,
   }),
+  russian_roulette_join_seconds: number(
+    'games',
+    'seconds',
+    20,
+    'Russian roulette: seconds other players have to join a lobby at its ante.',
+    { min: 5, max: 120 },
+  ),
+  russian_roulette_turn_seconds: number(
+    'games',
+    'seconds',
+    10,
+    'Russian roulette: seconds a player has to pull before the trigger pulls itself.',
+    { min: 3, max: 60 },
+  ),
+  russian_roulette_solo_edge_pct: share(
+    'games',
+    200,
+    'Russian roulette: house edge in the solo game, when nobody joins.',
+    { max: 2_000 },
+  ),
+  russian_roulette_ante_cap_pct: share(
+    'games',
+    2_000,
+    "Russian roulette: largest ante as a share of the player's net worth, so two players cannot pass chips to each other.",
+    { min: 1 },
+  ),
+  race_betting_seconds: number(
+    'games',
+    'seconds',
+    45,
+    'Race: seconds of betting before each race.',
+    {
+      min: 5,
+      max: 300,
+      provisional: true,
+    },
+  ),
+  race_running_seconds: number('games', 'seconds', 20, 'Race: seconds the race takes to run.', {
+    min: 5,
+    max: 120,
+    provisional: true,
+  }),
+  race_result_seconds: number(
+    'games',
+    'seconds',
+    10,
+    'Race: seconds the result shows before betting opens again.',
+    { min: 1, max: 60, provisional: true },
+  ),
+  race_edge_pct: share('games', 500, 'Race house edge, carried by the posted odds.', {
+    max: 2_000,
+  }),
 
   // Social
   chat_burst_count: number(
@@ -391,13 +485,77 @@ export const CONFIG = {
     'Players show as away after this long without input.',
     { min: 1, max: 120 },
   ),
+
+  // Lines (plain text, edited in the admin panel; changes take effect at once)
+  work_lines: lines(
+    'lines',
+    [
+      'You folded towels at the spa all afternoon.',
+      'You parked cars for the high rollers.',
+      'You polished every slot machine on the floor.',
+      'You ran drinks to the poker room.',
+      'You counted coins in the back office.',
+      'You swept up the confetti after a big win.',
+      'You dealt a few hands while the dealer took a break.',
+      "You walked the owner's very large dog.",
+      'You fixed the sign so it says ANZUL again.',
+      'You handed out flyers on the boardwalk.',
+    ],
+    'Work: one line is picked at random to show with each payout.',
+  ),
+  crime_win_lines: lines(
+    'lines',
+    [
+      'You ran a game of three-card monte, and the tourist never found the queen.',
+      "You sold a tourist a 'lucky' horseshoe.",
+      'You found a chip under the craps table and kept quiet.',
+      'You hustled the regulars at the pool table.',
+      'You talked your way into the VIP buffet and sold the shrimp.',
+      'You picked the vending machine lock on the first try.',
+      'You sold fake tickets to the magic show.',
+      'You swapped the dice and nobody noticed.',
+    ],
+    'Crime: one line is picked at random to show with a crime that pays.',
+  ),
+  crime_fine_lines: lines(
+    'lines',
+    [
+      'Security caught you counting cards on your fingers.',
+      'The tourist was an undercover cop.',
+      'You tripped over the velvet rope on the way out.',
+      'The vending machine kept your coins and called the manager.',
+      'Your fake mustache fell off halfway through.',
+      'The pit boss watched the whole thing on camera.',
+      'You got lost in the parking garage and paid for three hours.',
+      'Your getaway driver left without you.',
+    ],
+    'Crime: one line is picked at random to show with a fine.',
+  ),
 } satisfies Record<string, ConfigSetting>
+
+/**
+ * Settings that come as a range. A change that would put a minimum above its
+ * maximum is refused, so game code can draw from the range without checking.
+ */
+export const CONFIG_PAIRS = [
+  ['challenge_reward_min', 'challenge_reward_max'],
+  ['work_pay_min', 'work_pay_max'],
+  ['crime_pay_min', 'crime_pay_max'],
+  ['crime_fine_min', 'crime_fine_max'],
+] as const satisfies readonly (readonly [ConfigKey, ConfigKey])[]
 
 export type ConfigKey = keyof typeof CONFIG
 
-/** Every config value, typed: bigint for chips, number for the rest. */
+/** A config value in code: bigint for chips, a list for lines, number for the rest. */
+export type ConfigValue = bigint | number | readonly string[]
+
+/** Every config value, typed. */
 export type ConfigValues = {
-  [K in ConfigKey]: (typeof CONFIG)[K] extends ChipsSetting ? bigint : number
+  [K in ConfigKey]: (typeof CONFIG)[K] extends ChipsSetting
+    ? bigint
+    : (typeof CONFIG)[K] extends LinesSetting
+      ? readonly string[]
+      : number
 }
 
 export const CONFIG_KEYS = Object.keys(CONFIG) as ConfigKey[]
@@ -417,19 +575,44 @@ export function waitsForReset(key: ConfigKey): boolean {
 
 /** Every default, typed. */
 export function configDefaults(): ConfigValues {
-  const values: Record<string, bigint | number> = {}
+  const values: Record<string, ConfigValue> = {}
   for (const key of CONFIG_KEYS) values[key] = setting(key).default
   return values as ConfigValues
 }
 
-export type ParsedValue = { ok: true; value: bigint | number } | { ok: false; error: string }
+export type ParsedValue = { ok: true; value: ConfigValue } | { ok: false; error: string }
+
+// Control characters, which have no place in a line shown to players.
+// eslint-disable-next-line no-control-regex
+const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/
+
+function parseLines(key: ConfigKey, s: LinesSetting, raw: unknown): ParsedValue {
+  if (!Array.isArray(raw) || raw.some((line) => typeof line !== 'string')) {
+    return { ok: false, error: `${key} must be a list of lines.` }
+  }
+  const value = (raw as string[]).map((line) => line.trim())
+  if (value.length === 0 || value.length > s.maxLines) {
+    return { ok: false, error: `${key} needs between 1 and ${s.maxLines} lines.` }
+  }
+  for (const line of value) {
+    if (!line) return { ok: false, error: `${key} cannot have an empty line.` }
+    if (line.length > s.maxLength) {
+      return { ok: false, error: `Each line of ${key} must be ${s.maxLength} characters or fewer.` }
+    }
+    if (CONTROL_CHARACTERS.test(line)) {
+      return { ok: false, error: `${key} must be plain text on one line each.` }
+    }
+  }
+  return { ok: true, value }
+}
 
 /**
- * Checks a value in its wire form (a plain number; chips as hundredths)
- * against the key's unit and limits.
+ * Checks a value in its wire form (a plain number, chips as hundredths, or a
+ * list of strings for lines) against the key's unit and limits.
  */
 export function parseConfigValue(key: ConfigKey, raw: unknown): ParsedValue {
   const s = setting(key)
+  if (s.unit === 'lines') return parseLines(key, s, raw)
   if (typeof raw !== 'number' || !Number.isSafeInteger(raw)) {
     return { ok: false, error: `${key} must be a whole number.` }
   }
@@ -452,7 +635,8 @@ export function parseConfigValue(key: ConfigKey, raw: unknown): ParsedValue {
   return { ok: true, value: raw }
 }
 
-function formatValue(s: ConfigSetting, value: bigint | number): string {
+function formatValue(s: ConfigSetting, value: ConfigValue): string {
+  if (typeof value === 'object') return value.length === 1 ? '1 line' : `${value.length} lines`
   if (s.unit === 'chips') return chipCount(BigInt(value))
   const n = Number(value)
   switch (s.unit) {
@@ -467,9 +651,22 @@ function formatValue(s: ConfigSetting, value: bigint | number): string {
   }
 }
 
-/** A value for people: "100 chips", "1.5%", "3 hours", "1000x". */
-export function formatConfigValue(key: ConfigKey, value: bigint | number): string {
+/** A value for people: "100 chips", "1.5%", "3 hours", "1000x", "8 lines". */
+export function formatConfigValue(key: ConfigKey, value: ConfigValue): string {
   return formatValue(setting(key), value)
+}
+
+/** The value as it travels and is stored: chips as a number of hundredths. */
+export function configWireValue(value: ConfigValue): number | string[] {
+  return typeof value === 'object' ? [...value] : Number(value)
+}
+
+/**
+ * The pair a key belongs to, if any, as [minimum key, maximum key]. changeConfig
+ * uses it to refuse a minimum above its maximum.
+ */
+export function configPair(key: ConfigKey): readonly [ConfigKey, ConfigKey] | undefined {
+  return CONFIG_PAIRS.find(([min, max]) => min === key || max === key)
 }
 
 export interface TierSettings {

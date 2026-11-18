@@ -11,13 +11,17 @@
  * database clock inside the query (rule 8). Rows are never edited or
  * deleted, so the table is also the history of every change.
  */
-import { desc, gt, lte, sql } from 'drizzle-orm'
+import { desc, eq, gt, lte, sql } from 'drizzle-orm'
 
 import { config } from '../../db/schema/core.ts'
 import {
   type ConfigKey,
+  type ConfigValue,
   type ConfigValues,
   configDefaults,
+  configPair,
+  configWireValue,
+  formatConfigValue,
   isConfigKey,
   parseConfigValue,
   waitsForReset,
@@ -35,7 +39,7 @@ export async function loadConfig(executor: Executor): Promise<ConfigValues> {
     .where(lte(config.effectiveAt, sql`now()`))
     .orderBy(config.key, desc(config.effectiveAt), desc(config.id))
 
-  const values = configDefaults() as Record<ConfigKey, bigint | number>
+  const values = configDefaults() as Record<ConfigKey, ConfigValue>
   for (const row of changed) {
     // A key removed from the defaults file, or a value outside today's
     // limits, falls back to the default rather than breaking every request.
@@ -49,7 +53,7 @@ export async function loadConfig(executor: Executor): Promise<ConfigValues> {
 
 export interface ConfigChange {
   key: string
-  /** The wire form: a plain number, chips as hundredths. */
+  /** The wire form: a plain number (chips as hundredths), or a list of strings for lines. */
   value: unknown
   actorId: string
   /** Why, in the admin's words. Shown on the Audit page. */
@@ -70,10 +74,13 @@ export async function changeConfig(tx: Tx, change: ConfigChange): Promise<{ effe
   if (!parsed.ok) throw badRequest(parsed.error, 'invalid_config_value')
 
   const before = (await loadConfig(tx))[key]
+  const pair = configPair(key)
+  if (pair) await checkPair(tx, pair, key, parsed.value)
+
   const effectiveAt = waitsForReset(key) ? nextReset(change.now) : change.now
   await tx.insert(config).values({
     key,
-    value: Number(parsed.value),
+    value: configWireValue(parsed.value),
     description: change.reason ?? null,
     effectiveAt,
     updatedBy: change.actorId,
@@ -82,11 +89,49 @@ export async function changeConfig(tx: Tx, change: ConfigChange): Promise<{ effe
     actorId: change.actorId,
     action: 'config.changed',
     target: key,
-    before: { value: Number(before) },
-    after: { value: Number(parsed.value), effectiveAt: effectiveAt.toISOString() },
+    before: { value: configWireValue(before) },
+    after: { value: configWireValue(parsed.value), effectiveAt: effectiveAt.toISOString() },
     reason: change.reason,
   })
   return { effectiveAt }
+}
+
+/**
+ * Refuses a minimum above its maximum. The other side is compared at its
+ * newest scheduled value, which is what it will be once this change takes
+ * effect: both sides of a pair share a group, so they wait for the same reset.
+ */
+async function checkPair(
+  tx: Tx,
+  [minKey, maxKey]: readonly [ConfigKey, ConfigKey],
+  key: ConfigKey,
+  value: ConfigValue,
+): Promise<void> {
+  const other = key === minKey ? maxKey : minKey
+  const [latest] = await tx
+    .select({ value: config.value })
+    .from(config)
+    .where(eq(config.key, other))
+    .orderBy(desc(config.effectiveAt), desc(config.id))
+    .limit(1)
+  const parsed = latest ? parseConfigValue(other, latest.value) : null
+  const otherValue = parsed?.ok ? parsed.value : configDefaults()[other]
+  // Pairs are chips or whole numbers, never lines.
+  const mine = BigInt(value as bigint | number)
+  const theirs = BigInt(otherValue as bigint | number)
+  const shown = formatConfigValue(other, otherValue)
+  if (key === minKey && mine > theirs) {
+    throw badRequest(
+      `${minKey} cannot be more than ${maxKey}, which is ${shown}.`,
+      'invalid_config_value',
+    )
+  }
+  if (key === maxKey && mine < theirs) {
+    throw badRequest(
+      `${maxKey} cannot be less than ${minKey}, which is ${shown}.`,
+      'invalid_config_value',
+    )
+  }
 }
 
 export interface PendingChange {

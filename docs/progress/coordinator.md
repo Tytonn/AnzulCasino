@@ -2,7 +2,7 @@
 
 Running status for the whole build. The coordinator owns this file; the Foundation thread keeps it current while Stage 1 runs.
 
-Last updated: 2026-11-18 06:35 UTC
+Last updated: 2026-11-18 06:55 UTC
 
 ## Stage
 
@@ -12,7 +12,7 @@ Last updated: 2026-11-18 06:35 UTC
 
 | Thread | Lane | Branch | Stage | Status |
 | --- | --- | --- | --- | --- |
-| Foundation | foundation | `foundation` | Stage 1 | Deliverables 1 to 6 pushed (repo, database, accounts, wallet and ledger, config, season basics). Building deliverable 7 (live layer). Pull request #1 open as a draft. |
+| Foundation | foundation | `foundation` | Stage 1 | Deliverables 1 to 6 pushed (repo, database, accounts, wallet and ledger, config, season basics), plus the shared parts of every spec addition so far. Building deliverable 7 (live layer). Pull request #1 open as a draft. |
 
 ## Merged to main
 
@@ -51,9 +51,13 @@ All three can wait until Tyton is at a computer; local tests cover the work unti
 | 2026-11-18 | **Credits:** the database sleeps whenever nobody is playing, and merges stay batched. Tyton decides on auto-recharge himself. | Tyton |
 | 2026-11-18 | **Spec addition: Ranks** (Economy > Ranks). Replace the flat daily bonus; streak bonus stays. Owner: **economy** lane. In code they are called tiers, because "rank" already means leaderboard place. | Tyton |
 | 2026-11-18 | **Spec addition: Shop** (Steal, shields and vault > Shop). Ranks, shield charges, one extra steal attempt per game day. Owner: **heist** lane (the page); other lanes supply items through their manifests. | Tyton |
-| 2026-11-18 | **Spec addition: Giveaways** (Economy > Giveaways). Chat drops, owner **economy**. Admin giveaways, owner **admin**. Rebuy stays. | Tyton |
+| 2026-11-18 | **Spec addition: Giveaways** (Economy > Giveaways). Chat drops, owner **economy**. Admin giveaways, owner **admin**. Rebuy stays (superseded the same day: the rebuy is removed, see Work and crime). | Tyton |
 | 2026-11-18 | **Netlify project `playanzul`** created from the repo; **auto publishing locked**, so production deploys go live only when Tyton publishes them. | Tyton |
 | 2026-11-18 | **Spec addition: Simulation** (Tune it before the first season). About 2,000 games per player per month with frequent all-ins, plus the rank and giveaway report. Owner: **heist** lane. | Tyton |
+| 2026-11-18 | **Spec addition: Russian roulette** (Games > Russian roulette). New lane `russian-roulette`, branch `lane/russian-roulette`, owns `russian-roulette`, second wave. Turn-based player against player, the one deliberate exception to "No turns". Solo mode against the house when nobody joins. | Tyton |
+| 2026-11-18 | **Spec addition: Race** (Games > Race). New lane `race`, branch `lane/race`, owns `race`, second wave. One shared race about every 75 seconds, six runners, 5% edge, typed bets like roulette. | Tyton |
+| 2026-11-18 | **Spec addition: Work and crime** (Economy > Work and crime), owner **economy**. **The rebuy is removed everywhere**; work replaces it. The editable flavor lines are an admin panel item for the **admin** lane. | Tyton |
+| 2026-11-18 | **Correction to Work and crime:** work has a 5-minute cooldown and pays 2 to 6 chips; crime has a 15-minute cooldown, 45% to pay 8 to 25, else a fine of 2 to 8 that stops at a zero wallet. **No rank scaling** ("a lifeline for broke players, not a main income"). Both buttons reachable from every room, cooldown on the button. The simulation compares work income with Bronze and Silver rank income and suggests new values for those ranks if work makes them pointless. | Tyton |
 | 2026-11-18 | **Spec addition: GIFs in chat** (Social layer > GIFs in chat). A Klipy GIF picker with search, trending and quick categories; GIFs load straight from Klipy; the key stays on the server behind one rate-limited endpoint; only Klipy URLs accepted; GIF replies to system posts. Owner: **social** lane, on a test key while building. Foundation only adds the `gif` chat kind and reserves `KLIPY_API_KEY`. | Tyton |
 
 ### What Foundation builds for the additions
@@ -66,6 +70,9 @@ Only the shared pieces, not the features:
 - A shop hook in the manifests, so any lane can supply shop items to the heist lane's Shop page.
 - Name color and badge tokens per tier in the theme, and one shared player-name component that shows them.
 - A `gif` kind for chat messages, with the Klipy id and URLs in `meta` (and `replyTo` for a GIF reply to a system post), and `KLIPY_API_KEY` in the server's environment variables. The picker, the search endpoint and the URL checks are the social lane's.
+- For work and crime: config keys (`work_cooldown_minutes`, `work_pay_min`/`_max`, `crime_cooldown_minutes`, `crime_success_pct`, `crime_pay_min`/`_max`, `crime_fine_min`/`_max`), ledger reasons `work`, `crime_win`, `crime_fine`, and `work_ready_at`/`crime_ready_at` on each wallet. The flavor lines are config too (`work_lines`, `crime_win_lines`, `crime_fine_lines`, a new list-of-lines kind of setting), so the admin lane's config editor covers them with no extra table. A `_min` above its `_max` is refused. The rebuy's config keys, ledger reason and `daily_state.rebuy_claimed` column are gone.
+- For russian roulette: config keys for the join window, turn timer, solo edge and ante cap, and ledger reasons `pvp_ante` and `pvp_pot`. For race: config keys for the betting, running and result seconds (provisional 45, 20 and 10, so 75 in all) and the 5% edge.
+- In the shell (deliverable 8): the top-bar widget slot in feature manifests shows on desktop and phone in every room, so the economy lane can add the work and crime buttons without a shared edit.
 
 ### Chip defaults after the 1/100 rebalance
 
@@ -75,7 +82,7 @@ Only the shared pieces, not the features:
 | `daily_bonus` | 500 | Replaced by Ranks (Base tier pays 5 a day) |
 | `streak_step` / `streak_max` | 100 / 1,000 | 1 / 10 |
 | challenge rewards | 150 to 400 | 2 to 4 |
-| `rebuy_amount` / `rebuy_below` | 500 / 250 | 5 / 3 |
+| `rebuy_amount` / `rebuy_below` | 500 / 250 | Removed with the rebuy (work replaces it) |
 | `min_bet` | 10 | 1 |
 | `steal_floor` | 2,500 | 25 |
 | shield minimum price | 300 | 3 |
@@ -91,8 +98,10 @@ Provisional defaults with no number in the spec (the owning lane tunes them with
 ## Open questions
 
 - **For the economy lane:** "unlocks day 1" most likely means the first game day of the season. The lane should confirm with Tyton before building the unlock countdown.
+- **For the economy lane:** work and crime "post nothing to chat unless the amount is unusually large", but with ranges of 2 to 6 and 8 to 25 no amount stands out. The lane should ask Tyton what counts as unusually large (perhaps never, or only a crime at the top of its range) before adding a config key for it.
+- **For the race lane:** whether each runner's odds are fixed or drawn fresh for every race, and whether the odds belong in config. The 45/20/10-second split of the 75-second cycle is provisional.
 
 ## Wave plan
 
 - First wave (after Foundation merges): blackjack, roulette, heist, economy.
-- Second wave: arcade (mines, plinko), crash, slots, social, admin. At most four lanes at once.
+- Second wave: arcade (mines, plinko), crash, slots, social, admin, russian-roulette, race. At most four lanes at once.

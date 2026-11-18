@@ -10,7 +10,6 @@ export const LEDGER_REASONS = [
   'refund',
   'daily_bonus',
   'challenge',
-  'rebuy',
   'steal_in',
   'steal_out',
   'fine_in',
@@ -26,6 +25,14 @@ export const LEDGER_REASONS = [
   'chat_drop',
   'giveaway',
   'steal_attempt_purchase',
+  // Added Nov 18, 2026 for work and crime (which replace the rebuy, so
+  // `rebuy` is gone) and for russian roulette between players. Its solo mode
+  // and a cancelled lobby use `bet`, `payout` and `refund` like any game.
+  'work',
+  'crime_win',
+  'crime_fine',
+  'pvp_ante',
+  'pvp_pot',
 ] as const
 
 export type LedgerReason = (typeof LEDGER_REASONS)[number]

@@ -100,6 +100,37 @@ describe('changeConfig', () => {
     expect((await loadConfig(db())).min_bet).toBe(400n)
   })
 
+  it('stores lines as a list and applies them at once', async () => {
+    const now = await dbNow()
+    const lines = ['You sold hot dogs at the door.', 'You fixed the jukebox.']
+    const { effectiveAt } = await change('work_lines', lines, now, 'New lines')
+    expect(effectiveAt).toEqual(now)
+    expect((await loadConfig(db())).work_lines).toEqual(lines)
+    const [audit] = await testDb.query<{ before: { value: string[] }; after: { value: string[] } }>(
+      `select before, after from audit_log where target = 'work_lines' order by id desc limit 1`,
+    )
+    expect(audit?.before.value).toEqual(configDefaults().work_lines)
+    expect(audit?.after.value).toEqual(lines)
+  })
+
+  it('refuses a minimum above its maximum, from either side', async () => {
+    const now = await dbNow()
+    await expect(change('work_pay_min', 700, now)).rejects.toMatchObject({
+      status: 400,
+      message: 'work_pay_min cannot be more than work_pay_max, which is 6 chips.',
+    })
+    await expect(change('work_pay_max', 150, now)).rejects.toMatchObject({
+      status: 400,
+      message: 'work_pay_max cannot be less than work_pay_min, which is 2 chips.',
+    })
+    // Raising the maximum first makes room, even while it waits for the reset.
+    await change('work_pay_max', 1_000, now)
+    await change('work_pay_min', 700, now)
+    expect(await pendingConfigChanges(db())).toHaveLength(2)
+    // A minimum equal to the maximum is a fixed amount, which is fine.
+    await change('crime_fine_min', 800, now)
+  })
+
   it('refuses unknown keys and bad values, and stores nothing', async () => {
     const now = await dbNow()
     await expect(change('no_such_key', 1, now)).rejects.toMatchObject({ status: 400 })

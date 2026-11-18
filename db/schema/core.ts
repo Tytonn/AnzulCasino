@@ -147,6 +147,13 @@ export const wallets = pgTable(
     tier: text('tier', { enum: TIERS }).notNull().default('base'),
     /** When the current net worth was reached. Breaks leaderboard ties. */
     netWorthAt: ts('net_worth_at').notNull().defaultNow(),
+    /**
+     * When the work and crime buttons can next be pressed (spec: Work and
+     * crime). Null means now. Compared with now() inside the transaction that
+     * locks this row, and written only by the economy lane.
+     */
+    workReadyAt: ts('work_ready_at'),
+    crimeReadyAt: ts('crime_ready_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
   },
   (t) => [
@@ -274,7 +281,6 @@ export const dailyState = pgTable(
     stolenToday: chips('stolen_today').notNull().default(0n),
     netWorthAtReset: chips('net_worth_at_reset'),
     vaultMoved: boolean('vault_moved').notNull().default(false),
-    rebuyClaimed: boolean('rebuy_claimed').notNull().default(false),
     /** At most one Rank purchase per game day. */
     tierBought: boolean('tier_bought').notNull().default(false),
     challenges: jsonb('challenges')

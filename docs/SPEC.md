@@ -220,6 +220,8 @@ Chips enter through the season start, the daily bonus, challenges and the rebuy.
 
 _(Updated Nov 18, 2026.)_ Chips also enter through rank income, chat drops and admin giveaways, and also leave through rank purchases and extra steal attempts. See Ranks and Giveaways below, and Shop in the steal section. Players still cannot give chips to each other.
 
+_(Updated Nov 18, 2026.)_ The rebuy is removed. Work and crime replace it: chips also enter through work and successful crimes, and leave through crime fines. Russian roulette moves chips between the players at one table, with no house cut. See Work and crime below, and Russian roulette in Games.
+
 The house edge slowly drains everyone, so the daily inflows are what keep a month-long season alive and give a broke player a way back.
 
 _(Rebalanced by Tyton, Nov 18, 2026.)_ The season starts with 100 chips, so every absolute chip amount below is the original value divided by 100. The original value is in brackets. Percentages are unchanged.
@@ -230,7 +232,7 @@ _(Rebalanced by Tyton, Nov 18, 2026.)_ The season starts with 100 chips, so ever
 | `daily_bonus` | Replaced by Ranks (500) | _(Nov 18, 2026: ranks replace the flat daily bonus. Base rank income is 5 a day. The streak bonus stays.)_ |
 | `streak_step` / `streak_max` | +1 / 10 (+100 / 1,000) | Bonus grows by 1 per day in a row, up to 10. A missed day resets it |
 | `challenges_per_day` | 3 | Small goals, each worth 2 to 4 chips (150 to 400) |
-| `rebuy_amount` / `rebuy_below` | 5 / 3 (500 / 250) | Once per game day, a player under 3 net worth can claim 5 |
+| `work_*` / `crime_*` | See Work and crime | _(Nov 18, 2026: the rebuy is removed. Work replaces it, see Work and crime.)_ |
 | `min_bet` | 1 (10) | Smallest bet in any game |
 | `max_bet_pct` | 100 | Largest bet as a share of the wallet. 100 means all-in is allowed |
 | `big_bet_pct` | 50 | A bet at or above this share of net worth is flagged as a big bet in the room |
@@ -238,8 +240,9 @@ _(Rebalanced by Tyton, Nov 18, 2026.)_ The season starts with 100 chips, so ever
 ### Wallet
 
 - A player has a **wallet** (spendable) and a **vault** (protected, see the steal section). Net worth is the two added together.
-- Every change goes through the ledger with a reason: `season_start`, `bet`, `payout`, `refund`, `daily_bonus`, `challenge`, `rebuy`, `steal_in`, `steal_out`, `fine_in`, `fine_out`, `shield_purchase`, `vault_deposit`, `vault_withdraw`, `admin_adjust`.
+- Every change goes through the ledger with a reason: `season_start`, `bet`, `payout`, `refund`, `daily_bonus`, `challenge`, `steal_in`, `steal_out`, `fine_in`, `fine_out`, `shield_purchase`, `vault_deposit`, `vault_withdraw`, `admin_adjust`. _(Nov 18, 2026: `rebuy` removed with the rebuy.)_
 - _(Added Nov 18, 2026.)_ Further reasons for the additions: `rank_purchase`, `rank_income`, `chat_drop`, `giveaway`, `steal_attempt_purchase`. The streak bonus keeps `daily_bonus`.
+- _(Added Nov 18, 2026.)_ For work and crime: `work`, `crime_win`, `crime_fine`. For russian roulette between players: `pvp_ante` (a player's ante goes into the pot) and `pvp_pot` (the last player standing takes it). Its solo mode is an ordinary round with `bet` and `payout`, and a cancelled lobby returns the ante with `refund`.
 
 ### Challenges
 
@@ -274,7 +277,20 @@ _(Added by Tyton, Nov 18, 2026.)_
 
 - Chat drops (economy lane): at random times a pot appears in chat and the first few players to claim it split it. Frequency, pot size and number of winners are config. Claims are decided on the server, one per player per drop.
 - Admin giveaways (admin lane): the admin can give chips to chosen players or split a pot among everyone. Each one posts in chat with names and amounts, and is written to the public audit page.
-- Rebuy stays, so a broke player always has a way back in.
+- _(Superseded Nov 18, 2026: the rebuy is removed. Work is how a broke player gets back in, see Work and crime.)_
+
+### Work and crime
+
+_(Added by Tyton, Nov 18, 2026, and corrected by Tyton the same day. Owner: economy lane. The editable lines are an admin panel item for the admin lane. Work works at a zero balance, so it replaces the rebuy, which is removed.)_
+
+- Work: 5-minute cooldown, pays 2 to 6 chips, always succeeds, works at a zero balance.
+- Crime: 15-minute cooldown, 45% success paying 8 to 25 chips, otherwise a fine of 2 to 8 chips that cannot take the wallet below zero.
+- Do not scale these with rank. They are a lifeline for broke players, not a main income.
+- Put both buttons where they are reachable from every room without leaving the game, with the cooldown shown on the button.
+- Both show a short random flavor line with the result, and post nothing to chat unless the amount is unusually large. The lines are editable in the admin panel.
+- Cooldowns are saved times checked against database time, shown as exact countdowns.
+- All amounts are config.
+- In the season simulation, model players who press work whenever it is ready during the hours they play. Report how work income compares with Bronze and Silver rank income, and suggest new values for those two ranks if work makes them pointless.
 
 ### Keeping it balanced
 
@@ -284,11 +300,14 @@ The season simulation in the steal section also reports the total chip supply da
 
 Every game is a shared room where each player plays their own rounds at their own speed and everyone sees everyone else's play live. Roulette and crash go one step further: one shared round for the whole table.
 
+_(Updated Nov 18, 2026.)_ Race also runs one shared round for the whole room. Russian roulette seats two to six players against each other at one table.
+
 ### The room model
 
 - A room is a page, such as `/room/blackjack`. Entering it joins that room's live channel.
 - **Seats.** Each player in the room has a seat: avatar, name, current bet, live game state. Your own seat is large and central. The others are smaller around it. The layout handles 1 to 10 seats.
 - **No turns.** Nobody ever waits on another player. There is no separate solo mode either: alone, you sit at the same table with empty seats, and a friend who logs in appears next to you.
+  _(Nov 18, 2026: russian roulette is the one deliberate exception. It is turn-based, player against player, and has a solo mode against the house when nobody joins.)_
 - **Public events drive the other seats:** bet placed, card dealt, tile opened, result. Hidden information is never in a public event.
 - **Big bets get noticed.** An all-in, or a bet at or above `big_bet_pct` of net worth, makes that seat glow with a tag before the outcome shows.
 - **Results travel.** Every settled round goes to the ticker. Big wins and big losses also post in chat.
@@ -305,8 +324,10 @@ Every game is a shared room where each player plays their own rounds at their ow
 | Plinko | 2 | 2% | No |
 | Crash | 2 | 3% | Yes, one multiplier |
 | Slots | 3 | 4% | No |
+| Russian roulette _(added Nov 18, 2026)_ | 2 | None between players. 2% in solo mode | A lobby of 2 to 6 players |
+| Race _(added Nov 18, 2026)_ | 2 | 5% | Yes, one race |
 
-The edges for mines, plinko, crash and slots are config values.
+The edges for mines, plinko, crash and slots are config values. So are the russian roulette solo edge and the race edge.
 
 ### Blackjack
 
@@ -357,6 +378,28 @@ The edges for mines, plinko, crash and slots are config values.
 - Target return is 96%. A test proves it by enumerating the reel strips or by a ten-million-spin simulation, within half a percent.
 - Symbols and art come from the theme, so the Vegas skin can swap them.
 - The room is a row of machines. You see your neighbors' reels spin and stop live.
+
+### Russian roulette
+
+_(Added by Tyton, Nov 18, 2026. Owner: russian-roulette lane. Turn-based player against player: the one deliberate exception to "No turns" in the room model.)_
+
+- A player opens a lobby by typing an ante. Others have 20 seconds to join at the same ante. Two to six players.
+- Players take turns pulling the trigger on a six-chamber revolver, in seat order. A player who gets the bullet is out and loses the ante. Reload and continue until one player is left, who takes the whole pot. No house cut.
+- Each pull is decided on the server at the moment of the pull. A turn timer pulls automatically after 10 seconds.
+- If nobody joins, it becomes a solo game against the house: each survived pull raises a multiplier, and the player can cash out or keep going. House edge is config, starting at 2%.
+- Everyone in the room watches every pull. Make the tension the point: slow the animation before each result.
+- Ante cap is config, starting at 20% of the player's net worth, so two players cannot use it to pass chips to each other. Report in the simulation notes if you see a better guard.
+
+### Race
+
+_(Added by Tyton, Nov 18, 2026. Owner: race lane.)_
+
+- One race for the whole room on a fixed clock, about every 75 seconds: a betting window, then the race, then the result.
+- Six runners with names and colors. Each has posted odds, and the payouts carry a 5% house edge. Favorites win more often and pay less.
+- Bets are typed like roulette: `<amount> <runner number>`, for example "200 3" or "all 5".
+- The winner is drawn on the server when betting closes, never earlier. The race animation is then generated to end on that result, with lead changes along the way.
+- If nobody has a bet down, the race does not run. Same settlement and backup-sweep pattern as roulette.
+- Runner art comes from the theme. Start with simple animals drawn in code.
 
 ## Steal, shields and vault
 
@@ -443,6 +486,11 @@ _(Added by Tyton, Nov 18, 2026. Owner: heist lane.)_
 - Report: the day each rank is first bought, how many players hold each rank at the end, the share of final net worth that came from rank income and from giveaways, and whether an early rank buyer beats a non-buyer.
 - Flag it if the top rank is bought by most players or by none.
 
+_(Added Nov 18, 2026, from Tyton's work and crime and russian roulette additions.)_
+
+- Include work and crime. Model players who press work whenever it is ready during the hours they play. Report how work income compares with Bronze and Silver rank income, and suggest new values for those two ranks if work makes them pointless.
+- The russian roulette lane reports in its simulation notes whether a better guard than the ante cap stops two players from passing chips to each other.
+
 ## Social layer
 
 The social layer is what makes ten separate players feel like one room: who is here, what just happened, and a record of all of it.
@@ -484,6 +532,7 @@ The owner runs the site and also plays for the pot, so every admin power is publ
 - **Players:** create a password reset code, disable an account.
 - **Chat:** delete messages.
 - **Chips:** manual adjustment with a required reason.
+- **Work and crime lines:** _(added Nov 18, 2026)_ edit the flavor lines shown with each result. They are config values, so the config editor covers them.
 
 ### The audit page
 
@@ -532,6 +581,7 @@ Notes:
 - A partial unique index allows one open round per player per game.
 - `game_rounds.detail` must hold enough to replay the round. Each game lane defines its own shape for it and exports the type.
 - Lanes add tables only in their own schema file, with table names prefixed by the lane name.
+- _(Added Nov 18, 2026.)_ `wallets` also holds `tier` (Ranks, written only by the economy lane) and `work_ready_at` and `crime_ready_at` (Work and crime: when each button can next be pressed, compared with the database clock).
 
 ## Live events
 
@@ -615,22 +665,26 @@ A lane owns everything named after it: `src/games/<name>/` or `src/features/<nam
 | Blackjack | `lane/blackjack` | The blackjack room | `blackjack` |
 | Roulette | `lane/roulette` | The shared-wheel roulette room | `roulette` |
 | Heist | `lane/heist` | Steal, shields, vault, shop, season simulation | `heist`, plus `scripts/simulate-season.ts` |
-| Economy | `lane/economy` | Daily bonus, streaks, challenges, rebuy, final day, podium, Hall of Fame | `economy`, `season` |
+| Economy | `lane/economy` | Daily bonus, streaks, challenges, work and crime _(replaced the rebuy, Nov 18, 2026)_, final day, podium, Hall of Fame | `economy`, `season` |
 | Arcade | `lane/arcade` | Mines, then Plinko _(Crash moved to its own lane, Nov 18, 2026)_ | `mines`, `plinko` |
 | Slots | `lane/slots` | The slots room | `slots` |
 | Social | `lane/social` | Chat upgrades, reactions, notifications, history and replays, profiles, leaderboard page | `social`, `history`, `profile` |
 | Admin | `lane/admin` | Admin panel, config editor, Audit page | `admin` |
+| Crash _(added Nov 18, 2026)_ | `lane/crash` | The shared-multiplier crash room | `crash` |
+| Russian roulette _(added Nov 18, 2026)_ | `lane/russian-roulette` | The player-against-player russian roulette room, with its solo mode | `russian-roulette` |
+| Race _(added Nov 18, 2026)_ | `lane/race` | The shared race room | `race` |
 
 _(Updated Nov 18, 2026.)_ Changes to the lanes above:
 
 - **Crash gets its own lane** in the second wave: branch `lane/crash`, builds the crash room, owns the name `crash`. Arcade keeps Mines and Plinko and owns `mines` and `plinko`.
-- **Economy** also builds Ranks and chat drops (see Economy > Ranks and Giveaways).
+- **Economy** also builds Ranks and chat drops (see Economy > Ranks and Giveaways), and work and crime in place of the rebuy (see Economy > Work and crime). The buttons plug into the top bar through the economy manifest, so they are reachable from every room.
+- **Russian roulette** and **Race** are new lanes in the second wave (see Games > Russian roulette and Race).
 - **Heist** also owns the Shop page and the new simulation report (see Steal, shields and vault > Shop and Tune it before the first season).
-- **Admin** also builds admin giveaways (see Economy > Giveaways).
+- **Admin** also builds admin giveaways (see Economy > Giveaways), and editing the work and crime lines (see Admin panel).
 - **Social** also builds GIFs in chat (see Social layer > GIFs in chat).
 
 - **First wave:** Blackjack, Roulette, Heist, Economy. These are the games your group plays most and the season mechanics.
-- **Second wave:** Arcade, Slots, Social, Admin. _(Nov 18, 2026: plus Crash.)_
+- **Second wave:** Arcade, Slots, Social, Admin. _(Nov 18, 2026: plus Crash, Russian roulette and Race.)_
 - Run as many at once as you can comfortably review. Four is a sensible ceiling.
 
 **When a lane needs a shared change.** It does not make the change. It lists it under a heading named Shared changes needed in its pull request and progress file. You hand the list to one thread working on `main`, merge that, and the lanes pull.
@@ -708,6 +762,8 @@ Keep docs/progress/[LANE].md current. When you are done, give me a summary, the 
 | social | `lane/social` | Social layer | `social`, `history`, `profile` |
 | admin | `lane/admin` | Admin and trust | `admin` |
 | crash | `lane/crash` | Games: the room model, Crash _(added Nov 18, 2026)_ | `crash` |
+| russian-roulette | `lane/russian-roulette` | Games: the room model, Russian roulette _(added Nov 18, 2026)_ | `russian-roulette` |
+| race | `lane/race` | Games: the room model, Race _(added Nov 18, 2026)_ | `race` |
 
 ### Integration thread
 
