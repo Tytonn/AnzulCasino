@@ -22,7 +22,7 @@ Last updated: 2026-11-18 05:50 UTC
 
 - **Project:** `playanzul` (https://playanzul.netlify.app), team Tyton, created 2026-11-18 by Tyton from `Tytonn/AnzulCasino`. Production branch `main`, build settings left empty (`netlify.toml` sets them), functions directory `netlify/functions`.
 - **Auto publishing is locked** (Tyton, 2026-11-18), so production only changes when Tyton publishes a deploy by hand. Deploy previews are not affected.
-- **Credits and the lock.** Netlify's docs say "each successful production deploy consumes 15 credits" and that a locked site still builds new deploys. They do not say whether a locked build that is never published is charged. Plan as if every push to `main` costs 15 credits whether or not it is published, and confirm on the first merge under Usage & billing > Account usage insights > Credits.
+- **Credits and the lock** (Tyton, 2026-11-18): only a deploy that Tyton publishes to the live site is charged the 15 credits. Pushes to `main` still build while locked, cost nothing, and their deploy links open for testing. So merging to `main` is free; publishing is the step that costs, and Tyton chooses when. (Netlify's docs say "each successful production deploy consumes 15 credits" without covering the lock; the usage page under Usage & billing > Account usage insights > Credits shows the real count.)
 
 ## Blocked
 
