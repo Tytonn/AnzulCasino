@@ -90,16 +90,32 @@ None for Tyton right now. Answered on 2026-11-18:
 ## Done
 
 - Saved the spec to `docs/SPEC.md` and added Tyton's additions from 2026-11-18: typed bets, roulette quick-bet box, chips in hundredths, the 1/100 rebalance, Ranks, Shop, Giveaways, the simulation report, and the Crash lane split.
-- Installed Netlify's agent skills into `.claude/skills/`.
-- Read the current Netlify Database, Functions, billing and Ably docs.
-- Started `docs/progress/coordinator.md`.
+- Installed Netlify's agent skills into `.claude/skills/`. Read the current Netlify Database, Functions, billing and Ably docs.
+- **1. Repo setup.** TypeScript strict, ESLint, Prettier, the theme-token check, Vitest (unit and integration projects), Playwright at 1440px and 375px, the GitHub Action, `netlify.toml`, `CLAUDE.md`, a local Postgres setup script.
+- **2. Database.** All 19 tables in `db/schema/core.ts`, one migration `20261118055222_core_init`. The deploy preview built and applied it.
+- **3. Accounts.** Invite signup, admin bootstrap (once, under an advisory lock), login with throttling (5 failures per username per 15 minutes), logout, reset codes, profile edits, sessions (sha256 of a random token, 30 days, extended at most hourly), the session check and per-player rate limit on every route in one query.
+- **4. Wallet and ledger.** `server/lib/wallet.ts` (`debit`, `credit`, `transfer`, `moveBetweenAccounts`, `lockWallets`, `ledgerMismatches`) and `server/lib/idempotency.ts` (`chipTransaction`). Tests prove 50 parallel bets cannot overdraw, parallel "all" bets take the wallet once, a repeated key changes nothing (also when sent 10 times at once), transfers in every direction never deadlock, and every balance equals its ledger sum. Removing the row lock or the lock order makes those tests fail.
+- **5. Config.** `shared/config.ts` (every tunable number, unit, limits, description) and `server/lib/config.ts` (`loadConfig`, `changeConfig`, `pendingConfigChanges`), `GET /api/config`, and `shared/game-day.ts` (4:00 AM Central on the wall clock, tested across both daylight saving changes).
+- **6. Season basics.** `server/lib/seasons.ts`: create (no overlaps), lazy start with starting balances, late joiners, `requireBetsOpen` by database time, `standings`. `GET /api/season`, `GET /api/leaderboard`, `GET`/`POST /api/seasons` (admin). `npm run db:seed:local` and the browser tests use the same sample data.
 
 ## Not done
 
-Everything in the order of work above.
+Deliverables 7 to 11 and the exit check.
 
 ## Decisions
 
-- Recorded in `docs/progress/coordinator.md` (starting chips 100, 1/100 rebalance, Crash lane split, Personal plan, the two spec additions).
+- Recorded in `docs/progress/coordinator.md` (starting chips 100, 1/100 rebalance, Crash lane split, Personal plan, the spec additions).
 - Ably v3 over v2, because the current docs document v3.
 - All previews and production share one Ably app. Channel names carry a prefix per deploy, so testing a preview never shows up on the live site.
+- **Idempotency keys** travel in the `Idempotency-Key` header. A route that moves chips declares `idempotent: true` and runs its work in `chipTransaction()`, which claims the key with the transaction's first statement. A request that failed leaves its key free, because nothing happened.
+- **Every share in config is in basis points** (100 is 1%), so 1.5% and 0.3% need no decimals. The key names stay as the spec wrote them (`steal_base_rate`, `max_bet_pct`).
+- **The config table holds only the admin's changes**, never the defaults, so a better default in `shared/config.ts` applies everywhere the admin has not overridden it. Rows are never edited, so the table is also the change history.
+- **The game day's reset (4 AM Central) is a constant, not config**: changing it mid-season would move every daily limit.
+- **Season status vs phase.** The stored `status` records what was done (`scheduled` until starting balances are paid, then `active`; the economy lane adds `final_day` and `ended`). The phase (`upcoming`, `open`, `final_day`, `over`) comes from the clock, so it is exact without timers.
+- **A season starts on the first request after its start time**, so no scheduled function wakes the database.
+- **Disabled players** get no wallet at a season start and are left off the leaderboard. If re-enabled, they join like a late joiner.
+- **`erasableSyntaxOnly`** is on, so Node runs any file directly. The heist lane's simulation can import `shared/config.ts`.
+
+## Shared changes for lanes to know
+
+- Adding a config key or a ledger reason is a shared change: list it under "Shared changes needed" in the lane's pull request.

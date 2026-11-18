@@ -2,7 +2,7 @@
 
 Running status for the whole build. The coordinator owns this file; the Foundation thread keeps it current while Stage 1 runs.
 
-Last updated: 2026-11-18 05:50 UTC
+Last updated: 2026-11-18 06:35 UTC
 
 ## Stage
 
@@ -12,7 +12,7 @@ Last updated: 2026-11-18 05:50 UTC
 
 | Thread | Lane | Branch | Stage | Status |
 | --- | --- | --- | --- | --- |
-| Foundation | foundation | `foundation` | Stage 1 | Deliverable 1 (repo setup) pushed. Building deliverable 2 (database). Pull request #1 open as a draft. |
+| Foundation | foundation | `foundation` | Stage 1 | Deliverables 1 to 6 pushed (repo, database, accounts, wallet and ledger, config, season basics). Building deliverable 7 (live layer). Pull request #1 open as a draft. |
 
 ## Merged to main
 
@@ -26,12 +26,15 @@ Last updated: 2026-11-18 05:50 UTC
 
 ## Blocked
 
-- Nothing right now. Deploy previews should start on the next push to pull request #1.
+- Nothing blocks the build. Deploy previews build on every push to pull request #1, but the build container cannot open them yet: its network blocks `*.netlify.app`. Tyton will allow the preview's hostname and the Ably hosts when he is at a computer (deferred on 2026-11-18, he was on his phone). Until then everything is tested locally.
 
 ## Needs from Tyton
 
-1. Ably: an API key in the Netlify environment variable `ABLY_API_KEY` (needed at deliverable 7). Steps in `docs/progress/foundation.md`.
-2. `ADMIN_BOOTSTRAP_CODE` in Netlify, with a separate Deploy Previews value that Tyton shares with the Foundation thread (needed at deliverable 3).
+All three can wait until Tyton is at a computer; local tests cover the work until then.
+
+1. Ably: an API key in the Netlify environment variable `ABLY_API_KEY` (needed to test deliverable 7 on the preview). Steps in `docs/progress/foundation.md`.
+2. `ADMIN_BOOTSTRAP_CODE` in Netlify, with a separate Deploy Previews value that Tyton shares with the Foundation thread (needed to create the first admin on the preview).
+3. Network access for the build container: the preview hostname and the Ably hosts (an approval card from the Foundation thread).
 
 ## Decisions
 
