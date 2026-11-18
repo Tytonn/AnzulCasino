@@ -133,7 +133,7 @@ export function RoomLayout<D>({ game, room, info, table, seat, controls }: RoomL
         )}
       </section>
 
-      <div className="sticky bottom-[calc(3.6rem+env(safe-area-inset-bottom))] z-10 -mx-3 px-3 pb-3 md:bottom-0 md:-mx-6 md:px-6 md:pb-5">
+      <div className="sticky bottom-[calc(3.6rem+env(safe-area-inset-bottom))] z-10 -mx-3 bg-linear-to-t from-bg from-40% to-transparent px-3 pt-1 pb-3 md:bottom-0 md:-mx-6 md:px-6 md:pb-5">
         {controls}
       </div>
 

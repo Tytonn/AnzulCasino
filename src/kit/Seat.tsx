@@ -124,7 +124,7 @@ export function Seat<D>({
         <Avatar player={player} size={large ? 'md' : 'sm'} ring={ring} />
         <div className="min-w-0 flex-1 leading-tight">
           <PlayerName player={player} className={large ? 'text-base' : 'text-sm'} />
-          <p className="text-[0.7rem] text-faint">{status}</p>
+          <p className="truncate text-[0.7rem] text-faint">{status}</p>
         </div>
         <AnimatePresence>
           {tag && (
@@ -157,7 +157,8 @@ export function Seat<D>({
           <span className="flex min-w-0 items-center gap-1.5 text-muted">
             <ChipStack amount={outcome.stake} size="sm" />
             <span className="truncate tabular-nums">
-              {outcome.kind === 'open' ? 'In play' : 'Bet'} {formatChips(outcome.stake)}
+              {large && (outcome.kind === 'open' ? 'In play ' : 'Bet ')}
+              {formatChips(outcome.stake)}
             </span>
           </span>
         )}

@@ -5,7 +5,7 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { Link } from 'react-router'
 
-import { formatChips } from '../../../shared/chips.ts'
+import { formatChips, formatMultiplier } from '../../../shared/chips.ts'
 import type { RoundSummary } from '../../../shared/events.ts'
 import { PlayerName } from '../../kit/PlayerName.tsx'
 import { usePlayer, useTicker } from '../../kit/queries.ts'
@@ -74,7 +74,7 @@ function TickerItem({ round }: { round: RoundSummary }) {
             : 'broke even'}
       </span>
       {round.multiplier !== null && round.multiplier !== 0 && won && (
-        <span className="text-faint">{(round.multiplier / 100).toFixed(2)}x</span>
+        <span className="text-faint">{formatMultiplier(round.multiplier)}</span>
       )}
       {round.summary && <span className="text-faint">· {round.summary}</span>}
     </Link>

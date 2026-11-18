@@ -3,6 +3,7 @@
  * live in one table and move through the same states: `start` takes the
  * stake, zero or more actions follow, `settle` pays out.
  */
+import { z } from 'zod'
 
 /** Every round of every game moves through these states. */
 export const ROUND_STATUSES = ['open', 'settled', 'void'] as const
@@ -55,6 +56,13 @@ export function roundVersion(round: { id: number; steps: number }): number {
  * the locked wallet (shared/bet-amount.ts).
  */
 export const BET_TEXT_MAX = 32
+
+/** The bet text in an endpoint's input schema: `z.strictObject({ bet: BetText, ... })`. */
+export const BetText = z
+  .string()
+  .trim()
+  .min(1, 'Type an amount, like 50, 2.5k, half or all.')
+  .max(BET_TEXT_MAX, 'That bet is too long to read. Try 50, 2.5k, half or all.')
 
 /** The room as GET /api/<game>/room returns it. */
 export interface RoomState<D = unknown> {

@@ -17,7 +17,8 @@ const VARIANTS: Record<ButtonVariant, string> = {
   primary: 'bg-accent text-on-accent shadow-card hover:bg-accent-strong disabled:hover:bg-accent',
   secondary:
     'border border-border bg-surface-2 text-text hover:border-border-strong hover:bg-surface-3 disabled:hover:border-border disabled:hover:bg-surface-2 aria-pressed:border-accent aria-pressed:bg-accent/15 aria-pressed:text-text',
-  ghost: 'text-muted hover:bg-surface-2 hover:text-text disabled:hover:bg-transparent',
+  ghost:
+    'text-muted hover:bg-surface-2 hover:text-text disabled:hover:bg-transparent aria-pressed:bg-accent/20 aria-pressed:text-text aria-pressed:hover:bg-accent/25',
   gold: 'bg-gold text-on-gold shadow-card hover:brightness-110 disabled:hover:brightness-100',
 }
 

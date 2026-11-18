@@ -437,6 +437,12 @@ export const CONFIG = {
     'An open round left this long is finished by its safest rule: blackjack stands, mines cashes out.',
     { min: 1, max: 1_440, provisional: true },
   ),
+  coinflip_edge_pct: share(
+    'games',
+    200,
+    'Coin flip house edge: a win pays twice the bet, less this share.',
+    { max: 2_000, provisional: true },
+  ),
   roulette_betting_seconds: number(
     'games',
     'seconds',
