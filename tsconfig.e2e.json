@@ -5,5 +5,5 @@
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "types": ["node"]
   },
-  "include": ["tests/**/e2e", "tests/e2e-helpers", "shared"]
+  "include": ["tests/**/e2e", "tests/e2e-helpers", "shared", "scripts/db/sample-players.ts"]
 }

@@ -4,7 +4,7 @@
  * run twice. It writes through the app's own code, so every chip arrives as a
  * ledger row, the same as on the real site.
  *
- * Every account's password is SEED_PASSWORD.
+ * The accounts and their password are in sample-players.ts.
  */
 import { asc, eq } from 'drizzle-orm'
 
@@ -13,15 +13,7 @@ import { addGameDays, gameDay, gameDayStart } from '../../shared/game-day.ts'
 import { db, dbNow } from '../../server/lib/db.ts'
 import { hashPassword } from '../../server/lib/passwords.ts'
 import { createSeason, runningSeason } from '../../server/lib/seasons.ts'
-
-export const SEED_PASSWORD = 'password123'
-
-export const SEED_PLAYERS = [
-  { username: 'admin', displayName: 'Admin', role: 'admin', avatar: 'crown', avatarColor: 'amber' },
-  { username: 'alice', displayName: 'Alice', role: 'player', avatar: 'spade', avatarColor: 'cyan' },
-  { username: 'bob', displayName: 'Bob', role: 'player', avatar: 'dice', avatarColor: 'green' },
-  { username: 'carol', displayName: 'Carol', role: 'player', avatar: 'star', avatarColor: 'pink' },
-] as const
+import { SEED_PASSWORD, SEED_PLAYERS } from './sample-players.ts'
 
 export interface SeedResult {
   createdUsers: string[]

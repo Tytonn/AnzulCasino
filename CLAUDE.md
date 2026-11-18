@@ -50,7 +50,7 @@ Copied from `docs/SPEC.md`. They apply to every line of code in every lane.
 | `npm run db:reset:local` | Rebuilds the dev database from the migrations and the sample data |
 | `npm run dev` | The site, the functions and the local live relay on http://localhost:8888. Applies pending migrations to the dev database |
 | `npm run check` | Typecheck, lint (ESLint, Prettier, theme tokens) and the unit and integration tests |
-| `npm run test:e2e` | Browser tests at 1440px and 375px on their own server (port 8899) and a fresh database. `E2E_BASE_URL=<preview url>` runs them against a deploy preview |
+| `npm run test:e2e` | Browser tests at 1440px and 375px on their own server (port 8899) and a fresh database. `E2E_BASE_URL=<preview url>` with `E2E_PASSWORD` (and `E2E_ADMIN_CODE` the first time) runs them against a deploy preview (`docs/LANE_GUIDE.md`, Testing on a preview) |
 | `npm run db:generate` | Writes a migration from the Drizzle schema into `netlify/database/migrations/` |
 
 ## Conventions that are easy to miss

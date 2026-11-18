@@ -58,7 +58,7 @@ Then the exit check on the deploy preview: two browsers as different players see
 
 - **Locally in the container:** a real Postgres 16 for integration tests. The embedded database that Netlify's dev tools use (PGlite) runs one query at a time, so it cannot prove that locking stops double spends. Endpoints are tested by calling the function handlers directly.
 - **A small local live relay** stands in for Ably in local dev and CI, behind the same wrapper, so two-browser tests run without an Ably key. The real Ably path is tested on the deploy preview.
-- **On the deploy preview:** Playwright with two separate browser sessions, screenshots at 1440px and 375px.
+- **On the deploy preview:** the same browser tests, two separate browser sessions, screenshots at 1440px and 375px: `E2E_BASE_URL=<preview> E2E_PASSWORD=<password> E2E_ADMIN_CODE=<preview admin code> npm run test:e2e`. The first run signs up the sample players and starts a season through the site's own API (`tests/e2e-helpers/preview-setup.ts`).
 - **`npm run dev` answers `/api/*` in-process** (`scripts/dev/dev-api.ts`), calling the same function handlers Netlify runs, loaded through Vite so edits apply on the next request. Netlify's own local emulation rebuilt and cold-started a function for every request, about 3 seconds each. `NETLIFY_FUNCTIONS=emulate npm run dev` brings the emulation back. Previews and production always run the real Netlify runtime.
 
 ## Cost guardrails
@@ -112,7 +112,7 @@ Answered on 2026-11-18:
 
 ## Not done
 
-- **The exit check on the deploy preview.** It needs three things from Tyton (Needs from Tyton, items 3 to 5): the Ably key, the preview admin code, and network access for this build container to open the preview. Everything it checks already passes locally, on the local live relay.
+- **The exit check on the deploy preview.** It needs three things from Tyton (Needs from Tyton, items 3 to 5): the Ably key, the preview admin code, and network access for this build container to open the preview. Everything it checks already passes locally, on the local live relay, and the preview run of the browser tests passed against a local site with an empty database, so the check is one command once those arrive.
 - **Coin flip's edge** waits for Tyton's answer (Open questions). It runs at 2% until then.
 
 ## Decisions
@@ -145,6 +145,8 @@ Answered on 2026-11-18:
 - **A round saves the config it depends on** in its detail (the coin flip saves its edge), so the payout and the replay agree if the admin changes a value mid-round.
 - **Game colors live with the game**, in `src/theme/games/<game>.css` on plain `:root`, so lanes need no shared change for their own colors and a later theme can still restyle them.
 - **Who writes which core table** is set in `docs/LANE_GUIDE.md` (section 12). Lanes write their own rows in `shared_rounds`, `daily_state` (economy and heist each own named columns), `steals`, `shields`, `shield_purchases` and `season_results` directly; chips only ever move through `server/lib/wallet.ts` and rounds only through the round helper.
+- **Browser tests set up a preview themselves.** With `E2E_BASE_URL` set, Playwright's global setup signs up admin, alice, bob and carol through the API (the admin with the preview admin code, the others with invites the admin makes) and starts a season if none is running. Their password there is `E2E_PASSWORD`, never the local sample password, because anyone can open a preview. Later runs change nothing.
+- **Each test player signs in once per browser project**, and later contexts reuse the session. The server allows 30 sign-ins per address every 15 minutes, which a whole run of every lane's tests would pass: a run now signs in about 11 times however many tests there are. About two full runs per 15 minutes fit on one preview, because the smoke test's wrong password also counts toward carol's lockout.
 - **Migration numbers.** Drizzle Kit 1.0 merges parallel lanes' migrations cleanly (checked: after two lanes' migrations merge, generate finds nothing and `drizzle-kit check` passes). Production refuses a migration numbered below one it has applied, and the local runner does not check this, so a lane renumbers its migration before merging when `main` has a newer one (`docs/LANE_GUIDE.md`, Migration numbers).
 
 ## Shared changes for lanes to know

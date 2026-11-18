@@ -7,7 +7,8 @@
  */
 import { closeDb } from '../../server/lib/db.ts'
 import { assertLocalUrl, loadDotEnv, migrate } from './local.ts'
-import { SEED_PASSWORD, SEED_PLAYERS, seed } from './seed.ts'
+import { SEED_PASSWORD, SEED_PLAYERS } from './sample-players.ts'
+import { seed } from './seed.ts'
 
 loadDotEnv()
 const url = process.env.DATABASE_URL

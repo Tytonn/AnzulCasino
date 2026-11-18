@@ -62,7 +62,15 @@ The React hooks lint rules are strict: no component created during render, and n
 - **Branch.** Work on `lane/<lane>`, cut from `main`. Open a draft pull request early and push often. Never push to `main`. Only Tyton merges.
 - **Checks.** Every push to your pull request runs the GitHub Action: typecheck, lint, unit and integration tests, then the browser tests. Run `npm run check` before you push.
 - **Deploy previews.** Netlify builds a preview for every pull request. Each preview gets its own copy of the database, made from production when the preview is first created, so nothing you do there touches the live site. A preview deploy costs no credits. A production publish costs 15, and Tyton decides when they happen.
-- **Testing on a preview.** Until launch, production holds no players, so a new preview starts empty. Ask Tyton for the preview admin code (the Deploy Previews value of `ADMIN_BOOTSTRAP_CODE`) and sign up at `/signup` with it as the invite code: that account becomes the preview's admin. Then create a season and a few invite codes at `/setup`, and sign up a second player with an invite code in a private window. If your build container cannot open the preview, tell Tyton which hosts were blocked.
+- **Testing on a preview.** Until launch, production holds no players, so a new preview starts empty. Its admin code (the Deploy Previews value of `ADMIN_BOOTSTRAP_CODE`; ask Tyton) makes one admin there, once. Run the browser tests against it:
+
+  ```sh
+  E2E_BASE_URL=https://deploy-preview-<number>--playanzul.netlify.app \
+  E2E_PASSWORD='<a password you pick>' E2E_ADMIN_CODE='<the preview admin code>' \
+  npm run test:e2e
+  ```
+
+  The first run signs up admin, alice, bob and carol with your password and starts a season (`tests/e2e-helpers/preview-setup.ts`), so your tests find what they find locally. Later runs need only `E2E_BASE_URL` and the same `E2E_PASSWORD`. To look around by hand, sign in as one of them, or make yourself an invite code at `/setup`. The sign-in limits allow about two full runs per 15 minutes on one preview, so in between run only your own tests (`npx playwright test tests/<name>`). If your build container cannot open the preview, tell Tyton which hosts were blocked.
 - **Progress file.** Update `docs/progress/<lane>.md` at the end of every working session: done, not done, decisions, open questions, and shared changes needed.
 - **Shared changes.** If you need a change outside your lane, do not make it. List it under a heading named "Shared changes needed" in your pull request and your progress file, with the exact change you want, work around it if you can, and tell Tyton. One thread makes the batch of shared changes on `main`, and the lanes pull.
 - **Merging.** Tyton merges one lane at a time after checking its preview. After each merge, every open lane pulls `main` and reruns its tests. If `package-lock.json` conflicts, run `npm install` to regenerate it instead of editing it by hand.
@@ -676,7 +684,7 @@ const res = await client.post('/api/roulette/bet', { bet: '5', spot: 'red' }, { 
 - No session gets 401, bad input gets 400 in plain words, and a missing idempotency key is refused.
 - Big results reach chat, and the round's detail replays it.
 
-**Browser tests** run one at a time against one fresh database with admin, alice, bob and carol (password `password123`) and a running season, in a desktop project (1440) and a phone project (375, touch). `openAs(browser, 'alice')` gives a signed-in page, `onPhone(testInfo)` tells the projects apart, and `snap(page, '<name>', 'what', testInfo)` saves a screenshot in `tests/<name>/screenshots/`. Every lane's browser tests share those players, so never assume a balance or an empty room, bet small, and finish any round you open.
+**Browser tests** run one at a time against one fresh database with admin, alice, bob and carol (password `password123`) and a running season, in a desktop project (1440) and a phone project (375, touch). `openAs(browser, 'alice')` gives a signed-in page, `onPhone(testInfo)` tells the projects apart, and `snap(page, '<name>', 'what', testInfo)` saves a screenshot in `tests/<name>/screenshots/`. Every lane's browser tests share those players, and on a preview they keep their chips and chat from run to run, so never assume a balance, an empty room or an empty chat, bet small, and finish any round you open.
 
 Run one lane's tests with `npx vitest run tests/<name>` and `npx playwright test tests/<name>`. Run everything with `npm run check` and `npm run test:e2e`.
 
@@ -700,7 +708,7 @@ Netlify bills the database for every hour it is awake. It sleeps after 5 idle mi
 | `LIVE_RELAY_URL`, `LIVE_RELAY_SECRET` | Local only, set by `npm run dev` | The local live relay |
 | `DATABASE_POOL_MAX` | Optional | Connections per instance |
 | `NETLIFY_FUNCTIONS=emulate` | Optional, local | Runs Netlify's own function emulation in `npm run dev` |
-| `E2E_BASE_URL` | Optional | Runs the browser tests against a deploy preview instead of a local server |
+| `E2E_BASE_URL`, `E2E_PASSWORD`, `E2E_ADMIN_CODE` | Optional, set for one run | Run the browser tests against a deploy preview: its URL, the sample players' password there, and the preview admin code for the first run (section 2, Testing on a preview) |
 
 Secrets live in Netlify only, never in the repo or in browser code. The server reads them with `env(name)` from `server/lib/env.ts`, and adding a name there is a shared change.
 
@@ -710,7 +718,7 @@ Secrets live in Netlify only, never in the repo or in browser code. The server r
 | --- | --- |
 | `npm run dev` | The site, the API and the live relay on http://localhost:8888. Applies new migrations as they appear |
 | `npm run check` | Typecheck, lint (ESLint, Prettier, theme tokens), unit and integration tests |
-| `npm run test:e2e` | Browser tests at 1440 and 375 on port 8899 with a fresh database |
+| `npm run test:e2e` | Browser tests at 1440 and 375 on port 8899 with a fresh database, or on a deploy preview with `E2E_BASE_URL` (section 2) |
 | `npm run format` | Prettier on everything |
 | `npm run db:setup:local` | Once per machine: local Postgres, role, databases, `.env` |
 | `npm run db:seed:local` | Sample players and a running season in the dev database. Safe to run twice |
