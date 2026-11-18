@@ -2,6 +2,8 @@
  * Coin flip's manifest: how the shell finds the room (spec: Manifests). The
  * room itself loads only when a player walks in.
  */
+import '../../theme/games/coinflip.css'
+
 import { CoinflipIcon } from '../../kit/icons.tsx'
 import { defineGame } from '../../shell/manifests.ts'
 

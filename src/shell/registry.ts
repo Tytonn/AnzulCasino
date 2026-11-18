@@ -47,7 +47,7 @@ function buildGames(manifests: readonly GameManifest[]): GameEntry[] {
       icon: manifest.icon ?? planned?.icon ?? CoinflipIcon,
       manifest,
       lane: planned?.lane ?? manifest.id,
-      pitch: manifest.howToPlay[0] ?? planned?.pitch ?? '',
+      pitch: manifest.pitch ?? planned?.pitch ?? manifest.howToPlay[0] ?? '',
     })
   }
   return [...byId.values()].sort((a, b) => a.order - b.order || a.name.localeCompare(b.name))

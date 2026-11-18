@@ -9,7 +9,7 @@
  * so a bet counts once however often it is sent:
  *
  *   const key = requestKey()
- *   const result = await api.post('/api/coinflip/play', { amount, side }, { key })
+ *   const result = await api.post('/api/coinflip/play', { bet, call }, { key })
  *
  * Errors arrive as ApiError with the server's plain-word message, ready for
  * a toast.

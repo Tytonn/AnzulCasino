@@ -47,6 +47,7 @@ Copied from `docs/SPEC.md`. They apply to every line of code in every lane.
 | --- | --- |
 | `npm run db:setup:local` | Once per machine: starts the local Postgres, creates the `casino` role and the dev, test and browser-test databases, writes `.env` |
 | `npm run db:seed:local` | Adds sample players (admin, alice, bob, carol; password `password123`) and a running season to the dev database. Safe to run twice |
+| `npm run db:reset:local` | Rebuilds the dev database from the migrations and the sample data |
 | `npm run dev` | The site, the functions and the local live relay on http://localhost:8888. Applies pending migrations to the dev database |
 | `npm run check` | Typecheck, lint (ESLint, Prettier, theme tokens) and the unit and integration tests |
 | `npm run test:e2e` | Browser tests at 1440px and 375px on their own server (port 8899) and a fresh database. `E2E_BASE_URL=<preview url>` runs them against a deploy preview |
@@ -57,7 +58,7 @@ Copied from `docs/SPEC.md`. They apply to every line of code in every lane.
 - **Chips are hundredths.** Every amount in code, the database and the API is a `bigint` count of hundredths. Convert and format only with `shared/chips.ts`.
 - **"Tier" in code, "Rank" on screen.** `rank` means a player's leaderboard place. The spec's purchasable Ranks are `tier` in code.
 - **Database safety.** Never run `drizzle-kit push`, never run `drizzle-kit migrate` against a hosted database, and never run DDL through a direct connection. Migrations reach Netlify only as committed files that Netlify applies on deploy. The scripts in `scripts/db/` refuse any database that is not on localhost.
-- **Migrations are permanent once applied.** Never edit or delete one that a deploy has applied. Lane migrations are named `<timestamp>_<lane>_<slug>`; regenerate yours with a fresh timestamp just before your merge, because Netlify rejects a migration numbered lower than one it has already applied.
+- **Migrations are permanent once pushed.** Your preview's database applies each one, so never edit or delete a pushed migration; add a new one instead. Lane migrations are named `<timestamp>_<lane>_<slug>` (`npm run db:generate -- --name <lane>_<slug>`). Production refuses a migration numbered lower than one it has already applied, so check the order before your merge and renumber yours if needed (`docs/LANE_GUIDE.md`, Migration numbers).
 - **No `Math.random` on the server.** ESLint blocks it in `server/`, `netlify/`, `shared/` and `db/`. Use `server/lib/rng.ts`.
 - **Theme tokens only.** Components use the token classes and variables from `src/theme/`. Tailwind's own palette is switched off, and `npm run lint` fails on raw colors outside `src/theme/`.
 - **Keep the database asleep.** Netlify bills the database for every hour it is awake. No browser polling, no scheduled function that touches the database more than once a day, and live news goes through Ably, which never wakes the database.

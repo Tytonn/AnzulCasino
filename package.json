@@ -21,6 +21,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate:local": "node scripts/db/migrate-local.ts",
     "db:seed:local": "node scripts/db/seed-local.ts",
+    "db:reset:local": "node scripts/db/reset-local.ts",
     "db:setup:local": "bash scripts/dev/setup-postgres.sh",
     "check": "npm run typecheck && npm run lint && npm test"
   },

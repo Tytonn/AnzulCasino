@@ -1,6 +1,6 @@
 # Foundation (Stage 1)
 
-Branch `foundation`. Last updated 2026-11-18 by the Foundation thread (deliverable 8 pushed).
+Branch `foundation`. Last updated 2026-11-18 by the Foundation thread (deliverables 1 to 11 pushed; the exit check waits on the preview).
 
 ## What already exists
 
@@ -27,10 +27,14 @@ Versions checked on npm on 2026-11-18. Netlify and Ably facts come from their cu
 
 ## Changes to the spec's folder map
 
+The full map as built is in `docs/LANE_GUIDE.md` (section 3), which wins over the spec's. The main changes:
+
 - **Migrations go in `netlify/database/migrations/`, not `db/migrations/`.** Netlify only applies migrations automatically from that folder. Lane migrations are named `<timestamp>_<lane>_<slug>`, because Netlify requires a `<number>_<slug>` name.
 - **Netlify rejects a migration whose number is lower than one already applied.** A lane that adds a migration must regenerate it with a fresh timestamp just before its merge. The foundation creates every table in the Data model, so most lanes need none.
 - **Foundation endpoints are `netlify/functions/core-*.ts`**, and the reference game is `coinflip-*.ts`, so no foundation file uses a lane's name (`season` belongs to the economy lane, `admin` to the admin lane).
 - **The bet amount parser lives in `shared/`**, not only in `src/kit/`, so the server resolves "all" and "half" against the locked wallet. The kit re-exports it.
+- **Lane-owned shared files** go in `shared/games/<game>.ts` and `shared/features/<name>.ts`, and a game's routes sit beside its rules in `server/games/<game>/api.ts`.
+- **Each game or feature may own a colors file**, `src/theme/games/<game>.css` or `src/theme/features/<name>.css`, set on plain `:root` so a later theme can restyle it.
 
 ## Order of work
 
@@ -83,7 +87,9 @@ Netlify bills the database about 10 credits for every hour it is awake. It sleep
 
 ## Open questions
 
-None for Tyton right now. Answered on 2026-11-18:
+- **Coin flip on the Floor, and its edge** (asked Tyton on 2026-11-18 with a decision card): keep it with a 2% edge (recommended), keep it with no edge, or keep it only as the template and hide it. It runs at 2% (`coinflip_edge_pct`, provisional) until he answers.
+
+Answered on 2026-11-18:
 
 - **Rounding at the 100-chip scale:** chips are tracked in whole hundredths (`shared/chips.ts`), cents shown only when an amount is not whole. Bets may have cents, so "all" is all.
 - **Credits on Personal:** keep the database asleep when nobody plays and keep merges batched. Tyton decides on auto-recharge.
@@ -100,10 +106,14 @@ None for Tyton right now. Answered on 2026-11-18:
 - **6. Season basics.** `server/lib/seasons.ts`: create (no overlaps), lazy start with starting balances, late joiners, `requireBetsOpen` by database time, `standings`. `GET /api/season`, `GET /api/leaderboard`, `GET`/`POST /api/seasons` (admin). `npm run db:seed:local` and the browser tests use the same sample data.
 - **7. Live layer.** `shared/events.ts` types every event (lanes add theirs by extending the maps from their own files). `server/lib/live.ts` publishes after the commit to Ably, the local relay or nowhere, never failing a request, with a channel prefix per deploy. `GET /api/live/token` gives a token that can only listen, share presence on `presence`, and hear the player's own channel. A season start, a new season and a late joiner are announced, and `/api/season` and `/api/leaderboard` carry the same versions as the events. In the browser, `src/live/` has the client (each event once, resync on connect, on a lost resume and after a hidden tab, one online entry per player, recovery with a fresh token), the local and Ably transports (Ably loads only when used), and the hooks (`useLiveEvent`, `useResync`, `useOnlinePlayers`, `usePresenceRoom`, `usePlaying`, `useAwayAfter`, `useLiveStatus`). A browser test with two players proves presence, room changes, server news and leaving on the local relay. The Ably path waits for the preview and `ABLY_API_KEY`.
 - **8. Shell.** Desktop (1440), tablet (768 to 1100, the sidebar behind a button) and phone (375, a tab bar with chat and the leaderboard as sheets) layouts on the `midnight` tokens: the left rail with who is in each room, the top bar (animated wallet and vault, a widget slot, the season clock, sound, the account menu), the ticker, and the sidebar with the live leaderboard (rows slide and show arrows when ranks change), who is online and where, and chat. The Floor has a card per room with who is inside and the last win. Rooms and pages that lanes have not built show a placeholder naming the lane. Sign-in, signup and reset pages, and a small admin setup page for invite codes, reset codes and seasons until the admin lane's panel lands. Server: `GET`/`POST /api/chat`, `DELETE /api/chat/:id` (admin), `GET /api/players`, `GET /api/ticker`, and `server/lib/chat.ts` (`systemPost`, `insertChatMessage`) for lanes. The shared UI kit is in `src/kit/` (API client with retries for keyed requests, toasts, avatars, player names with tier colors and badges, animated numbers, the server clock offset, sound settings, query hooks). Browser tests at 1440 and 375: two players see each other online and in which room, open each other's cards, chat both ways with mentions, and drop out of the list when a tab closes; logging in returns to the page asked for; the Floor, a room and setup render at both sizes.
+- **9. Game kit.** Server: the round helper in `server/lib/rounds.ts`. `playTransaction` hands a game a `Play` (start, act, raise, settle, refund) inside one keyed transaction, with one open round per player per game, big bets and all-ins flagged, and the room events, the ticker, the wallet news and the chat post for a big result published after the commit. `finishIdleRounds` settles abandoned rounds from the room route, so no timer is needed, and `roomState` answers the room route. The random helpers gained `pickWeighted`. Browser (`src/kit/`): `useRoom` (seats and rounds kept live; another player's result lands on their seat after their reveal), `usePlay` (one move at a time, a key per move, and the news of a result held until the reveal ends, so the top bar, the leaderboard, the ticker, chat and your own seat never give it away), the typed `BetBox` (50, 2.5k, half, all, max; ½, 2× and Max; the last bet remembered; Enter, Space and M; the cursor back in the box after each round on desktop), `Seat` (stake, animated result, a gold glow for big bets and all-ins), `RoomLayout` (header with the how-to-play card, the other seats, your seat as the table, controls in thumb reach on a phone), `Button`, `Kbd` and `useShortcuts`, a `seat` slot for lanes, sounds and celebrations scaled to the win.
+- **10. Coin flip.** `/room/coinflip`: call heads or tails and type a bet. The coin spins the moment you bet and lands on the server's answer in 600ms (150ms with reduced motion), and a new bet finishes a landing at once. A win pays 1.96x at the provisional 2% edge (`coinflip_edge_pct`). Other players' seats show a small coin spinning and landing. Desktop is all keyboard (H, T, Enter or Space); the phone is one-handed. Tests: 11 unit (payouts, rounding, the exact return at every edge, a million real flips at 98% within half a percent), 9 integration (both outcomes, the events, no secret, a replayed key, 16 parallel all-ins, refusals, sessions and keys, the all-in chat post, the room, the edge setting), and a two-player browser test at 1440 and 375. All 262 unit and integration tests and 11 browser tests pass.
+- **11. Lane guide.** `docs/LANE_GUIDE.md`: the folder map as built, what each lane owns, how the toolkit enforces each rule, the coin flip step by step, multi-move and shared rounds, features and slots, the server toolkit, live events, who writes which core table, migration numbering, the browser kit, look and feel, testing, costs, environment variables, commands and notes for each lane. Made while writing it: the coin's colors moved to `src/theme/games/coinflip.css` as the pattern for game colors, a manifest can set its Floor `pitch`, and `npm run db:reset:local` rebuilds the dev database.
 
 ## Not done
 
-Deliverables 9 to 11 and the exit check.
+- **The exit check on the deploy preview.** It needs three things from Tyton (Needs from Tyton, items 3 to 5): the Ably key, the preview admin code, and network access for this build container to open the preview. Everything it checks already passes locally, on the local live relay.
+- **Coin flip's edge** waits for Tyton's answer (Open questions). It runs at 2% until then.
 
 ## Decisions
 
@@ -128,6 +138,14 @@ Deliverables 9 to 11 and the exit check.
 - **Chat deletes are soft** (`deleted_at`), so the audit log can point at the message; the body never goes into the audit row. The list leaves deleted messages out. Chat is limited by the route (60 a minute) and by `chat_burst_count` per `chat_burst_seconds` (5 per 10 seconds).
 - **The browser's leaderboard stays current from `standing.changed` events** without refetching: it re-sorts locally, keeps players the server ranked level (everyone at the season start) level until one of them moves, and refetches only for a player it does not know. Gold is for a sole leader.
 - **Logging out reloads the page** on `/login`, so nothing of the player stays in memory on a shared device (caches, the live connection, every store). If the server cannot be reached, the player is told and stays signed in, because the session cookie would still be there.
+- **Bets travel as typed text** and the server resolves them against the locked wallet: "all", "allin" and "all-in" are the balance, "half" is half, "max" is the largest bet `max_bet_pct` allows, and "2.5k" is shorthand. A bet below `min_bet` or above the wallet is refused in plain words.
+- **One open round per player per game** (a partial unique index). Several bets on one shared round, or a split hand, live in one round's detail, and `raise` adds stake.
+- **News of your own result waits for your reveal**: the top bar, the leaderboard, the ticker, the chat post and your own seat change when the animation lands, never before (at most 15 seconds). Another player's result lands on their seat after their reveal too.
+- **The coin flip is one request**: the bet and the flip happen in one transaction, the coin drawn after the stake is taken, so no round is ever left open and there is nothing to resume.
+- **A round saves the config it depends on** in its detail (the coin flip saves its edge), so the payout and the replay agree if the admin changes a value mid-round.
+- **Game colors live with the game**, in `src/theme/games/<game>.css` on plain `:root`, so lanes need no shared change for their own colors and a later theme can still restyle them.
+- **Who writes which core table** is set in `docs/LANE_GUIDE.md` (section 12). Lanes write their own rows in `shared_rounds`, `daily_state` (economy and heist each own named columns), `steals`, `shields`, `shield_purchases` and `season_results` directly; chips only ever move through `server/lib/wallet.ts` and rounds only through the round helper.
+- **Migration numbers.** Drizzle Kit 1.0 merges parallel lanes' migrations cleanly (checked: after two lanes' migrations merge, generate finds nothing and `drizzle-kit check` passes). Production refuses a migration numbered below one it has applied, and the local runner does not check this, so a lane renumbers its migration before merging when `main` has a newer one (`docs/LANE_GUIDE.md`, Migration numbers).
 
 ## Shared changes for lanes to know
 

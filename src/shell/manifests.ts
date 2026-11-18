@@ -37,6 +37,12 @@ export interface GameManifest {
   room: Lazy
   /** The how-to-play card: a few short paragraphs. */
   howToPlay: readonly string[]
+  /**
+   * One short line under its name on the Floor, such as "Heads or tails.".
+   * Every spec game has one in src/shell/planned.ts already; set this only
+   * to change it.
+   */
+  pitch?: string
   /** Its icon. Planned games have one drawn by the shell already. */
   icon?: Icon
   /** Art for its Floor card, drawn in the card's top half. */

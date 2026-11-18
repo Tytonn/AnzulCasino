@@ -2,7 +2,7 @@
 
 Running status for the whole build. The coordinator owns this file; the Foundation thread keeps it current while Stage 1 runs.
 
-Last updated: 2026-11-18 08:05 UTC
+Last updated: 2026-11-18 09:15 UTC
 
 ## Stage
 
@@ -12,7 +12,7 @@ Last updated: 2026-11-18 08:05 UTC
 
 | Thread | Lane | Branch | Stage | Status |
 | --- | --- | --- | --- | --- |
-| Foundation | foundation | `foundation` | Stage 1 | Deliverables 1 to 8 pushed (repo, database, accounts, wallet and ledger, config, season basics, live layer, shell), plus the shared parts of every spec addition so far. Tested locally, including two-browser tests at 1440 and 375; the Ably path waits for the preview. Building deliverable 9 (game kit). Pull request #1 open as a draft. |
+| Foundation | foundation | `foundation` | Stage 1 | All 11 deliverables pushed: repo, database, accounts, wallet and ledger, config, season basics, live layer, shell, game kit, the coin flip, and `docs/LANE_GUIDE.md`, plus the shared parts of every spec addition so far. 262 unit and integration tests and 11 browser tests (two players, 1440 and 375) pass locally. Left: the exit check on the deploy preview, which waits on Tyton's three items below. Pull request #1 open as a draft. |
 
 ## Merged to main
 
@@ -26,11 +26,11 @@ Last updated: 2026-11-18 08:05 UTC
 
 ## Blocked
 
-- Nothing blocks the build. Deploy previews build on every push to pull request #1, but the build container cannot open them yet: its network blocks `*.netlify.app`. Tyton will allow the preview's hostname and the Ably hosts when he is at a computer (deferred on 2026-11-18, he was on his phone). Until then everything is tested locally.
+- **The Stage 1 exit check** waits on Tyton's three items below. Deploy previews build on every push to pull request #1, but the build container cannot open them yet: its network blocks `*.netlify.app`. Tyton will allow the preview's hostname and the Ably hosts when he is at a computer (deferred on 2026-11-18, he was on his phone). Everything the exit check covers passes locally on the local live relay.
 
 ## Needs from Tyton
 
-All three can wait until Tyton is at a computer; local tests cover the work until then.
+All three are needed for the exit check, the last step of Stage 1.
 
 1. Ably: an API key in the Netlify environment variable `ABLY_API_KEY` (needed to test deliverable 7 on the preview). Steps in `docs/progress/foundation.md`.
 2. `ADMIN_BOOTSTRAP_CODE` in Netlify, with a separate Deploy Previews value that Tyton shares with the Foundation thread (needed to create the first admin on the preview).
@@ -102,6 +102,7 @@ Provisional defaults with no number in the spec (the owning lane tunes them with
 
 ## Open questions
 
+- **For Tyton:** should the coin flip stay on the Floor, and with what house edge? Asked with a decision card on 2026-11-18; the Foundation thread recommends keeping it at 2%. It runs at 2% (`coinflip_edge_pct`, provisional) until he answers.
 - **For the economy lane:** "unlocks day 1" most likely means the first game day of the season. The lane should confirm with Tyton before building the unlock countdown.
 - ~~**For the economy lane:** what counts as an "unusually large" work or crime amount.~~ Resolved by Tyton, see Decisions.
 - ~~**For the race lane:** whether each runner's odds are fixed or drawn fresh for every race.~~ Resolved by Tyton, see Decisions. Still provisional: the 45/20/10-second split of the 75-second cycle.
@@ -110,3 +111,4 @@ Provisional defaults with no number in the spec (the owning lane tunes them with
 
 - First wave (after Foundation merges): blackjack, roulette, heist, economy.
 - Second wave: arcade (mines, plinko), crash, slots, social, admin, russian-roulette, race. At most four lanes at once.
+- Production refuses a migration numbered below one it has already applied. Publishing production after a whole wave has merged, rather than between lane merges, means lanes rarely have to renumber a migration (`docs/LANE_GUIDE.md`, Migration numbers).
