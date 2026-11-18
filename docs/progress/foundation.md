@@ -67,7 +67,7 @@ Netlify bills the database about 10 credits for every hour it is awake. It sleep
 
 ## Needs from Tyton
 
-1. **Permission for one starter commit on `main`** (a README), so `foundation` has a base and a pull request can open. Asked on a decision card.
+1. ~~Permission for one starter commit on `main`.~~ Approved 2026-11-18.
 2. **Netlify project.** If one already exists, tell me its name and which repo it is linked to. If not, once `main` exists:
    1. app.netlify.com > **Add new project** > **Import an existing project** > **GitHub** > `Tytonn/AnzulCasino`.
    2. Branch to deploy: `main`. Leave the build settings empty; `netlify.toml` sets them.
@@ -82,30 +82,14 @@ Netlify bills the database about 10 credits for every hour it is awake. It sleep
 
 ## Open questions
 
-### Rounding at the 100-chip scale
+None for Tyton right now. Answered on 2026-11-18:
 
-The spec says payouts round down to a whole chip. With stakes of 1 to 20 chips, that rounding eats most of the edge math:
-
-- A 1-chip bet can never profit at any multiplier under 2x. A crash cash-out at 1.9x or a mines cash-out at 1.1x pays back exactly 1.
-- Plinko's 0.5x and 0.3x buckets pay 0 on a 1-chip ball, so the real return on small balls is far below the 98% the test checks.
-- Blackjack's 3:2 on a 5-chip bet pays 7 instead of 7.5.
-- Slots cannot split a bet under 10 chips across ten paylines.
-- Steals at 0.5% to 4% of a 60-chip wallet take 0 to 2 chips. The 5% fine on a 15-chip wallet is 0.
-- A coin flip paying 1.96x pays 1 on a 1-chip bet.
-
-**Recommendation:** count chips to two decimal places, stored as whole hundredths (still integers, still no floats). Bets stay whole chips; payouts and steals keep their cents, shown as `107.50`. The alternative is whole chips with game minimums around 10 chips, which is 10% of a starting stack.
-
-The code keeps the chip unit in one constant (`shared/chips.ts`), so either answer is a small change. I will build with whole chips, as the spec says, until this is decided.
-
-### Netlify credits on Personal
-
-- A live season will likely need more than 1,000 credits a month. If friends are on and off through about 6 hours of each day, the database alone is about 60 credits a day, or 1,800 a month. Functions add a few credits a day.
-- The build itself uses credits too. Preview deploys are free, but their functions and database branches bill while anyone tests them, and four lanes testing at once is about 40 credits an hour.
-- **When the balance reaches 0, Netlify pauses every site on the account.** A safety net: turn on auto-recharge (500 credits for $5 on Personal) or watch **Usage** weekly. Pro is not needed for the features; it only adds credits and a longer database sleep timer.
+- **Rounding at the 100-chip scale:** chips are tracked in whole hundredths (`shared/chips.ts`), cents shown only when an amount is not whole. Bets may have cents, so "all" is all.
+- **Credits on Personal:** keep the database asleep when nobody plays and keep merges batched. Tyton decides on auto-recharge.
 
 ## Done
 
-- Saved the spec to `docs/SPEC.md` and added Tyton's two additions (typed bets, roulette quick-bet box).
+- Saved the spec to `docs/SPEC.md` and added Tyton's additions from 2026-11-18: typed bets, roulette quick-bet box, chips in hundredths, the 1/100 rebalance, Ranks, Shop, Giveaways, the simulation report, and the Crash lane split.
 - Installed Netlify's agent skills into `.claude/skills/`.
 - Read the current Netlify Database, Functions, billing and Ably docs.
 - Started `docs/progress/coordinator.md`.

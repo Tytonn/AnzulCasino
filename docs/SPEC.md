@@ -109,6 +109,7 @@ These rules apply to every line of code in every lane. The foundation thread cop
 
 1. **The server decides everything.** The browser sends intents: bet 500, hit, cash out. It never sends an outcome, a balance, a multiplier or a card.
 2. **Chips are whole numbers.** Store them as `bigint`. No floats in chip math. Payouts round down to a whole chip.
+   _(Changed by Tyton, Nov 18, 2026.)_ Chips are tracked in whole hundredths of a chip: every amount is a `bigint` count of hundredths, so there are still no floats. Payouts, steals and fines round down to a whole hundredth. Show cents only when an amount is not a whole number (`107.50`, but `107`).
 3. **Every balance change is one ledger row**, written in the same database transaction as the thing that caused it. A wallet's balance must always equal the sum of its ledger rows. A test checks this.
 4. **Lock before you spend.** Every transaction that moves chips locks the wallet row first (`SELECT ... FOR UPDATE`), then checks the balance. Two fast clicks must never spend the same chips twice.
 5. **Every chip-moving request is idempotent.** The browser sends a unique key with it. A repeated key returns the first result and changes nothing.
@@ -215,16 +216,20 @@ Daily limits reset at 4:00 AM Central, so a late-night session is not split in t
 
 Chips enter through the season start, the daily bonus, challenges and the rebuy. They leave through the house edge and shield purchases. They move between players only through steals. There is no gifting.
 
+_(Updated Nov 18, 2026.)_ Chips also enter through rank income, chat drops and admin giveaways, and also leave through rank purchases and extra steal attempts. See Ranks and Giveaways below, and Shop in the steal section. Players still cannot give chips to each other.
+
 The house edge slowly drains everyone, so the daily inflows are what keep a month-long season alive and give a broke player a way back.
+
+_(Rebalanced by Tyton, Nov 18, 2026.)_ The season starts with 100 chips, so every absolute chip amount below is the original value divided by 100. The original value is in brackets. Percentages are unchanged.
 
 | Setting | Start value | What it does |
 | --- | --- | --- |
-| `starting_balance` | 10,000 | Chips each player gets at season start |
-| `daily_bonus` | 500 | Claimed once per game day |
-| `streak_step` / `streak_max` | +100 / 1,000 | Bonus grows by 100 per day in a row, up to 1,000. A missed day resets it |
-| `challenges_per_day` | 3 | Small goals, each worth 150 to 400 chips |
-| `rebuy_amount` / `rebuy_below` | 500 / 250 | Once per game day, a player under 250 net worth can claim 500 |
-| `min_bet` | 10 | Smallest bet in any game |
+| `starting_balance` | 100 (10,000) | Chips each player gets at season start |
+| `daily_bonus` | Replaced by Ranks (500) | _(Nov 18, 2026: ranks replace the flat daily bonus. Base rank income is 5 a day. The streak bonus stays.)_ |
+| `streak_step` / `streak_max` | +1 / 10 (+100 / 1,000) | Bonus grows by 1 per day in a row, up to 10. A missed day resets it |
+| `challenges_per_day` | 3 | Small goals, each worth 2 to 4 chips (150 to 400) |
+| `rebuy_amount` / `rebuy_below` | 5 / 3 (500 / 250) | Once per game day, a player under 3 net worth can claim 5 |
+| `min_bet` | 1 (10) | Smallest bet in any game |
 | `max_bet_pct` | 100 | Largest bet as a share of the wallet. 100 means all-in is allowed |
 | `big_bet_pct` | 50 | A bet at or above this share of net worth is flagged as a big bet in the room |
 
@@ -232,12 +237,42 @@ The house edge slowly drains everyone, so the daily inflows are what keep a mont
 
 - A player has a **wallet** (spendable) and a **vault** (protected, see the steal section). Net worth is the two added together.
 - Every change goes through the ledger with a reason: `season_start`, `bet`, `payout`, `refund`, `daily_bonus`, `challenge`, `rebuy`, `steal_in`, `steal_out`, `fine_in`, `fine_out`, `shield_purchase`, `vault_deposit`, `vault_withdraw`, `admin_adjust`.
+- _(Added Nov 18, 2026.)_ Further reasons for the additions: `rank_purchase`, `rank_income`, `chat_drop`, `giveaway`, `steal_attempt_purchase`. The streak bonus keeps `daily_bonus`.
 
 ### Challenges
 
 - Each player gets three per game day, picked from a pool. Examples: win 3 blackjack hands, hit a single number in roulette, cash out above 3x in crash, play three different games.
 - Progress is worked out by querying that player's settled rounds for the game day. No game needs challenge code inside it.
 - A finished challenge shows a toast, and the player claims the chips with one click.
+
+### Ranks
+
+_(Added by Tyton, Nov 18, 2026. Owner: economy lane.)_
+
+- Ranks replace the flat daily bonus. Every player has a rank that pays income. The streak bonus stays.
+- Income accrues continuously at the rank's daily rate and is claimed with a Collect button in the top bar. Uncollected income caps at 24 hours' worth. Compute it from saved timestamps against database time.
+- Tiers (all config, for a starting balance of 100):
+  - Base: free, income 5 per day
+  - Bronze: unlocks day 1, costs 150, income 15 per day
+  - Silver: unlocks day 3, costs 1,000, income 100 per day
+  - Gold: unlocks day 6, costs 10,000, income 1,000 per day
+  - Platinum: unlocks day 10, costs 100,000, income 10,000 per day
+  - Diamond: unlocks day 14, costs 1,000,000, income 100,000 per day
+  - Crown: unlocks day 18, costs 10,000,000, income 1,000,000 per day
+- A rank cannot be bought before its unlock day. A player can buy only the next rank up, and at most one per game day. The price is removed from the game and does not count toward net worth.
+- Ranks cannot be bought in the final 24 hours and cannot be stolen or sold.
+- Each rank gives a badge and name color shown in chat, the leaderboard, the online list and the player's seat.
+- Show a countdown to the next unlock in the shop and announce each unlock in chat.
+
+Naming note: in code these ranks are called **tiers** (`tier`), because "rank" already means a player's place on the leaderboard.
+
+### Giveaways
+
+_(Added by Tyton, Nov 18, 2026.)_
+
+- Chat drops (economy lane): at random times a pot appears in chat and the first few players to claim it split it. Frequency, pot size and number of winners are config. Claims are decided on the server, one per player per drop.
+- Admin giveaways (admin lane): the admin can give chips to chosen players or split a pot among everyone. Each one posts in chat with names and amounts, and is written to the public audit page.
+- Rebuy stays, so a broke player always has a way back in.
 
 ### Keeping it balanced
 
@@ -363,7 +398,7 @@ The whole steal runs in one transaction that locks both wallets, lower player id
 | `daily_loss_cap_pct` | 4% | Most of your net worth you can lose to steals in a game day |
 | `steal_fine_pct` | 5% | Share of the thief's wallet paid to the target on a failed steal |
 | `immunity_hours` | 3 | Immunity after being robbed or after a shield block |
-| `steal_floor` | 2,500 | Players under this net worth cannot be robbed |
+| `steal_floor` | 25 (2,500; rebalanced Nov 18, 2026) | Players under this net worth cannot be robbed |
 | `final_freeze_hours` | 24 | No steals this close to the season end |
 
 **Worked example.** You are 10th with 4,000 chips. The leader has 60,000 in the wallet and nothing in the vault. The gap is 9, so the rate is the 4% maximum. A success moves 2,400 chips: you gain 60%, the leader loses 4%, gets 3 hours of immunity and has hit the daily cap. A failure costs you 200 chips, paid to the leader.
@@ -372,7 +407,7 @@ The whole steal runs in one transaction that locks both wallets, lower player id
 
 - A shield is a **charge**, not a timer. One charge blocks one steal and then starts the immunity window.
 - Hold at most `shield_max_charges` (2). Buy at most `shield_weekly_limit` (3) per season week.
-- Price is 2% of the buyer's wallet, with a minimum of 300 chips. The chips are removed from the game.
+- Price is 2% of the buyer's wallet, with a minimum of 300 chips. The chips are removed from the game. _(Rebalanced Nov 18, 2026: the minimum is 3 chips.)_
 - The top bar shows charges as pips and immunity as an exact countdown.
 - Shields cannot be bought in the final 24 hours.
 
@@ -381,6 +416,12 @@ The whole steal runs in one transaction that locks both wallets, lower player id
 - Chips in the vault cannot be stolen and cannot be bet. They still count toward rank.
 - The vault can hold up to `vault_cap_pct` (25%) of net worth, checked at the moment of deposit.
 - One vault move per game day, deposit or withdrawal.
+
+### Shop
+
+_(Added by Tyton, Nov 18, 2026. The heist lane owns the page; other lanes supply items through their manifests.)_
+
+- Sells ranks, shield charges, and one extra steal attempt per game day at a config price. The two free daily steal attempts stay.
 
 ### Tune it before the first season
 
@@ -393,6 +434,12 @@ It prints:
 - How much a typical steal is worth to a bottom-half player, as a share of their own net worth.
 - Chips moved by steals against chips won and lost at the tables. Gambling should stay the bigger number.
 - Total chip supply by day.
+
+_(Added by Tyton, Nov 18, 2026. Owner: heist lane.)_
+
+- Players average about 2,000 games each over the month, roughly 70 a day, with frequent all-in bets. Model that.
+- Report: the day each rank is first bought, how many players hold each rank at the end, the share of final net worth that came from rank income and from giveaways, and whether an early rank buyer beats a non-buyer.
+- Flag it if the top rank is bought by most players or by none.
 
 ## Social layer
 
@@ -555,13 +602,20 @@ A lane owns everything named after it: `src/games/<name>/` or `src/features/<nam
 | Roulette | `lane/roulette` | The shared-wheel roulette room | `roulette` |
 | Heist | `lane/heist` | Steal, shields, vault, shop, season simulation | `heist`, plus `scripts/simulate-season.ts` |
 | Economy | `lane/economy` | Daily bonus, streaks, challenges, rebuy, final day, podium, Hall of Fame | `economy`, `season` |
-| Arcade | `lane/arcade` | Mines, then Plinko, then Crash | `mines`, `plinko`, `crash` |
+| Arcade | `lane/arcade` | Mines, then Plinko _(Crash moved to its own lane, Nov 18, 2026)_ | `mines`, `plinko` |
 | Slots | `lane/slots` | The slots room | `slots` |
 | Social | `lane/social` | Chat upgrades, reactions, notifications, history and replays, profiles, leaderboard page | `social`, `history`, `profile` |
 | Admin | `lane/admin` | Admin panel, config editor, Audit page | `admin` |
 
+_(Updated Nov 18, 2026.)_ Changes to the lanes above:
+
+- **Crash gets its own lane** in the second wave: branch `lane/crash`, builds the crash room, owns the name `crash`. Arcade keeps Mines and Plinko and owns `mines` and `plinko`.
+- **Economy** also builds Ranks and chat drops (see Economy > Ranks and Giveaways).
+- **Heist** also owns the Shop page and the new simulation report (see Steal, shields and vault > Shop and Tune it before the first season).
+- **Admin** also builds admin giveaways (see Economy > Giveaways).
+
 - **First wave:** Blackjack, Roulette, Heist, Economy. These are the games your group plays most and the season mechanics.
-- **Second wave:** Arcade, Slots, Social, Admin.
+- **Second wave:** Arcade, Slots, Social, Admin. _(Nov 18, 2026: plus Crash.)_
 - Run as many at once as you can comfortably review. Four is a sensible ceiling.
 
 **When a lane needs a shared change.** It does not make the change. It lists it under a heading named Shared changes needed in its pull request and progress file. You hand the list to one thread working on `main`, merge that, and the lanes pull.
@@ -634,10 +688,11 @@ Keep docs/progress/[LANE].md current. When you are done, give me a summary, the 
 | roulette | `lane/roulette` | Games: the room model, Roulette | `roulette` |
 | heist | `lane/heist` | Steal, shields and vault | `heist`, `scripts/simulate-season.ts` |
 | economy | `lane/economy` | Economy; Accounts and seasons | `economy`, `season` |
-| arcade | `lane/arcade` | Games: the room model, Mines, Plinko, Crash | `mines`, `plinko`, `crash` |
+| arcade | `lane/arcade` | Games: the room model, Mines, Plinko _(Crash moved to its own lane, Nov 18, 2026)_ | `mines`, `plinko` |
 | slots | `lane/slots` | Games: the room model, Slots | `slots` |
 | social | `lane/social` | Social layer | `social`, `history`, `profile` |
 | admin | `lane/admin` | Admin and trust | `admin` |
+| crash | `lane/crash` | Games: the room model, Crash _(added Nov 18, 2026)_ | `crash` |
 
 ### Integration thread
 
