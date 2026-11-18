@@ -13,7 +13,7 @@ import pg from 'pg'
 import { afterAll } from 'vitest'
 
 import { databaseName, drop, loadDotEnv, recreate, withDatabase } from '../../scripts/db/local.ts'
-import { closeDb } from '../../server/lib/db.ts'
+import { closeDb, endPool } from '../../server/lib/db.ts'
 import { templateUrl } from './db-names.ts'
 
 export interface TestDatabase {
@@ -40,7 +40,7 @@ export async function useTestDatabase(): Promise<TestDatabase> {
   const pool = new pg.Pool({ connectionString: url, max: 2 })
   afterAll(async () => {
     await closeDb()
-    await pool.end()
+    await endPool(pool)
     await drop(url)
   })
 

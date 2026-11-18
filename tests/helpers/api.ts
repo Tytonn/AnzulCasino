@@ -25,8 +25,9 @@ export function apiClient(handler: Handler, options: { ip?: string } = {}) {
     path: string,
     body?: unknown,
     rawBody?: string,
+    extraHeaders: Record<string, string> = {},
   ): Promise<ApiResult<T>> {
-    const headers = new Headers()
+    const headers = new Headers(extraHeaders)
     if (jar.size) headers.set('cookie', [...jar].map(([k, v]) => `${k}=${v}`).join('; '))
     let payload: string | undefined
     if (rawBody !== undefined) {
@@ -54,10 +55,14 @@ export function apiClient(handler: Handler, options: { ip?: string } = {}) {
   }
 
   return {
-    get: <T = any>(path: string) => call<T>('GET', path),
-    post: <T = any>(path: string, body: unknown = {}) => call<T>('POST', path, body),
-    patch: <T = any>(path: string, body: unknown = {}) => call<T>('PATCH', path, body),
-    del: <T = any>(path: string) => call<T>('DELETE', path),
+    get: <T = any>(path: string, headers?: Record<string, string>) =>
+      call<T>('GET', path, undefined, undefined, headers),
+    post: <T = any>(path: string, body: unknown = {}, headers?: Record<string, string>) =>
+      call<T>('POST', path, body, undefined, headers),
+    patch: <T = any>(path: string, body: unknown = {}, headers?: Record<string, string>) =>
+      call<T>('PATCH', path, body, undefined, headers),
+    del: <T = any>(path: string, headers?: Record<string, string>) =>
+      call<T>('DELETE', path, undefined, undefined, headers),
     raw: <T = any>(method: string, path: string, body: string) =>
       call<T>(method, path, undefined, body),
     cookies: jar,

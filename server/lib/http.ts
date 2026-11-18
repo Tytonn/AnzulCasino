@@ -6,8 +6,9 @@
  *
  * Every route gets, without writing it again: the session check (rule 10),
  * a per-player rate limit (rule 10), input validation with a Zod schema
- * (rule 10), JSON with chip amounts as numbers, plain-word errors, and
- * `waitUntil` for publishing live events after the commit.
+ * (rule 10), the Idempotency-Key header on chip-moving routes (rule 5), JSON
+ * with chip amounts as numbers, plain-word errors, and `waitUntil` for
+ * publishing live events after the commit.
  */
 import type { Context } from '@netlify/functions'
 import type { z } from 'zod'
@@ -22,6 +23,7 @@ import {
 } from './auth.ts'
 import { db } from './db.ts'
 import { ApiError, badRequest, forbidden, unauthorized } from './errors.ts'
+import { IDEMPOTENCY_HEADER, IDEMPOTENCY_KEY_PATTERN, sweepOldKeys } from './idempotency.ts'
 import { toJson } from './json.ts'
 import { enforce, type Limit, sweepOldWindows } from './rate-limit.ts'
 
@@ -35,6 +37,10 @@ export interface RouteContext<I, A extends Auth> {
   user: A extends 'public' ? null : SessionUser
   /** Values for :name segments in the route's path. */
   params: Record<string, string>
+  /** This route, such as "POST /api/coinflip/play". */
+  action: string
+  /** The Idempotency-Key header on `idempotent` routes; null on the others. */
+  idempotencyKey: string | null
   ip: string
   /**
    * The database's clock when the session was checked (spec rule 8). On
@@ -57,6 +63,12 @@ export interface Route<I = unknown, A extends Auth = Auth> {
   input?: z.ZodType<I>
   /** Defaults: 120 a minute per player, or 30 a minute per address on public routes. */
   limit?: Limit
+  /**
+   * Set on every route that moves chips (rule 5). The browser must then send
+   * an Idempotency-Key header, and the route runs its work through
+   * chipTransaction() in server/lib/idempotency.ts.
+   */
+  idempotent?: boolean
   run(ctx: RouteContext<I, A>): Promise<unknown>
 }
 
@@ -192,6 +204,17 @@ export function createApi(routes: AnyRoute[]) {
         now = auth.now
       }
 
+      let idempotencyKey: string | null = null
+      if (r.idempotent) {
+        idempotencyKey = req.headers.get(IDEMPOTENCY_HEADER)
+        if (!idempotencyKey || !IDEMPOTENCY_KEY_PATTERN.test(idempotencyKey)) {
+          throw badRequest(
+            'This request is missing its request key. Reload the page and try again.',
+            'missing_idempotency_key',
+          )
+        }
+      }
+
       let input: unknown = undefined
       if (r.input) {
         const parsed = r.input.safeParse(await readInput(req, r.method))
@@ -199,14 +222,20 @@ export function createApi(routes: AnyRoute[]) {
         input = parsed.data
       }
 
-      // Keep the rate-limit table small without a scheduled job.
-      if (Math.floor(Date.now() / 1000) % 97 === 0) context.waitUntil(sweepOldWindows(db()))
+      // Keep the rate-limit and key tables small without a scheduled job.
+      if (Math.floor(Date.now() / 1000) % 97 === 0) {
+        context.waitUntil(
+          Promise.all([sweepOldWindows(db()), sweepOldKeys(db())]).catch((e) => console.error(e)),
+        )
+      }
 
       const result = await r.run({
         req,
         input,
         user,
         params,
+        action: bucket,
+        idempotencyKey,
         ip,
         now,
         waitUntil: (promise) => context.waitUntil(promise.catch((e) => console.error(e))),
