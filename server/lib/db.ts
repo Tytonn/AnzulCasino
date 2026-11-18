@@ -10,7 +10,7 @@
  * The client is created once per function instance, on first use, as
  * Netlify's docs ask (a client per request exhausts connections).
  */
-import type { SQL } from 'drizzle-orm'
+import { type SQL, sql } from 'drizzle-orm'
 import { drizzle as netlifyDrizzle } from 'drizzle-orm/netlify-db'
 import { drizzle as pgDrizzle } from 'drizzle-orm/node-postgres'
 import type { PgAsyncDatabase, PgAsyncTransaction, PgQueryResultHKT } from 'drizzle-orm/pg-core'
@@ -77,6 +77,15 @@ export async function closeDb(): Promise<void> {
   const current = instance
   instance = undefined
   await current?.close()
+}
+
+/** The database's clock (spec rule 8). Inside a transaction, the moment it began. */
+export async function dbNow(executor: Executor): Promise<Date> {
+  const [row] = await rows<{ now_ms: number }>(
+    executor,
+    sql`select (extract(epoch from now()) * 1000)::float8 as now_ms`,
+  )
+  return new Date(Number(row?.now_ms))
 }
 
 /**

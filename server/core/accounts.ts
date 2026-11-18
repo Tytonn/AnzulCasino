@@ -23,6 +23,7 @@ import { ApiError, badRequest, conflict, forbidden, tooMany } from '../lib/error
 import { dummyPasswordHash, hashPassword, verifyPassword } from '../lib/passwords.ts'
 import { isUniqueViolation } from '../lib/pg-errors.ts'
 import { hit, peek } from '../lib/rate-limit.ts'
+import { joinSeason, startedSeason } from '../lib/seasons.ts'
 import { normalizeCode } from '../lib/rng.ts'
 
 const INVALID_INVITE = 'That invite code is not valid, or it was already used.'
@@ -98,6 +99,10 @@ export async function signup(input: SignupInput): Promise<{ user: Me; token: str
         .set({ usedBy: user.id, usedAt: sql`now()` })
         .where(and(eq(inviteCodes.code, inviteCode), isNull(inviteCodes.usedBy)))
     }
+
+    // A late joiner gets the same starting balance as everyone else.
+    const season = await startedSeason(tx)
+    if (season) await joinSeason(tx, season, user.id)
 
     const token = await createSession(tx, user.id)
     return { user: toMe(user), token }

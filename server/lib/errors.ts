@@ -3,14 +3,16 @@
  * toast, so it says in plain words what happened and what to do next.
  */
 export class ApiError extends Error {
-  constructor(
-    readonly status: number,
-    readonly code: string,
-    message: string,
-    readonly extra?: Record<string, unknown>,
-  ) {
+  readonly status: number
+  readonly code: string
+  readonly extra: Record<string, unknown> | undefined
+
+  constructor(status: number, code: string, message: string, extra?: Record<string, unknown>) {
     super(message)
     this.name = 'ApiError'
+    this.status = status
+    this.code = code
+    this.extra = extra
   }
 }
 

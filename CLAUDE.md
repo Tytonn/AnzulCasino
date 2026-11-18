@@ -46,6 +46,7 @@ Copied from `docs/SPEC.md`. They apply to every line of code in every lane.
 | Command | What it does |
 | --- | --- |
 | `npm run db:setup:local` | Once per machine: starts the local Postgres, creates the `casino` role and the dev, test and browser-test databases, writes `.env` |
+| `npm run db:seed:local` | Adds sample players (admin, alice, bob, carol; password `password123`) and a running season to the dev database. Safe to run twice |
 | `npm run dev` | The site, the functions and the local live relay on http://localhost:8888. Applies pending migrations to the dev database |
 | `npm run check` | Typecheck, lint (ESLint, Prettier, theme tokens) and the unit and integration tests |
 | `npm run test:e2e` | Browser tests at 1440px and 375px on their own server (port 8899) and a fresh database. `E2E_BASE_URL=<preview url>` runs them against a deploy preview |

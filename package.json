@@ -20,6 +20,7 @@
     "e2e:serve": "node scripts/db/reset-e2e.ts && vite --port 8899 --strictPort",
     "db:generate": "drizzle-kit generate",
     "db:migrate:local": "node scripts/db/migrate-local.ts",
+    "db:seed:local": "node scripts/db/seed-local.ts",
     "db:setup:local": "bash scripts/dev/setup-postgres.sh",
     "check": "npm run typecheck && npm run lint && npm test"
   },

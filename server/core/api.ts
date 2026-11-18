@@ -16,11 +16,28 @@ import {
   SESSION_COOKIE,
   sessionCookie,
 } from '../lib/auth.ts'
+import { CreateSeasonInput } from '../../shared/seasons.ts'
 import { loadConfig } from '../lib/config.ts'
 import { db } from '../lib/db.ts'
 import { createApi, route } from '../lib/http.ts'
+import { chipTransaction } from '../lib/idempotency.ts'
+import {
+  createSeason,
+  currentSeason,
+  listSeasons,
+  type Season,
+  seasonSnapshot,
+  standings,
+  toSeasonView,
+} from '../lib/seasons.ts'
 import { login, redeemReset, signup, updateProfile } from './accounts.ts'
 import { createCode, listCodes } from './invites.ts'
+
+/** Seasons as the API sends them, with their phase at `now` (database time). */
+async function seasonViews(now: Date) {
+  const { final_freeze_hours } = await loadConfig(db())
+  return (season: Season | null) => (season ? toSeasonView(season, now, final_freeze_hours) : null)
+}
 
 const FIFTEEN_MINUTES = 15 * 60
 
@@ -104,6 +121,64 @@ export const coreRoutes = [
     auth: 'user',
     async run() {
       return { config: await loadConfig(db()) }
+    },
+  }),
+  route({
+    method: 'GET',
+    path: '/api/season',
+    auth: 'user',
+    async run({ user, now }) {
+      const snapshot = await seasonSnapshot(user.id)
+      const view = await seasonViews(now)
+      const wallet = snapshot.wallet
+      return {
+        current: view(snapshot.current),
+        next: view(snapshot.next),
+        wallet: wallet && { balance: wallet.balance, vault: wallet.vault, tier: wallet.tier },
+      }
+    },
+  }),
+  route({
+    method: 'GET',
+    path: '/api/leaderboard',
+    auth: 'user',
+    async run() {
+      const season = await currentSeason()
+      if (!season) return { seasonId: null, standings: [] }
+      return { seasonId: season.id, standings: await standings(db(), season.id) }
+    },
+  }),
+  route({
+    method: 'GET',
+    path: '/api/seasons',
+    auth: 'admin',
+    async run({ now }) {
+      const view = await seasonViews(now)
+      return { seasons: (await listSeasons(db())).map(view) }
+    },
+  }),
+  route({
+    method: 'POST',
+    path: '/api/seasons',
+    auth: 'admin',
+    // Starting a season gives out chips, so a repeated request must not.
+    idempotent: true,
+    input: CreateSeasonInput,
+    limit: { limit: 10, windowSeconds: 60 },
+    async run(ctx) {
+      const { input, user } = ctx
+      const view = await seasonViews(ctx.now)
+      return chipTransaction(ctx, async (tx) => {
+        const season = await createSeason(tx, {
+          name: input.name,
+          startsAt: input.startsAt,
+          endsAt: input.endsAt,
+          startingBalance:
+            input.startingBalance === undefined ? undefined : BigInt(input.startingBalance),
+          actorId: user.id,
+        })
+        return { season: view(season) }
+      })
     },
   }),
   route({
