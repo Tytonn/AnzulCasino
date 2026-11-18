@@ -239,6 +239,14 @@ export const SidebarIcon = svg(
 )
 export const LogoutIcon = svg(<path d="M10 4H5.5v16H10M14.5 8l4 4-4 4M18.5 12H9" />, 'line')
 export const PlusIcon = svg(<path d="M12 5v14M5 12h14" />, 'line')
+export const HelpIcon = svg(
+  <>
+    <circle cx="12" cy="12" r="8.6" />
+    <path d="M9.6 9.4a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.1-2.4 3.6" />
+    <path d="M12 16.9h.01" strokeWidth="2.4" />
+  </>,
+  'line',
+)
 export const CopyIcon = svg(
   <>
     <rect x="8.5" y="8.5" width="11" height="11" rx="2" />

@@ -16,6 +16,7 @@ import type { ChatMessage } from '../../shared/chat.ts'
 import type { PlayerSummary } from '../../shared/players.ts'
 import type { RoundView } from '../../shared/rounds.ts'
 import type { Icon } from '../kit/icons.tsx'
+import type { SeatExtrasProps } from '../kit/seat-extras.ts'
 
 /** A module loaded when first needed: `() => import('./Room.tsx')`. */
 export type Lazy<P = object> = () => Promise<{ default: ComponentType<P> }>
@@ -105,6 +106,12 @@ export interface SlotProps {
   'chat-composer': { sent(message: ChatMessage): void }
   /** Under each chat message, such as reactions. */
   'chat-message': { message: ChatMessage }
+  /**
+   * On every seat in every room, such as the social lane's seat reactions.
+   * The seat is `relative`: draw inside its box (`absolute inset-0` covers
+   * it) and leave the seat's own content readable.
+   */
+  seat: SeatExtrasProps
   /** Above the page in the center column, such as the final-day banner. */
   banner: Record<string, never>
   /** Mounted once for the whole session: notification toasts, celebrations. */

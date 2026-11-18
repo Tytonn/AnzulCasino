@@ -104,8 +104,36 @@
   }
 }
 
+@keyframes seat-glow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px color-mix(in oklab, var(--gold) 55%, transparent),
+      0 0 14px -4px color-mix(in oklab, var(--gold) 40%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px color-mix(in oklab, var(--gold) 85%, transparent),
+      0 0 30px -2px color-mix(in oklab, var(--gold) 55%, transparent);
+  }
+}
+
 /* Shared classes. In the components layer, so utilities still win over them. */
 @layer components {
+  /* A seat with a big bet or an all-in on it (spec: Big bets get noticed). */
+  .seat-glow {
+    animation: seat-glow 1.6s ease-in-out infinite;
+  }
+
+  /* The table in the middle of a room. A theme restyles it with --felt. */
+  .table-felt {
+    background-image: radial-gradient(
+      ellipse 85% 70% at 50% 38%,
+      var(--felt),
+      var(--felt-edge) 78%
+    );
+  }
+
   /* Thin, quiet scrollbars in the rail, sidebar and sheets. */
   .scroll-quiet {
     scrollbar-width: thin;
@@ -142,6 +170,13 @@
   }
   .skeleton {
     animation: none;
+  }
+  /* A steady glow instead of a pulse. */
+  .seat-glow {
+    animation: none;
+    box-shadow:
+      0 0 0 1px color-mix(in oklab, var(--gold) 80%, transparent),
+      0 0 24px -4px color-mix(in oklab, var(--gold) 50%, transparent);
   }
   /* Arrows stay until the next move instead of fading. */
   .fade-late {

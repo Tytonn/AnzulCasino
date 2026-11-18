@@ -59,6 +59,10 @@
   --radius-md: 12px;
   --radius-lg: 18px;
 
+  /* The table in the middle of a room: a soft pool of light on the surface. */
+  --felt: color-mix(in oklab, var(--accent) 13%, var(--surface-2));
+  --felt-edge: var(--surface-1);
+
   --shadow-card: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 8px 24px rgb(0 0 0 / 0.28);
   --shadow-pop: 0 18px 48px rgb(0 0 0 / 0.55);
 

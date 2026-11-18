@@ -16,6 +16,7 @@ import type { RoundSummary } from '../../shared/events.ts'
 import type { PlayerSummary } from '../../shared/players.ts'
 import type { LeaderboardView, SeasonState } from '../../shared/seasons.ts'
 import type { Wire } from '../../shared/wire.ts'
+import { isNewer } from '../live/versions.ts'
 import { api, ApiError } from './api.ts'
 
 export const queryKeys = {
@@ -97,6 +98,32 @@ export function useConfig() {
     queryKey: queryKeys.config,
     queryFn: async () => (await api.get<{ config: Wire<ConfigValues> }>('/api/config')).config,
     staleTime: 10 * 60_000,
+  })
+}
+
+/** The player's chips as an API response or a `wallet.updated` event gives them. */
+export interface WalletNews {
+  seasonId: number
+  balance: number
+  vault: number
+  /** The latest ledger id: older news than the top bar shows is dropped. */
+  version: number
+}
+
+/** Moves the top bar to the player's new chips, unless it already shows newer ones. */
+export function applyWallet(queryClient: QueryClient, wallet: WalletNews): void {
+  queryClient.setQueryData<SeasonState>(queryKeys.season, (old) => {
+    if (!old?.wallet || old.current?.id !== wallet.seasonId) return old
+    if (!isNewer(wallet.version, old.wallet.version)) return old
+    return {
+      ...old,
+      wallet: {
+        ...old.wallet,
+        balance: wallet.balance,
+        vault: wallet.vault,
+        version: wallet.version,
+      },
+    }
   })
 }
 

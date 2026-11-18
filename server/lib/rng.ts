@@ -28,6 +28,33 @@ export function pick<T>(items: readonly T[]): T {
   return items[cryptoRandomInt(items.length)] as T
 }
 
+/** The largest range node:crypto's randomInt draws from. */
+const MAX_RANGE = 2 ** 48 - 1
+
+/**
+ * An item drawn with the odds its whole-number weight gives it, exactly:
+ * pickWeighted([['cherry', 30], ['bell', 9], ['seven', 1]]) draws a seven 1
+ * time in 40. A weight of 0 is never drawn.
+ */
+export function pickWeighted<T>(entries: readonly (readonly [item: T, weight: number])[]): T {
+  let total = 0
+  for (const [, weight] of entries) {
+    if (!Number.isSafeInteger(weight) || weight < 0) {
+      throw new Error(`Weights are whole numbers, 0 or more. Got ${weight}`)
+    }
+    total += weight
+  }
+  if (total <= 0 || total > MAX_RANGE) {
+    throw new Error(`pickWeighted() needs a total weight from 1 to 2^48 - 1. Got ${total}`)
+  }
+  let draw = cryptoRandomInt(total)
+  for (const [item, weight] of entries) {
+    if (draw < weight) return item
+    draw -= weight
+  }
+  throw new Error('pickWeighted() ran past its entries')
+}
+
 /** A uniformly shuffled copy (Fisher–Yates). */
 export function shuffle<T>(items: readonly T[]): T[] {
   const copy = [...items]

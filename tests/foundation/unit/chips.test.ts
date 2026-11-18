@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { checkBetAmount, parseBetAmount } from '../../../shared/bet-amount.ts'
+import { checkBetAmount, maxBet, parseBetAmount } from '../../../shared/bet-amount.ts'
 import {
   basisPoints,
   chipCount,
@@ -8,6 +8,7 @@ import {
   floorToChip,
   formatChips,
   formatChipsShort,
+  formatMultiplier,
   formatShare,
   fromWire,
   mulDiv,
@@ -69,6 +70,18 @@ describe('chips', () => {
   })
 })
 
+describe('multipliers', () => {
+  it('shows hundredths without trailing zeros, rounded down', () => {
+    expect(formatMultiplier(200)).toBe('2x')
+    expect(formatMultiplier(196)).toBe('1.96x')
+    expect(formatMultiplier(1_050)).toBe('10.5x')
+    expect(formatMultiplier(100_000)).toBe('1,000x')
+    expect(formatMultiplier(0)).toBe('0x')
+    expect(formatMultiplier(-5)).toBe('0x')
+    expect(formatMultiplier(123.9)).toBe('1.23x')
+  })
+})
+
 describe('typed bet amounts', () => {
   const wallet = chips(1_000) + 50n // 1,000.50
 
@@ -90,8 +103,18 @@ describe('typed bet amounts', () => {
 
   it('resolves all and half against the wallet', () => {
     expect(parseBetAmount('all', wallet)).toEqual({ ok: true, amount: wallet, keyword: 'all' })
-    expect(parseBetAmount('MAX', wallet)).toEqual({ ok: true, amount: wallet, keyword: 'all' })
+    expect(parseBetAmount('All-in', wallet)).toEqual({ ok: true, amount: wallet, keyword: 'all' })
     expect(parseBetAmount('half', 101n)).toEqual({ ok: true, amount: 50n, keyword: 'half' })
+  })
+
+  it('resolves max to the largest bet the limits allow', () => {
+    expect(parseBetAmount('MAX', wallet)).toEqual({ ok: true, amount: wallet, keyword: 'max' })
+    expect(parseBetAmount('max', wallet, { maxBetPct: 10_000 })).toMatchObject({ amount: wallet })
+    expect(parseBetAmount('max', chips(10), { maxBetPct: 2_500 })).toMatchObject({
+      amount: 250n,
+    })
+    expect(maxBet(0n, { maxBetPct: 10_000 })).toBe(0n)
+    expect(maxBet(chips(10), { maxBetPct: 3_333 })).toBe(333n)
   })
 
   it.each(['', 'abc', '5kk', '1e5', '-5', '5 k 3', '1.2.3', 'k'])('rejects %j', (text) => {

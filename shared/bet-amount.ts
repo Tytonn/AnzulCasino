@@ -3,24 +3,36 @@
  * box accepts a number or shorthand: "250", "12.50", "1,000", "5k", "2.5k",
  * "1.2m", "all", "max", "half". The browser uses this to preview the amount;
  * the server resolves the same text again against the locked wallet, so
- * "all" is exactly the balance at the moment the bet is placed.
+ * "all" is exactly the balance at the moment the bet is placed. "max" is the
+ * largest bet the limits allow: the whole wallet while `max_bet_pct` is 100%.
  *
  * Amounts are in hundredths. Anything finer than a hundredth rounds down.
  */
 import { basisPoints, CHIP, chipCount, formatChips, formatShare } from './chips.ts'
 
 export type BetAmountResult =
-  { ok: true; amount: bigint; keyword: 'all' | 'half' | null } | { ok: false; error: string }
+  | { ok: true; amount: bigint; keyword: 'all' | 'half' | 'max' | null }
+  | { ok: false; error: string }
 
 const SUFFIXES: Record<string, bigint> = { k: 1_000n, m: 1_000_000n, b: 1_000_000_000n }
 
-/** Parses typed text into hundredths. `balance` resolves "all" and "half". */
-export function parseBetAmount(text: string, balance: bigint): BetAmountResult {
+/**
+ * Parses typed text into hundredths. `balance` resolves "all" and "half", and
+ * `limits` resolves "max" (the whole wallet without them).
+ */
+export function parseBetAmount(
+  text: string,
+  balance: bigint,
+  limits?: Pick<BetLimits, 'maxBetPct'>,
+): BetAmountResult {
   const input = text.trim().toLowerCase().replace(/,/g, '').replace(/\s+/g, '')
   if (!input) return { ok: false, error: 'Type an amount, like 50, 2.5k, half or all.' }
 
-  if (input === 'all' || input === 'max' || input === 'allin' || input === 'all-in') {
+  if (input === 'all' || input === 'allin' || input === 'all-in') {
     return { ok: true, amount: balance, keyword: 'all' }
+  }
+  if (input === 'max') {
+    return { ok: true, amount: maxBet(balance, limits), keyword: 'max' }
   }
   if (input === 'half') return { ok: true, amount: balance / 2n, keyword: 'half' }
 
@@ -48,12 +60,19 @@ export interface BetLimits {
   maxBetPct: number
 }
 
+/** The largest bet the limits allow from this balance. */
+export function maxBet(balance: bigint, limits?: Pick<BetLimits, 'maxBetPct'>): bigint {
+  if (balance <= 0n) return 0n
+  if (!limits || limits.maxBetPct >= 10_000) return balance
+  return basisPoints(balance, limits.maxBetPct)
+}
+
 /** Checks a parsed amount against the wallet and the limits. */
 export function checkBetAmount(amount: bigint, balance: bigint, limits: BetLimits): string | null {
   if (amount <= 0n) return balance <= 0n ? 'Your wallet is empty.' : 'Bet more than zero.'
   if (amount < limits.minBet) return `The smallest bet is ${formatChips(limits.minBet)}.`
   if (amount > balance) return `You only have ${chipCount(balance)}.`
-  const max = basisPoints(balance, limits.maxBetPct)
+  const max = maxBet(balance, limits)
   if (amount > max) {
     return `The largest bet right now is ${formatChips(max)} (${formatShare(limits.maxBetPct)} of your wallet).`
   }

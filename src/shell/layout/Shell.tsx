@@ -11,6 +11,8 @@
 import { type ReactNode, Suspense, useEffect } from 'react'
 import { Outlet, useLocation } from 'react-router'
 
+import { CelebrationLayer } from '../../kit/celebrate.tsx'
+import { Sheet } from '../../kit/Sheet.tsx'
 import { DESK, TABLET, useMediaQuery, WIDE } from '../media.ts'
 import { Chat } from '../side/Chat.tsx'
 import { Leaderboard } from '../side/Leaderboard.tsx'
@@ -22,7 +24,6 @@ import { useUi } from '../ui.ts'
 import { PhoneTabs } from './PhoneTabs.tsx'
 import { Rail } from './Rail.tsx'
 import { ReconnectingPill } from './ReconnectingPill.tsx'
-import { Sheet } from './Sheet.tsx'
 import { Ticker } from './Ticker.tsx'
 import { PhoneTopBar, TopBar } from './TopBar.tsx'
 
@@ -73,6 +74,7 @@ export function Shell() {
     <>
       <ProfileCard />
       <ReconnectingPill />
+      <CelebrationLayer />
       <Slot name="overlay" props={{}} />
     </>
   )

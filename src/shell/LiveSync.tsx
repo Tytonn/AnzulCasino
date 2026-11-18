@@ -7,14 +7,15 @@
 import { useQueryClient } from '@tanstack/react-query'
 
 import type { Me } from '../../shared/accounts.ts'
-import type { ChatPage } from '../../shared/chat.ts'
+import type { ChatPage, SystemMeta } from '../../shared/chat.ts'
 import { userChannel } from '../../shared/events.ts'
 import type { PlayerSummary } from '../../shared/players.ts'
-import type { LeaderboardView, SeasonState } from '../../shared/seasons.ts'
+import type { LeaderboardView } from '../../shared/seasons.ts'
 import { isTier } from '../../shared/tiers.ts'
-import { addTickerRound, queryKeys, useConfig } from '../kit/queries.ts'
+import { addTickerRound, applyWallet, queryKeys, useConfig } from '../kit/queries.ts'
+import { afterReveal } from '../kit/reveal.ts'
 import { toast } from '../kit/toast.tsx'
-import { isNewer, useAwayAfter, useLiveEvent, useResync } from '../live/index.ts'
+import { useAwayAfter, useLiveEvent, useResync } from '../live/index.ts'
 import { addMessage, removeMessage } from './chat-cache.ts'
 import { applyStanding } from './standings.ts'
 
@@ -37,15 +38,10 @@ export function LiveSync({ me }: { me: Me }) {
     }
   })
 
+  // News of your own chips and rounds waits while a game is revealing a
+  // result (src/kit/reveal.ts), so nothing gives it away early.
   useLiveEvent(userChannel(me.id), 'wallet.updated', (wallet, { version }) => {
-    queryClient.setQueryData<SeasonState>(queryKeys.season, (old) => {
-      if (!old?.wallet || old.current?.id !== wallet.seasonId) return old
-      if (!isNewer(version, old.wallet.version)) return old
-      return {
-        ...old,
-        wallet: { ...old.wallet, balance: wallet.balance, vault: wallet.vault, version },
-      }
-    })
+    afterReveal(() => applyWallet(queryClient, { ...wallet, version }))
   })
 
   useLiveEvent(userChannel(me.id), 'notification', ({ text, tone }) => {
@@ -55,29 +51,41 @@ export function LiveSync({ me }: { me: Me }) {
   })
 
   useLiveEvent('feed', 'standing.changed', (change, { version }) => {
-    const board = queryClient.getQueryData<LeaderboardView>(queryKeys.leaderboard)
-    if (board) {
-      const next = applyStanding(board, change, version)
-      if (next === 'refetch')
-        void queryClient.invalidateQueries({ queryKey: queryKeys.leaderboard })
-      else if (next !== board) queryClient.setQueryData(queryKeys.leaderboard, next)
+    const apply = () => {
+      const board = queryClient.getQueryData<LeaderboardView>(queryKeys.leaderboard)
+      if (board) {
+        const next = applyStanding(board, change, version)
+        if (next === 'refetch')
+          void queryClient.invalidateQueries({ queryKey: queryKeys.leaderboard })
+        else if (next !== board) queryClient.setQueryData(queryKeys.leaderboard, next)
+      }
+      if (isTier(change.tier)) {
+        const tier = change.tier
+        queryClient.setQueryData<PlayerSummary[]>(queryKeys.players, (old) =>
+          old?.map((p) => (p.id === change.userId && p.tier !== tier ? { ...p, tier } : p)),
+        )
+      }
     }
-    if (isTier(change.tier)) {
-      const tier = change.tier
-      queryClient.setQueryData<PlayerSummary[]>(queryKeys.players, (old) =>
-        old?.map((p) => (p.id === change.userId && p.tier !== tier ? { ...p, tier } : p)),
-      )
-    }
+    if (change.userId === me.id) afterReveal(apply)
+    else apply()
   })
 
-  useLiveEvent('feed', 'round.settled', (round) => addTickerRound(queryClient, round))
+  useLiveEvent('feed', 'round.settled', (round) => {
+    if (round.userId === me.id) afterReveal(() => addTickerRound(queryClient, round))
+    else addTickerRound(queryClient, round)
+  })
 
   useLiveEvent('feed', 'season.state', () => {
     for (const queryKey of SHARED) void queryClient.invalidateQueries({ queryKey })
   })
 
   useLiveEvent('chat', 'chat.message', (message) => {
-    queryClient.setQueryData<ChatPage>(queryKeys.chat, (old) => addMessage(old, message))
+    const add = () =>
+      queryClient.setQueryData<ChatPage>(queryKeys.chat, (old) => addMessage(old, message))
+    // A post about your own big result waits for your reveal.
+    const about = (message.meta as SystemMeta | null)?.userId
+    if (message.kind === 'system' && about === me.id) afterReveal(add)
+    else add()
     const players = queryClient.getQueryData<PlayerSummary[]>(queryKeys.players)
     if (message.userId && players && !players.some((p) => p.id === message.userId)) {
       void queryClient.invalidateQueries({ queryKey: queryKeys.players })

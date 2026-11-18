@@ -6,7 +6,7 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { type ReactNode, useEffect, useRef } from 'react'
 
-import { CloseIcon } from '../../kit/icons.tsx'
+import { CloseIcon } from './icons.tsx'
 
 type Placement = 'bottom' | 'right' | 'center'
 

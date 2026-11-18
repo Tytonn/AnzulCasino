@@ -246,18 +246,16 @@ export interface StartInput<D, S> {
 
 /** The stake a bet resolves to, checked against the wallet and the bet limits. */
 function resolveBet(bet: string | bigint, balance: bigint, config: ConfigValues): bigint {
+  const limits = { minBet: config.min_bet, maxBetPct: config.max_bet_pct }
   let amount: bigint
   if (typeof bet === 'bigint') {
     amount = bet
   } else {
-    const parsed = parseBetAmount(bet, balance)
+    const parsed = parseBetAmount(bet, balance, limits)
     if (!parsed.ok) throw badRequest(parsed.error, 'bad_bet')
     amount = parsed.amount
   }
-  const problem = checkBetAmount(amount, balance, {
-    minBet: config.min_bet,
-    maxBetPct: config.max_bet_pct,
-  })
+  const problem = checkBetAmount(amount, balance, limits)
   if (problem) throw badRequest(problem, 'bad_bet')
   return amount
 }
