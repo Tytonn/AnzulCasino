@@ -287,7 +287,8 @@ _(Added by Tyton, Nov 18, 2026, and corrected by Tyton the same day. Owner: econ
 - Crime: 15-minute cooldown, 45% success paying 8 to 25 chips, otherwise a fine of 2 to 8 chips that cannot take the wallet below zero.
 - Do not scale these with rank. They are a lifeline for broke players, not a main income.
 - Put both buttons where they are reachable from every room without leaving the game, with the cooldown shown on the button.
-- Both show a short random flavor line with the result, and post nothing to chat unless the amount is unusually large. The lines are editable in the admin panel.
+- Both show a short random flavor line with the result. The lines are editable in the admin panel.
+- Work and crime never post in chat. They only show a result to the player who pressed the button. The one exception: a crime payout at the top of its range (23 chips or more at current settings) posts a short line. _(Answered by Tyton, Nov 18, 2026. The threshold is the config value `crime_chat_min`.)_
 - Cooldowns are saved times checked against database time, shown as exact countdowns.
 - All amounts are config.
 - In the season simulation, model players who press work whenever it is ready during the hours they play. Report how work income compares with Bronze and Silver rank income, and suggest new values for those two ranks if work makes them pointless.
@@ -396,6 +397,7 @@ _(Added by Tyton, Nov 18, 2026. Owner: race lane.)_
 
 - One race for the whole room on a fixed clock, about every 75 seconds: a betting window, then the race, then the result.
 - Six runners with names and colors. Each has posted odds, and the payouts carry a 5% house edge. Favorites win more often and pay less.
+- Race odds change every race. Each race draws a new field of six runners from a larger pool of named runners, each with their own strength, so there is a different favorite and a different long shot every time. Keep the house edge at 5% whatever the field. _(Answered by Tyton, Nov 18, 2026.)_
 - Bets are typed like roulette: `<amount> <runner number>`, for example "200 3" or "all 5".
 - The winner is drawn on the server when betting closes, never earlier. The race animation is then generated to end on that result, with lead changes along the way.
 - If nobody has a bet down, the race does not run. Same settlement and backup-sweep pattern as roulette.

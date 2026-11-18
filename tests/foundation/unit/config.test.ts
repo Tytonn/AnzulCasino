@@ -76,6 +76,7 @@ describe('config defaults', () => {
     expect(defaults.crime_success_pct).toBe(4_500)
     expect([defaults.crime_pay_min, defaults.crime_pay_max]).toEqual([chips(8), chips(25)])
     expect([defaults.crime_fine_min, defaults.crime_fine_max]).toEqual([chips(2), chips(8)])
+    expect(defaults.crime_chat_min, 'the top of the crime range').toBe(chips(23))
     expect(CONFIG_KEYS.filter((key) => key.includes('rebuy'))).toEqual([])
   })
 

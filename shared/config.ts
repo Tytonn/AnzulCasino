@@ -201,6 +201,11 @@ export const CONFIG = {
     'Smallest fine for a failed crime. A fine never takes the wallet below zero.',
   ),
   crime_fine_max: chips('economy', 8, 'Largest fine for a failed crime.'),
+  crime_chat_min: chips(
+    'economy',
+    23,
+    'A crime payout of at least this posts a short line in chat. No other work or crime result does.',
+  ),
 
   // Ranks (tiers in code). Unlock days count from 1, the season's first game day.
   tier_income_cap_hours: number(
