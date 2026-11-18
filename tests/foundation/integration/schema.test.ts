@@ -141,4 +141,30 @@ describe('core schema', () => {
     await db.query(insert, [s])
     await expect(db.query(insert, [s])).rejects.toThrow(/shared_rounds_round_key/)
   })
+
+  it('stores a GIF message with its Klipy id and URLs, from a player only', async () => {
+    const u = await player('gif_fan')
+    const meta = {
+      gif: {
+        provider: 'klipy',
+        id: 'abc123',
+        url: 'https://example.invalid/a.gif',
+        width: 200,
+        height: 150,
+      },
+    }
+    await db.query(
+      `INSERT INTO chat_messages (user_id, kind, body, meta) VALUES ($1, 'gif', 'Dancing cat', $2)`,
+      [u, meta],
+    )
+    await expect(
+      db.query(`INSERT INTO chat_messages (kind, body, meta) VALUES ('gif', 'x', $1)`, [meta]),
+    ).rejects.toThrow(/chat_messages_gif_check/)
+    await expect(
+      db.query(`INSERT INTO chat_messages (user_id, kind, body) VALUES ($1, 'gif', 'x')`, [u]),
+    ).rejects.toThrow(/chat_messages_gif_check/)
+    await expect(
+      db.query(`INSERT INTO chat_messages (user_id, kind, body) VALUES ($1, 'sticker', 'x')`, [u]),
+    ).rejects.toThrow(/chat_messages_kind_check/)
+  })
 })

@@ -357,7 +357,10 @@ export const chatMessages = pgTable(
     userId: uuid('user_id').references(() => users.id),
     kind: text('kind', { enum: CHAT_KINDS }).notNull().default('player'),
     body: text('body').notNull(),
-    /** For system posts: what happened, such as a round or a steal, for styling and links. */
+    /**
+     * For system posts: what happened, such as a round or a steal, for
+     * styling and links. For GIFs: Klipy's id and URLs (GifMeta).
+     */
     meta: jsonb('meta'),
     createdAt: ts('created_at').notNull().defaultNow(),
     deletedAt: ts('deleted_at'),
@@ -369,6 +372,11 @@ export const chatMessages = pgTable(
     check(
       'chat_messages_player_check',
       sql`${t.kind} <> 'player' or (${t.userId} is not null and char_length(${t.body}) between 1 and ${sql.raw(String(CHAT_MAX_LENGTH))})`,
+    ),
+    // A GIF is someone's message with Klipy's id and URLs in meta (shared/chat.ts).
+    check(
+      'chat_messages_gif_check',
+      sql`${t.kind} <> 'gif' or (${t.userId} is not null and ${t.meta} is not null and char_length(${t.body}) <= ${sql.raw(String(CHAT_MAX_LENGTH))})`,
     ),
   ],
 )

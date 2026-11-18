@@ -101,6 +101,8 @@ A production deploy costs 15 credits and preview deploys cost none. Compute cost
 
 `ABLY_API_KEY`, `ADMIN_BOOTSTRAP_CODE`, and whatever Netlify Database provides for the connection. The foundation thread lists the final set in `docs/LANE_GUIDE.md`.
 
+_(Added Nov 18, 2026.)_ `KLIPY_API_KEY` for GIFs in chat (Social layer > GIFs in chat). Server only, like the others.
+
 ## Rules every thread follows
 
 These rules apply to every line of code in every lane. The foundation thread copies them into `CLAUDE.md` so each thread loads them automatically.
@@ -458,6 +460,18 @@ The social layer is what makes ten separate players feel like one room: who is h
 
 No email or push notifications in the first version.
 
+### GIFs in chat
+
+_(Added by Tyton, Nov 18, 2026. Owner: social lane.)_
+
+- Add a GIF picker to chat using the Klipy API, the same provider Discord uses. Read Klipy's current developer docs first and follow their attribution rules.
+- The picker has a search box, trending GIFs and a few quick categories. Picking one sends it as a chat message.
+- GIFs load directly from Klipy's servers, never through our site. A GIF message stores only the Klipy id and URLs.
+- Keep the API key out of browser code: search goes through one small endpoint that is rate-limited per user and caches trending results.
+- Only accept GIF URLs on Klipy's domains, checked on the server, so nobody can post arbitrary images or links.
+- Players can also reply to a system post (big win, steal, rank unlock) with a GIF.
+- Use a test key while building. Tell me when to request the production key and what to put in the request.
+
 ## Admin and trust
 
 The owner runs the site and also plays for the pot, so every admin power is public by design.
@@ -613,6 +627,7 @@ _(Updated Nov 18, 2026.)_ Changes to the lanes above:
 - **Economy** also builds Ranks and chat drops (see Economy > Ranks and Giveaways).
 - **Heist** also owns the Shop page and the new simulation report (see Steal, shields and vault > Shop and Tune it before the first season).
 - **Admin** also builds admin giveaways (see Economy > Giveaways).
+- **Social** also builds GIFs in chat (see Social layer > GIFs in chat).
 
 - **First wave:** Blackjack, Roulette, Heist, Economy. These are the games your group plays most and the season mechanics.
 - **Second wave:** Arcade, Slots, Social, Admin. _(Nov 18, 2026: plus Crash.)_

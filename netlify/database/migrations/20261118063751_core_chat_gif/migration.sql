@@ -1,0 +1,2 @@
+ALTER TABLE "chat_messages" ADD CONSTRAINT "chat_messages_gif_check" CHECK ("kind" <> 'gif' or ("user_id" is not null and "meta" is not null and char_length("body") <= 300));--> statement-breakpoint
+ALTER TABLE "chat_messages" DROP CONSTRAINT "chat_messages_kind_check", ADD CONSTRAINT "chat_messages_kind_check" CHECK ("kind" in ('player', 'gif', 'system'));

@@ -54,6 +54,7 @@ All three can wait until Tyton is at a computer; local tests cover the work unti
 | 2026-11-18 | **Spec addition: Giveaways** (Economy > Giveaways). Chat drops, owner **economy**. Admin giveaways, owner **admin**. Rebuy stays. | Tyton |
 | 2026-11-18 | **Netlify project `playanzul`** created from the repo; **auto publishing locked**, so production deploys go live only when Tyton publishes them. | Tyton |
 | 2026-11-18 | **Spec addition: Simulation** (Tune it before the first season). About 2,000 games per player per month with frequent all-ins, plus the rank and giveaway report. Owner: **heist** lane. | Tyton |
+| 2026-11-18 | **Spec addition: GIFs in chat** (Social layer > GIFs in chat). A Klipy GIF picker with search, trending and quick categories; GIFs load straight from Klipy; the key stays on the server behind one rate-limited endpoint; only Klipy URLs accepted; GIF replies to system posts. Owner: **social** lane, on a test key while building. Foundation only adds the `gif` chat kind and reserves `KLIPY_API_KEY`. | Tyton |
 
 ### What Foundation builds for the additions
 
@@ -64,6 +65,7 @@ Only the shared pieces, not the features:
 - A `tier` column on each wallet, so shared screens (chat, leaderboard, online list, seats) can show the badge and name color. Only the economy lane writes it.
 - A shop hook in the manifests, so any lane can supply shop items to the heist lane's Shop page.
 - Name color and badge tokens per tier in the theme, and one shared player-name component that shows them.
+- A `gif` kind for chat messages, with the Klipy id and URLs in `meta` (and `replyTo` for a GIF reply to a system post), and `KLIPY_API_KEY` in the server's environment variables. The picker, the search endpoint and the URL checks are the social lane's.
 
 ### Chip defaults after the 1/100 rebalance
 
