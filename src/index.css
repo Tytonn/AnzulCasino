@@ -1,0 +1,41 @@
+@import 'tailwindcss';
+@import './theme/midnight.css';
+
+/*
+ * Tailwind only knows the theme's tokens: its own palette is switched off, so
+ * a class like bg-red-500 produces nothing. Use bg-surface-1, text-gold and
+ * so on. `inline` keeps the variables live, so changing data-theme on <html>
+ * restyles everything.
+ */
+@theme inline {
+  --color-*: initial;
+  --color-bg: var(--bg);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-muted: var(--text-muted);
+  --color-faint: var(--text-faint);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-on-accent: var(--on-accent);
+  --color-gold: var(--gold);
+  --color-loss: var(--loss);
+  --font-sans: var(--font-sans);
+  --radius-md: var(--radius-md);
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
