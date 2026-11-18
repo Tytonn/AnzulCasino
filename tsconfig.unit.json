@@ -6,5 +6,5 @@
     "jsx": "react-jsx",
     "types": ["node", "vite/client"]
   },
-  "include": ["tests/**/unit", "src", "shared", "server", "db"]
+  "include": ["tests/**/unit", "src", "shared", "server", "db", "scripts"]
 }

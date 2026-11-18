@@ -1,14 +1,99 @@
-/** Placeholder until the shell lands (Stage 1, deliverable 8). */
+/**
+ * The app: the router, the query cache and the toasts. Pages and rooms from
+ * manifests are found by the registry; the shell holds a placeholder for
+ * every planned one until its lane lands.
+ */
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MotionConfig } from 'motion/react'
+import { type ComponentType, lazy, useEffect } from 'react'
+import { createBrowserRouter, type RouteObject, RouterProvider } from 'react-router'
+
+import { ApiError, onSignedOut } from '../kit/api.ts'
+import { queryKeys, useMe } from '../kit/queries.ts'
+import { Toaster } from '../kit/toast.tsx'
+import { LoginPage, ResetPage, SignupPage } from './pages/Auth.tsx'
+import { FloorPage } from './pages/Floor.tsx'
+import { AdminOnly, NotFound, Placeholder } from './pages/Placeholder.tsx'
+import { RoomPage } from './pages/Room.tsx'
+import { SetupPage } from './pages/Setup.tsx'
+import { games, type PageEntry, pages } from './registry.ts'
+import { SignedIn } from './SignedIn.tsx'
+import { useTitle } from './title.ts'
+
+export const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Live events keep shared data fresh, and nothing polls (the database
+      // sleeps when nobody plays).
+      staleTime: 60_000,
+      refetchOnWindowFocus: false,
+      retry: (failures, error) =>
+        failures < 2 && !(error instanceof ApiError && error.status > 0 && error.status < 500),
+    },
+  },
+})
+
+function FeaturePage({ entry, page: Page }: { entry: PageEntry; page: ComponentType }) {
+  const me = useMe()
+  useTitle(entry.title)
+  if (entry.adminOnly && me.role !== 'admin') return <AdminOnly />
+  return <Page />
+}
+
+function pageRoute(entry: PageEntry): RouteObject {
+  const path = entry.path.replace(/^\//, '')
+  // A lane's page loads the first time it is opened.
+  if (entry.route)
+    return { path, element: <FeaturePage entry={entry} page={lazy(entry.route.page)} /> }
+  const planned = entry.planned
+  return {
+    path,
+    element: (
+      <Placeholder
+        title={entry.title}
+        pitch={planned?.pitch ?? ''}
+        lane={planned?.lane ?? 'a'}
+        icon={planned?.icon}
+      />
+    ),
+  }
+}
+
+const router = createBrowserRouter([
+  { path: '/login', element: <LoginPage /> },
+  { path: '/signup', element: <SignupPage /> },
+  { path: '/reset', element: <ResetPage /> },
+  {
+    element: <SignedIn />,
+    children: [
+      { index: true, element: <FloorPage /> },
+      ...games.map((game) => ({
+        path: `room/${game.id}`,
+        // Each room loads the first time someone walks in.
+        element: <RoomPage game={game} room={game.manifest ? lazy(game.manifest.room) : null} />,
+      })),
+      { path: 'setup', element: <SetupPage /> },
+      ...pages.map(pageRoute),
+      { path: '*', element: <NotFound /> },
+    ],
+  },
+])
+
 export function App() {
+  // A session that ends anywhere sends the player to the login page.
+  useEffect(
+    () =>
+      onSignedOut(() => {
+        queryClient.setQueryData(queryKeys.me, null)
+      }),
+    [],
+  )
   return (
-    <main className="grid min-h-dvh place-items-center p-6">
-      <div className="w-full max-w-md rounded-md border border-border bg-surface-1 p-8 text-center">
-        <p className="text-sm tracking-[0.2em] text-accent uppercase">Anzul Casino</p>
-        <h1 className="mt-3 text-2xl font-semibold">The tables are being built</h1>
-        <p className="mt-3 text-muted">
-          Season 2 opens once the foundation is done. Accounts, chips and the live layer come first.
-        </p>
-      </div>
-    </main>
+    <QueryClientProvider client={queryClient}>
+      <MotionConfig reducedMotion="user">
+        <RouterProvider router={router} />
+        <Toaster />
+      </MotionConfig>
+    </QueryClientProvider>
   )
 }

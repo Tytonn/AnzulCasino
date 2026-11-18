@@ -17,6 +17,7 @@
  *   }
  */
 
+import type { ChatMessage } from './chat.ts'
 import type { SeasonPhase } from './seasons.ts'
 
 /** Logical channel names. The live layer adds a prefix per deploy. */
@@ -71,18 +72,11 @@ export interface SeasonStateChanged {
 export interface ChatEvents {
   /** Version: the message id. */
   'chat.message': ChatMessageEvent
+  /** An admin deleted a message. Version: the message id. */
   'chat.deleted': { id: number }
 }
 
-export interface ChatMessageEvent {
-  id: number
-  /** Null for a system post. */
-  userId: string | null
-  kind: string
-  body: string
-  meta: Record<string, unknown> | null
-  createdAt: string
-}
+export type ChatMessageEvent = ChatMessage
 
 // ---------------------------------------------------------------- room:<game> (everyone)
 

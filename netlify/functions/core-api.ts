@@ -20,5 +20,9 @@ export const config: Config = {
     '/api/leaderboard',
     '/api/invites',
     '/api/live/*',
+    '/api/players',
+    '/api/ticker',
+    '/api/chat',
+    '/api/chat/*',
   ],
 }

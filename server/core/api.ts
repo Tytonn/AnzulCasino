@@ -16,9 +16,11 @@ import {
   SESSION_COOKIE,
   sessionCookie,
 } from '../lib/auth.ts'
+import { ChatListInput, ChatSendInput } from '../../shared/chat.ts'
 import { CreateSeasonInput, type SeasonView } from '../../shared/seasons.ts'
 import { loadConfig } from '../lib/config.ts'
 import { db } from '../lib/db.ts'
+import { badRequest } from '../lib/errors.ts'
 import { createApi, route } from '../lib/http.ts'
 import { chipTransaction } from '../lib/idempotency.ts'
 import { liveToken, publish } from '../lib/live.ts'
@@ -33,7 +35,9 @@ import {
   toSeasonView,
 } from '../lib/seasons.ts'
 import { login, redeemReset, signup, updateProfile } from './accounts.ts'
+import { chatPage, deleteChat, sendChat } from './chat.ts'
 import { createCode, listCodes } from './invites.ts'
+import { listPlayers, tickerRounds } from './players.ts'
 
 /** Seasons as the API sends them, with their phase at `now` (database time). */
 async function seasonViews(now: Date) {
@@ -203,6 +207,59 @@ export const coreRoutes = [
     limit: { limit: 30, windowSeconds: 60 },
     async run({ user }) {
       return liveToken(user.id)
+    },
+  }),
+  route({
+    method: 'GET',
+    path: '/api/players',
+    auth: 'user',
+    async run() {
+      const season = await currentSeason()
+      return { players: await listPlayers(season?.id ?? null) }
+    },
+  }),
+  route({
+    method: 'GET',
+    path: '/api/ticker',
+    auth: 'user',
+    async run() {
+      const season = await currentSeason()
+      return { rounds: season ? await tickerRounds(season.id) : [] }
+    },
+  }),
+  route({
+    method: 'GET',
+    path: '/api/chat',
+    auth: 'user',
+    input: ChatListInput,
+    async run({ input }) {
+      return chatPage(input)
+    },
+  }),
+  route({
+    method: 'POST',
+    path: '/api/chat',
+    auth: 'user',
+    input: ChatSendInput,
+    // The burst limit from config (5 per 10 seconds) is checked inside.
+    limit: { limit: 60, windowSeconds: 60 },
+    async run({ user, input, waitUntil }) {
+      const { message, events } = await sendChat(user.id, input.body)
+      waitUntil(publish(events))
+      return { message }
+    },
+  }),
+  route({
+    method: 'DELETE',
+    path: '/api/chat/:id',
+    auth: 'admin',
+    limit: { limit: 60, windowSeconds: 60 },
+    async run({ user, params, waitUntil }) {
+      const id = Number(params.id)
+      if (!Number.isSafeInteger(id) || id <= 0) throw badRequest('That is not a message.')
+      const { events } = await deleteChat(user.id, id)
+      waitUntil(publish(events))
+      return { ok: true }
     },
   }),
   route({

@@ -3,9 +3,9 @@
  * each other online, hear the server's news, and see each other leave. It
  * loads the live client straight from the dev server's source.
  */
-import { type BrowserContext, expect, type Page, test } from '@playwright/test'
+import { expect, type Page, test } from '@playwright/test'
 
-const PASSWORD = 'password123'
+import { signIn } from '../../e2e-helpers/players.ts'
 
 interface LiveWindow {
   live: {
@@ -18,17 +18,16 @@ interface LiveWindow {
   resyncs: number
 }
 
-async function signIn(context: BrowserContext, username: string): Promise<string> {
-  const res = await context.request.post('/api/auth/login', {
-    data: { username, password: PASSWORD },
-  })
-  expect(res.ok(), await res.text()).toBe(true)
-  return ((await res.json()) as { user: { id: string } }).user.id
-}
-
-/** Starts a live client in the page, in the given room, listening to the feed. */
+/**
+ * Starts a live client in the page, in the given room, listening to the feed.
+ * The page is a blank one on the site's address, so the shell's own live
+ * client does not start beside the test's.
+ */
 async function startLive(page: Page, room: string) {
-  await page.goto('/')
+  await page.route('/live-test', (route) =>
+    route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Live test</title>' }),
+  )
+  await page.goto('/live-test')
   await page.evaluate(async (inRoom) => {
     const source = '/src/live/browser.ts'
     const { createBrowserLiveClient } = (await import(/* @vite-ignore */ source)) as {
@@ -57,6 +56,10 @@ test('two players see each other online, hear the news, and see each other leave
   browser,
 }, testInfo) => {
   test.skip(testInfo.project.name === 'phone', 'No layout here; once at desktop size is enough.')
+  test.skip(
+    !!process.env.E2E_BASE_URL,
+    'Loads the live client from the dev server; shell.spec.ts covers previews.',
+  )
 
   const aliceContext = await browser.newContext()
   const bobContext = await browser.newContext()

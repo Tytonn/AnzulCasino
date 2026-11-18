@@ -60,8 +60,11 @@ export interface SeasonState {
   current: SeasonView | null
   /** The next season that has not started yet. */
   next: SeasonView | null
-  /** The caller's chips in the current season. */
-  wallet: { balance: number; vault: number; tier: string } | null
+  /**
+   * The caller's chips in the current season. `version` is the wallet's
+   * latest ledger id: `wallet.updated` events not newer than it are stale.
+   */
+  wallet: { balance: number; vault: number; tier: string; version: number } | null
 }
 
 const When = (message: string) =>
@@ -87,3 +90,26 @@ export const CreateSeasonInput = z
   })
   .refine((s) => s.endsAt > s.startsAt, 'The season must end after it starts.')
 export type CreateSeasonInput = z.infer<typeof CreateSeasonInput>
+
+/** A row of GET /api/leaderboard. Chip amounts are hundredths. */
+export interface StandingView {
+  /** 1 is first. Players level on net worth and on when they reached it share a rank. */
+  rank: number
+  userId: string
+  username: string
+  displayName: string
+  avatar: string
+  avatarColor: string
+  tier: string
+  balance: number
+  vault: number
+  netWorth: number
+  /** The wallet's latest ledger id: `standing.changed` events not newer than it are stale. */
+  version: number
+}
+
+/** GET /api/leaderboard */
+export interface LeaderboardView {
+  seasonId: number | null
+  standings: StandingView[]
+}

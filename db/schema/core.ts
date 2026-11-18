@@ -244,6 +244,10 @@ export const gameRounds = pgTable(
       .default(sql`'{}'::jsonb`),
     /** Hidden JSON. Cleared at settle. Never in a response or live event. */
     secret: jsonb('secret'),
+    /** One line for the ticker and History, such as "Heads". Set at settle. */
+    summary: text('summary'),
+    /** The stake was at least big_bet_pct of net worth when it was placed. */
+    bigBet: boolean('big_bet').notNull().default(false),
     sharedRoundId: bigId('shared_round_id').references(() => sharedRounds.id),
     startedAt: ts('started_at').notNull().defaultNow(),
     settledAt: ts('settled_at'),
