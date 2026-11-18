@@ -9,12 +9,13 @@
  * - `share`: basis points, where 100 is 1% and 10,000 is 100%. Every `_pct`
  *   and `_rate` key is a share. Use basisPoints() and formatShare() from
  *   shared/chips.ts.
+ * - `text`: one short plain-text name, such as a button's label.
  * - `lines`: a list of short plain-text lines, such as the flavor lines
  *   shown with a work or crime result.
  * - everything else: a whole number in the unit its name ends with.
  *
  * On the wire and in the table, every value is a plain number (chips as
- * hundredths), except `lines`, which is an array of strings.
+ * hundredths), except `text`, a string, and `lines`, an array of strings.
  *
  * Changes to the economy, ranks, giveaways, steals, shields and the vault
  * take effect at the next daily reset; the rest take effect at once (spec:
@@ -41,7 +42,7 @@ export const CONFIG_GROUPS = [
   'vault',
   'games',
   'social',
-  'lines',
+  'text',
 ] as const
 export type ConfigGroup = (typeof CONFIG_GROUPS)[number]
 
@@ -78,6 +79,13 @@ export interface NumberSetting extends SettingBase {
   max: number
 }
 
+export interface TextSetting extends SettingBase {
+  unit: 'text'
+  default: string
+  /** Longest name, in characters. */
+  maxLength: number
+}
+
 export interface LinesSetting extends SettingBase {
   unit: 'lines'
   default: readonly string[]
@@ -87,7 +95,7 @@ export interface LinesSetting extends SettingBase {
   maxLength: number
 }
 
-export type ConfigSetting = ChipsSetting | NumberSetting | LinesSetting
+export type ConfigSetting = ChipsSetting | NumberSetting | TextSetting | LinesSetting
 
 /** A billion chips: far above any sane setting, far below the wire's safe-integer limit. */
 const MAX_CHIPS = 1_000_000_000n * CHIP
@@ -144,9 +152,27 @@ function number(
   }
 }
 
-/** Plain-text lines, such as flavor text. Up to 50 lines of up to 120 characters. */
-function lines(group: ConfigGroup, value: readonly string[], description: string): LinesSetting {
-  return { unit: 'lines', group, default: value, maxLines: 50, maxLength: 120, description }
+/** A short plain-text name, such as a button label. Up to 20 characters. */
+function text(group: ConfigGroup, value: string, description: string): TextSetting {
+  return { unit: 'text', group, default: value, maxLength: 20, description }
+}
+
+/** Plain-text lines, such as flavor text. Up to 100 lines of up to 120 characters. */
+function lines(
+  group: ConfigGroup,
+  value: readonly string[],
+  description: string,
+  options: Pick<Options, 'provisional'> = {},
+): LinesSetting {
+  return {
+    unit: 'lines',
+    group,
+    default: value,
+    maxLines: 100,
+    maxLength: 120,
+    description,
+    ...(options.provisional ? { provisional: true } : {}),
+  }
 }
 
 export const CONFIG = {
@@ -178,7 +204,9 @@ export const CONFIG = {
   challenge_reward_min: chips('economy', 2, 'Smallest reward for finishing a challenge.'),
   challenge_reward_max: chips('economy', 4, 'Largest reward for finishing a challenge.'),
 
-  // Work and crime (spec: Economy > Work and crime). They replace the rebuy.
+  // Work, the third command and crime (spec: Economy > Work and crime), at
+  // Tyton's final values. They replace the rebuy. The longer the cooldown,
+  // the bigger and riskier the single payout.
   work_cooldown_minutes: number(
     'economy',
     'minutes',
@@ -188,24 +216,46 @@ export const CONFIG = {
   ),
   work_pay_min: chips('economy', 2, 'Least a press of the work button pays.'),
   work_pay_max: chips('economy', 6, 'Most a press of the work button pays.'),
-  crime_cooldown_minutes: number('economy', 'minutes', 15, 'Minutes between crimes.', {
+  crime_cooldown_minutes: number('economy', 'minutes', 120, 'Minutes between crimes.', {
     min: 1,
     max: 1_440,
   }),
   crime_success_pct: share('economy', 4_500, 'Chance a crime pays instead of ending in a fine.'),
-  crime_pay_min: chips('economy', 8, 'Least a crime that works pays.'),
-  crime_pay_max: chips('economy', 25, 'Most a crime that works pays.'),
+  crime_pay_min: chips('economy', 60, 'Least a crime that works pays.'),
+  crime_pay_max: chips('economy', 150, 'Most a crime that works pays.'),
   crime_fine_min: chips(
     'economy',
-    2,
+    10,
     'Smallest fine for a failed crime. A fine never takes the wallet below zero.',
   ),
-  crime_fine_max: chips('economy', 8, 'Largest fine for a failed crime.'),
+  crime_fine_max: chips('economy', 30, 'Largest fine for a failed crime.'),
   crime_chat_min: chips(
     'economy',
-    23,
+    140,
     'A crime payout of at least this posts a short line in chat. No other work or crime result does.',
   ),
+  // The third command, after UnbelievaBoat's .slut: `hustle` in code, and its
+  // button's name is the hustle_name setting.
+  hustle_cooldown_minutes: number(
+    'economy',
+    'minutes',
+    60,
+    'Minutes between presses of the third income button.',
+    { min: 1, max: 1_440 },
+  ),
+  hustle_success_pct: share(
+    'economy',
+    6_500,
+    'Chance the third income button pays instead of ending in a fine.',
+  ),
+  hustle_pay_min: chips('economy', 20, 'Least the third income button pays when it works.'),
+  hustle_pay_max: chips('economy', 50, 'Most the third income button pays when it works.'),
+  hustle_fine_min: chips(
+    'economy',
+    5,
+    'Smallest fine from the third income button. A fine never takes the wallet below zero.',
+  ),
+  hustle_fine_max: chips('economy', 15, 'Largest fine from the third income button.'),
 
   // Ranks (tiers in code). Unlock days count from 1, the season's first game day.
   tier_income_cap_hours: number(
@@ -491,9 +541,12 @@ export const CONFIG = {
     { min: 1, max: 120 },
   ),
 
-  // Lines (plain text, edited in the admin panel; changes take effect at once)
+  // Names and lines shown to players: plain text, edited in the admin panel,
+  // taking effect at once. The line pools are starters: the economy lane
+  // writes the full ones.
+  hustle_name: text('text', 'Slut', "The third income button's name, after UnbelievaBoat's .slut."),
   work_lines: lines(
-    'lines',
+    'text',
     [
       'You folded towels at the spa all afternoon.',
       'You parked cars for the high rollers.',
@@ -507,9 +560,10 @@ export const CONFIG = {
       'You handed out flyers on the boardwalk.',
     ],
     'Work: one line is picked at random to show with each payout.',
+    { provisional: true },
   ),
   crime_win_lines: lines(
-    'lines',
+    'text',
     [
       'You ran a game of three-card monte, and the tourist never found the queen.',
       "You sold a tourist a 'lucky' horseshoe.",
@@ -521,9 +575,10 @@ export const CONFIG = {
       'You swapped the dice and nobody noticed.',
     ],
     'Crime: one line is picked at random to show with a crime that pays.',
+    { provisional: true },
   ),
   crime_fine_lines: lines(
-    'lines',
+    'text',
     [
       'Security caught you counting cards on your fingers.',
       'The tourist was an undercover cop.',
@@ -535,6 +590,29 @@ export const CONFIG = {
       'Your getaway driver left without you.',
     ],
     'Crime: one line is picked at random to show with a fine.',
+    { provisional: true },
+  ),
+  hustle_win_lines: lines(
+    'text',
+    [
+      'You danced on the bar and the tips came raining down.',
+      'You winked at the high roller and he paid for the wink.',
+      'You sold your phone number to three different tourists.',
+      'You worked the VIP lounge in your best outfit.',
+    ],
+    'Third income button: one line is picked at random to show when it pays. The economy lane writes the full pool of at least 40, joke-level and suggestive at most.',
+    { provisional: true },
+  ),
+  hustle_fine_lines: lines(
+    'text',
+    [
+      'You tripped in your heels in front of the whole casino.',
+      'Your date turned out to be the pit boss.',
+      'Security walked you out of the VIP lounge.',
+      'You spent more on the outfit than you made.',
+    ],
+    'Third income button: one line is picked at random to show with a fine.',
+    { provisional: true },
   ),
 } satisfies Record<string, ConfigSetting>
 
@@ -547,20 +625,24 @@ export const CONFIG_PAIRS = [
   ['work_pay_min', 'work_pay_max'],
   ['crime_pay_min', 'crime_pay_max'],
   ['crime_fine_min', 'crime_fine_max'],
+  ['hustle_pay_min', 'hustle_pay_max'],
+  ['hustle_fine_min', 'hustle_fine_max'],
 ] as const satisfies readonly (readonly [ConfigKey, ConfigKey])[]
 
 export type ConfigKey = keyof typeof CONFIG
 
-/** A config value in code: bigint for chips, a list for lines, number for the rest. */
-export type ConfigValue = bigint | number | readonly string[]
+/** A config value in code: bigint for chips, a string for text, a list for lines, number for the rest. */
+export type ConfigValue = bigint | number | string | readonly string[]
 
 /** Every config value, typed. */
 export type ConfigValues = {
   [K in ConfigKey]: (typeof CONFIG)[K] extends ChipsSetting
     ? bigint
-    : (typeof CONFIG)[K] extends LinesSetting
-      ? readonly string[]
-      : number
+    : (typeof CONFIG)[K] extends TextSetting
+      ? string
+      : (typeof CONFIG)[K] extends LinesSetting
+        ? readonly string[]
+        : number
 }
 
 export const CONFIG_KEYS = Object.keys(CONFIG) as ConfigKey[]
@@ -591,6 +673,18 @@ export type ParsedValue = { ok: true; value: ConfigValue } | { ok: false; error:
 // eslint-disable-next-line no-control-regex
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/
 
+function parseText(key: ConfigKey, s: TextSetting, raw: unknown): ParsedValue {
+  if (typeof raw !== 'string') return { ok: false, error: `${key} must be text.` }
+  const value = raw.trim()
+  if (!value || value.length > s.maxLength) {
+    return { ok: false, error: `${key} must be 1 to ${s.maxLength} characters.` }
+  }
+  if (CONTROL_CHARACTERS.test(value)) {
+    return { ok: false, error: `${key} must be plain text on one line.` }
+  }
+  return { ok: true, value }
+}
+
 function parseLines(key: ConfigKey, s: LinesSetting, raw: unknown): ParsedValue {
   if (!Array.isArray(raw) || raw.some((line) => typeof line !== 'string')) {
     return { ok: false, error: `${key} must be a list of lines.` }
@@ -612,11 +706,13 @@ function parseLines(key: ConfigKey, s: LinesSetting, raw: unknown): ParsedValue 
 }
 
 /**
- * Checks a value in its wire form (a plain number, chips as hundredths, or a
- * list of strings for lines) against the key's unit and limits.
+ * Checks a value in its wire form (a plain number with chips as hundredths, a
+ * string for text, or a list of strings for lines) against the key's unit and
+ * limits.
  */
 export function parseConfigValue(key: ConfigKey, raw: unknown): ParsedValue {
   const s = setting(key)
+  if (s.unit === 'text') return parseText(key, s, raw)
   if (s.unit === 'lines') return parseLines(key, s, raw)
   if (typeof raw !== 'number' || !Number.isSafeInteger(raw)) {
     return { ok: false, error: `${key} must be a whole number.` }
@@ -641,6 +737,7 @@ export function parseConfigValue(key: ConfigKey, raw: unknown): ParsedValue {
 }
 
 function formatValue(s: ConfigSetting, value: ConfigValue): string {
+  if (typeof value === 'string') return value
   if (typeof value === 'object') return value.length === 1 ? '1 line' : `${value.length} lines`
   if (s.unit === 'chips') return chipCount(BigInt(value))
   const n = Number(value)
@@ -662,7 +759,8 @@ export function formatConfigValue(key: ConfigKey, value: ConfigValue): string {
 }
 
 /** The value as it travels and is stored: chips as a number of hundredths. */
-export function configWireValue(value: ConfigValue): number | string[] {
+export function configWireValue(value: ConfigValue): number | string | string[] {
+  if (typeof value === 'string') return value
   return typeof value === 'object' ? [...value] : Number(value)
 }
 

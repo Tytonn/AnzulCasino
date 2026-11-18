@@ -220,7 +220,7 @@ Chips enter through the season start, the daily bonus, challenges and the rebuy.
 
 _(Updated Nov 18, 2026.)_ Chips also enter through rank income, chat drops and admin giveaways, and also leave through rank purchases and extra steal attempts. See Ranks and Giveaways below, and Shop in the steal section. Players still cannot give chips to each other.
 
-_(Updated Nov 18, 2026.)_ The rebuy is removed. Work and crime replace it: chips also enter through work and successful crimes, and leave through crime fines. Russian roulette moves chips between the players at one table, with no house cut. See Work and crime below, and Russian roulette in Games.
+_(Updated Nov 18, 2026.)_ The rebuy is removed. Work, slut and crime replace it: chips also enter through work and their successes, and leave through their fines. Russian roulette moves chips between the players at one table, with no house cut. See Work and crime below, and Russian roulette in Games.
 
 The house edge slowly drains everyone, so the daily inflows are what keep a month-long season alive and give a broke player a way back.
 
@@ -232,7 +232,7 @@ _(Rebalanced by Tyton, Nov 18, 2026.)_ The season starts with 100 chips, so ever
 | `daily_bonus` | Replaced by Ranks (500) | _(Nov 18, 2026: ranks replace the flat daily bonus. Base rank income is 5 a day. The streak bonus stays.)_ |
 | `streak_step` / `streak_max` | +1 / 10 (+100 / 1,000) | Bonus grows by 1 per day in a row, up to 10. A missed day resets it |
 | `challenges_per_day` | 3 | Small goals, each worth 2 to 4 chips (150 to 400) |
-| `work_*` / `crime_*` | See Work and crime | _(Nov 18, 2026: the rebuy is removed. Work replaces it, see Work and crime.)_ |
+| `work_*` / `hustle_*` / `crime_*` | See Work and crime | _(Nov 18, 2026: the rebuy is removed. Work replaces it, see Work and crime.)_ |
 | `min_bet` | 1 (10) | Smallest bet in any game |
 | `max_bet_pct` | 100 | Largest bet as a share of the wallet. 100 means all-in is allowed |
 | `big_bet_pct` | 50 | A bet at or above this share of net worth is flagged as a big bet in the room |
@@ -242,7 +242,7 @@ _(Rebalanced by Tyton, Nov 18, 2026.)_ The season starts with 100 chips, so ever
 - A player has a **wallet** (spendable) and a **vault** (protected, see the steal section). Net worth is the two added together.
 - Every change goes through the ledger with a reason: `season_start`, `bet`, `payout`, `refund`, `daily_bonus`, `challenge`, `steal_in`, `steal_out`, `fine_in`, `fine_out`, `shield_purchase`, `vault_deposit`, `vault_withdraw`, `admin_adjust`. _(Nov 18, 2026: `rebuy` removed with the rebuy.)_
 - _(Added Nov 18, 2026.)_ Further reasons for the additions: `rank_purchase`, `rank_income`, `chat_drop`, `giveaway`, `steal_attempt_purchase`. The streak bonus keeps `daily_bonus`.
-- _(Added Nov 18, 2026.)_ For work and crime: `work`, `crime_win`, `crime_fine`. For russian roulette between players: `pvp_ante` (a player's ante goes into the pot) and `pvp_pot` (the last player standing takes it). Its solo mode is an ordinary round with `bet` and `payout`, and a cancelled lobby returns the ante with `refund`.
+- _(Added Nov 18, 2026.)_ For work, slut and crime: `work`, `hustle_win`, `hustle_fine`, `crime_win`, `crime_fine`. For russian roulette between players: `pvp_ante` (a player's ante goes into the pot) and `pvp_pot` (the last player standing takes it). Its solo mode is an ordinary round with `bet` and `payout`, and a cancelled lobby returns the ante with `refund`.
 
 ### Challenges
 
@@ -281,17 +281,36 @@ _(Added by Tyton, Nov 18, 2026.)_
 
 ### Work and crime
 
-_(Added by Tyton, Nov 18, 2026, and corrected by Tyton the same day. Owner: economy lane. The editable lines are an admin panel item for the admin lane. Work works at a zero balance, so it replaces the rebuy, which is removed.)_
+_(Added by Tyton, Nov 18, 2026, then changed by Tyton twice the same day: a third command, and final values. Owner: economy lane. The editable names and lines are an admin panel item for the admin lane. Work works at a zero balance, so it replaces the rebuy, which is removed.)_
 
-- Work: 5-minute cooldown, pays 2 to 6 chips, always succeeds, works at a zero balance.
-- Crime: 15-minute cooldown, 45% success paying 8 to 25 chips, otherwise a fine of 2 to 8 chips that cannot take the wallet below zero.
+Three income buttons: work, slut and crime. The final values, which replace the earlier ones (all config):
+
+- Work: 5-minute cooldown, always pays 2 to 6 chips. Unchanged.
+- Slut: 1-hour cooldown, 65% success paying 20 to 50 chips, otherwise a fine of 5 to 15.
+- Crime: 2-hour cooldown, 45% success paying 60 to 150 chips, otherwise a fine of 10 to 30.
+- Fines cannot take the wallet below zero. The three cooldowns are separate.
+- The design intent: the longer the cooldown, the bigger and riskier the single payout. Work earns the most per hour, the other two earn the most per press.
+- In the season simulation, model players pressing all three whenever they are ready during play hours, and report the combined income against rank income at each tier.
+
+Still in force from the earlier versions:
+
+- Work works at a zero balance.
 - Do not scale these with rank. They are a lifeline for broke players, not a main income.
-- Put both buttons where they are reachable from every room without leaving the game, with the cooldown shown on the button.
-- Both show a short random flavor line with the result. The lines are editable in the admin panel.
-- Work and crime never post in chat. They only show a result to the player who pressed the button. The one exception: a crime payout at the top of its range (23 chips or more at current settings) posts a short line. _(Answered by Tyton, Nov 18, 2026. The threshold is the config value `crime_chat_min`.)_
+- Put the buttons where they are reachable from every room without leaving the game, with the cooldown shown on the button.
+- Each shows a short random flavor line with the result. The lines are editable in the admin panel.
+- Work and crime never post in chat. They only show a result to the player who pressed the button. The one exception: a crime payout at the top of its range (23 chips or more at current settings) posts a short line. _(Answered by Tyton, Nov 18, 2026. With the final values the top of the range is 140 chips or more: the config value `crime_chat_min`.)_
 - Cooldowns are saved times checked against database time, shown as exact countdowns.
 - All amounts are config.
-- In the season simulation, model players who press work whenever it is ready during the hours they play. Report how work income compares with Bronze and Silver rank income, and suggest new values for those two ranks if work makes them pointless.
+
+The third command, as Tyton added it ("add the third income command after all, matching UnbelievaBoat's .slut"; its first numbers are replaced by the final values above):
+
+- It sits between work and crime: more than work, safer than crime.
+- The button's name is a config value so I can rename it.
+- Results show in the activity feed like work and crime.
+- Flavor lines: write a pool of at least 40, joke-level and suggestive at most, nothing crazy explicit. They are editable in the admin panel like the others.
+- Include it in the season simulation with work and crime.
+
+Naming note: in code the third command is **`hustle`** (config keys `hustle_*`, ledger reasons `hustle_win` and `hustle_fine`, `wallets.hustle_ready_at`). Its button's name is the config value `hustle_name`, which starts as "Slut".
 
 ### Keeping it balanced
 
@@ -490,7 +509,7 @@ _(Added by Tyton, Nov 18, 2026. Owner: heist lane.)_
 
 _(Added Nov 18, 2026, from Tyton's work and crime and russian roulette additions.)_
 
-- Include work and crime. Model players who press work whenever it is ready during the hours they play. Report how work income compares with Bronze and Silver rank income, and suggest new values for those two ranks if work makes them pointless.
+- Include work, slut and crime. Model players pressing all three whenever they are ready during play hours, and report the combined income against rank income at each tier. _(Tyton's final version. The earlier one also asked for new Bronze and Silver values if work made those ranks pointless.)_
 - The russian roulette lane reports in its simulation notes whether a better guard than the ante cap stops two players from passing chips to each other.
 
 ## Social layer
@@ -534,7 +553,7 @@ The owner runs the site and also plays for the pot, so every admin power is publ
 - **Players:** create a password reset code, disable an account.
 - **Chat:** delete messages.
 - **Chips:** manual adjustment with a required reason.
-- **Work and crime lines:** _(added Nov 18, 2026)_ edit the flavor lines shown with each result. They are config values, so the config editor covers them.
+- **Work and crime names and lines:** _(added Nov 18, 2026)_ edit the third button's name and the flavor lines shown with each result. They are config values, so the config editor covers them.
 
 ### The audit page
 
@@ -583,7 +602,7 @@ Notes:
 - A partial unique index allows one open round per player per game.
 - `game_rounds.detail` must hold enough to replay the round. Each game lane defines its own shape for it and exports the type.
 - Lanes add tables only in their own schema file, with table names prefixed by the lane name.
-- _(Added Nov 18, 2026.)_ `wallets` also holds `tier` (Ranks, written only by the economy lane) and `work_ready_at` and `crime_ready_at` (Work and crime: when each button can next be pressed, compared with the database clock).
+- _(Added Nov 18, 2026.)_ `wallets` also holds `tier` (Ranks, written only by the economy lane) and `work_ready_at`, `hustle_ready_at` and `crime_ready_at` (Work and crime: when each button can next be pressed, compared with the database clock).
 
 ## Live events
 
@@ -667,7 +686,7 @@ A lane owns everything named after it: `src/games/<name>/` or `src/features/<nam
 | Blackjack | `lane/blackjack` | The blackjack room | `blackjack` |
 | Roulette | `lane/roulette` | The shared-wheel roulette room | `roulette` |
 | Heist | `lane/heist` | Steal, shields, vault, shop, season simulation | `heist`, plus `scripts/simulate-season.ts` |
-| Economy | `lane/economy` | Daily bonus, streaks, challenges, work and crime _(replaced the rebuy, Nov 18, 2026)_, final day, podium, Hall of Fame | `economy`, `season` |
+| Economy | `lane/economy` | Daily bonus, streaks, challenges, work, slut and crime _(replaced the rebuy, Nov 18, 2026)_, final day, podium, Hall of Fame | `economy`, `season` |
 | Arcade | `lane/arcade` | Mines, then Plinko _(Crash moved to its own lane, Nov 18, 2026)_ | `mines`, `plinko` |
 | Slots | `lane/slots` | The slots room | `slots` |
 | Social | `lane/social` | Chat upgrades, reactions, notifications, history and replays, profiles, leaderboard page | `social`, `history`, `profile` |
@@ -679,10 +698,10 @@ A lane owns everything named after it: `src/games/<name>/` or `src/features/<nam
 _(Updated Nov 18, 2026.)_ Changes to the lanes above:
 
 - **Crash gets its own lane** in the second wave: branch `lane/crash`, builds the crash room, owns the name `crash`. Arcade keeps Mines and Plinko and owns `mines` and `plinko`.
-- **Economy** also builds Ranks and chat drops (see Economy > Ranks and Giveaways), and work and crime in place of the rebuy (see Economy > Work and crime). The buttons plug into the top bar through the economy manifest, so they are reachable from every room.
+- **Economy** also builds Ranks and chat drops (see Economy > Ranks and Giveaways), and work, slut and crime in place of the rebuy (see Economy > Work and crime). The buttons plug into the top bar through the economy manifest, so they are reachable from every room.
 - **Russian roulette** and **Race** are new lanes in the second wave (see Games > Russian roulette and Race).
 - **Heist** also owns the Shop page and the new simulation report (see Steal, shields and vault > Shop and Tune it before the first season).
-- **Admin** also builds admin giveaways (see Economy > Giveaways), and editing the work and crime lines (see Admin panel).
+- **Admin** also builds admin giveaways (see Economy > Giveaways), and editing the work and crime names and lines (see Admin panel).
 - **Social** also builds GIFs in chat (see Social layer > GIFs in chat).
 
 - **First wave:** Blackjack, Roulette, Heist, Economy. These are the games your group plays most and the season mechanics.

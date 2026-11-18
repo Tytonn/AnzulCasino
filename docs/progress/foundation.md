@@ -115,8 +115,8 @@ Deliverables 7 to 11 and the exit check.
 - **A season starts on the first request after its start time**, so no scheduled function wakes the database.
 - **Disabled players** get no wallet at a season start and are left off the leaderboard. If re-enabled, they join like a late joiner.
 - **`erasableSyntaxOnly`** is on, so Node runs any file directly. The heist lane's simulation can import `shared/config.ts`.
-- **Work and crime cooldowns live on the wallet row** (`work_ready_at`, `crime_ready_at`): the press locks that row anyway to pay out, so the check and the new time are atomic with no second lock. They store when the button is ready again, so a config change never moves a countdown already running.
-- **Flavor lines are config values** of a new `lines` kind (a list of plain-text lines, at most 50 of 120 characters). They take effect at once, since they cannot change an outcome. The admin lane's config editor covers them, and no table is shared between the economy and admin lanes.
+- **Work, slut and crime cooldowns live on the wallet row** (`work_ready_at`, `hustle_ready_at`, `crime_ready_at`; the third command is `hustle` in code): the press locks that row anyway to pay out, so the check and the new time are atomic with no second lock. They store when the button is ready again, so a config change never moves a countdown already running.
+- **Flavor lines and the third button's name are config values**, of two new kinds: `lines` (a list of plain-text lines, at most 100 of 120 characters) and `text` (one name of up to 20 characters). They take effect at once, since they cannot change an outcome. The admin lane's config editor covers them, and no table is shared between the economy and admin lanes.
 - **Ranges are guarded**: `CONFIG_PAIRS` lists every `_min`/`_max` pair, and `changeConfig` refuses a minimum above its maximum, so game code can draw from a range without checking it.
 - **The rebuy is gone** (Tyton, Nov 18): its config keys and ledger reason are removed, and migration `20261118065153_core_work_crime` drops `daily_state.rebuy_claimed` (always false; production has no tables yet).
 

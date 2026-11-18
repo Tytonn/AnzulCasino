@@ -29,6 +29,10 @@ describe('config defaults', () => {
         expect(parseConfigValue(key, [...s.default]), key).toEqual({ ok: true, value: s.default })
         continue
       }
+      if (s.unit === 'text') {
+        expect(parseConfigValue(key, s.default), key).toEqual({ ok: true, value: s.default })
+        continue
+      }
       if (s.unit === 'chips') expect(typeof s.default, key).toBe('bigint')
       else expect(Number.isSafeInteger(s.default), key).toBe(true)
       expect(s.default >= s.min && s.default <= s.max, key).toBe(true)
@@ -69,15 +73,47 @@ describe('config defaults', () => {
     ]).toEqual([200, 200, 300, 400])
   })
 
-  it("use Tyton's corrected work and crime values, with no rebuy", () => {
+  it("use Tyton's final work, third command and crime values, with no rebuy", () => {
     expect(defaults.work_cooldown_minutes).toBe(5)
     expect([defaults.work_pay_min, defaults.work_pay_max]).toEqual([chips(2), chips(6)])
-    expect(defaults.crime_cooldown_minutes).toBe(15)
+    expect(defaults.hustle_cooldown_minutes).toBe(60)
+    expect(defaults.hustle_success_pct).toBe(6_500)
+    expect([defaults.hustle_pay_min, defaults.hustle_pay_max]).toEqual([chips(20), chips(50)])
+    expect([defaults.hustle_fine_min, defaults.hustle_fine_max]).toEqual([chips(5), chips(15)])
+    expect(defaults.hustle_name).toBe('Slut')
+    expect(defaults.crime_cooldown_minutes).toBe(120)
     expect(defaults.crime_success_pct).toBe(4_500)
-    expect([defaults.crime_pay_min, defaults.crime_pay_max]).toEqual([chips(8), chips(25)])
-    expect([defaults.crime_fine_min, defaults.crime_fine_max]).toEqual([chips(2), chips(8)])
-    expect(defaults.crime_chat_min, 'the top of the crime range').toBe(chips(23))
+    expect([defaults.crime_pay_min, defaults.crime_pay_max]).toEqual([chips(60), chips(150)])
+    expect([defaults.crime_fine_min, defaults.crime_fine_max]).toEqual([chips(10), chips(30)])
+    expect(defaults.crime_chat_min, 'the top of the crime range').toBe(chips(140))
     expect(CONFIG_KEYS.filter((key) => key.includes('rebuy'))).toEqual([])
+  })
+
+  it('pay more per hour for work, and more per press for the longer cooldowns', () => {
+    // Expected chips per press and per hour, at the defaults (the design intent).
+    const mid = (min: bigint, max: bigint) => Number(min + max) / 2 / 100
+    const perPress = {
+      work: mid(defaults.work_pay_min, defaults.work_pay_max),
+      hustle:
+        (defaults.hustle_success_pct / 10_000) *
+          mid(defaults.hustle_pay_min, defaults.hustle_pay_max) -
+        (1 - defaults.hustle_success_pct / 10_000) *
+          mid(defaults.hustle_fine_min, defaults.hustle_fine_max),
+      crime:
+        (defaults.crime_success_pct / 10_000) *
+          mid(defaults.crime_pay_min, defaults.crime_pay_max) -
+        (1 - defaults.crime_success_pct / 10_000) *
+          mid(defaults.crime_fine_min, defaults.crime_fine_max),
+    }
+    const perHour = {
+      work: (perPress.work * 60) / defaults.work_cooldown_minutes,
+      hustle: (perPress.hustle * 60) / defaults.hustle_cooldown_minutes,
+      crime: (perPress.crime * 60) / defaults.crime_cooldown_minutes,
+    }
+    expect(perPress.crime).toBeGreaterThan(perPress.hustle)
+    expect(perPress.hustle).toBeGreaterThan(perPress.work)
+    expect(perHour.work).toBeGreaterThan(perHour.hustle)
+    expect(perHour.work).toBeGreaterThan(perHour.crime)
   })
 
   it('give russian roulette and race their starting values', () => {
@@ -127,6 +163,7 @@ describe('config defaults', () => {
     expect(waitsForReset('work_pay_max')).toBe(true)
     expect(waitsForReset('crime_success_pct')).toBe(true)
     expect(waitsForReset('work_lines')).toBe(false)
+    expect(waitsForReset('hustle_name')).toBe(false)
     expect(waitsForReset('min_bet')).toBe(false)
     expect(waitsForReset('roulette_betting_seconds')).toBe(false)
   })
@@ -170,7 +207,7 @@ describe('config values', () => {
     })
     expect(parseConfigValue('work_lines', [])).toEqual({
       ok: false,
-      error: 'work_lines needs between 1 and 50 lines.',
+      error: 'work_lines needs between 1 and 100 lines.',
     })
     expect(parseConfigValue('work_lines', ['fine', '  '])).toMatchObject({ ok: false })
     expect(parseConfigValue('work_lines', ['x'.repeat(121)])).toMatchObject({ ok: false })
@@ -181,6 +218,16 @@ describe('config values', () => {
     expect(formatConfigValue('work_lines', defaults.work_lines)).toBe('10 lines')
     expect(configWireValue(defaults.work_lines)).toEqual([...defaults.work_lines])
     expect(configWireValue(chips(3))).toBe(300)
+  })
+
+  it('can be a short plain-text name', () => {
+    expect(parseConfigValue('hustle_name', '  Hustle ')).toEqual({ ok: true, value: 'Hustle' })
+    expect(parseConfigValue('hustle_name', '')).toMatchObject({ ok: false })
+    expect(parseConfigValue('hustle_name', 'x'.repeat(21))).toMatchObject({ ok: false })
+    expect(parseConfigValue('hustle_name', 'tab\there')).toMatchObject({ ok: false })
+    expect(parseConfigValue('hustle_name', 5)).toMatchObject({ ok: false })
+    expect(formatConfigValue('hustle_name', 'Slut')).toBe('Slut')
+    expect(configWireValue('Slut')).toBe('Slut')
   })
 
   it('are typed: chips as bigint, the rest as numbers', () => {

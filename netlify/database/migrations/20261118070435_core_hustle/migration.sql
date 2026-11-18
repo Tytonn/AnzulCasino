@@ -1,0 +1,1 @@
+ALTER TABLE "wallets" ADD COLUMN "hustle_ready_at" timestamp with time zone;

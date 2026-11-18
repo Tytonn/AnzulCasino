@@ -25,10 +25,13 @@ export const LEDGER_REASONS = [
   'chat_drop',
   'giveaway',
   'steal_attempt_purchase',
-  // Added Nov 18, 2026 for work and crime (which replace the rebuy, so
-  // `rebuy` is gone) and for russian roulette between players. Its solo mode
+  // Added Nov 18, 2026 for work, the third income command (`hustle` in code,
+  // after UnbelievaBoat's .slut) and crime, which replace the rebuy (so
+  // `rebuy` is gone), and for russian roulette between players. Its solo mode
   // and a cancelled lobby use `bet`, `payout` and `refund` like any game.
   'work',
+  'hustle_win',
+  'hustle_fine',
   'crime_win',
   'crime_fine',
   'pvp_ante',

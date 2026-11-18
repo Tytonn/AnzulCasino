@@ -148,11 +148,12 @@ export const wallets = pgTable(
     /** When the current net worth was reached. Breaks leaderboard ties. */
     netWorthAt: ts('net_worth_at').notNull().defaultNow(),
     /**
-     * When the work and crime buttons can next be pressed (spec: Work and
-     * crime). Null means now. Compared with now() inside the transaction that
-     * locks this row, and written only by the economy lane.
+     * When the work, third (`hustle`) and crime buttons can next be pressed
+     * (spec: Work and crime). Null means now. Compared with now() inside the
+     * transaction that locks this row, and written only by the economy lane.
      */
     workReadyAt: ts('work_ready_at'),
+    hustleReadyAt: ts('hustle_ready_at'),
     crimeReadyAt: ts('crime_ready_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
   },
