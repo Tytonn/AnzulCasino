@@ -8,7 +8,7 @@
  *   const wallet = useWallet()          // balance and vault in hundredths, or null
  *   const alice = usePlayer(userId)     // name, avatar and tier, for <PlayerName>
  */
-import { type QueryClient, useQuery } from '@tanstack/react-query'
+import { type QueryClient, replaceEqualDeep, useQuery } from '@tanstack/react-query'
 
 import type { Me } from '../../shared/accounts.ts'
 import type { ConfigValues } from '../../shared/config.ts'
@@ -52,11 +52,32 @@ export function useMe(): Me {
   return data
 }
 
+/**
+ * The fetched season, but with the wallet the top bar already shows when that
+ * one is newer. A fetch that set off before a press that moved chips (the
+ * resync as the page connects, say) can land after the press's answer, with
+ * the balance from before it. As in `applyWallet`, the later ledger version
+ * wins, so the top bar never steps back.
+ */
+export function keepNewerWallet(old: SeasonState | undefined, fresh: SeasonState): SeasonState {
+  if (!old?.wallet || !fresh.wallet || old.current?.id !== fresh.current?.id) return fresh
+  return isNewer(old.wallet.version, fresh.wallet.version)
+    ? { ...fresh, wallet: old.wallet }
+    : fresh
+}
+
+/** The season query, shared by `useSeason` and its tests. */
+export const seasonQuery = {
+  queryKey: queryKeys.season,
+  queryFn: () => api.get<SeasonState>('/api/season'),
+  // Runs on every write, fetched or set: keep the newer wallet, then share
+  // what did not change as usual.
+  structuralSharing: (old: unknown, fresh: unknown): unknown =>
+    replaceEqualDeep(old, keepNewerWallet(old as SeasonState | undefined, fresh as SeasonState)),
+}
+
 export function useSeason() {
-  return useQuery({
-    queryKey: queryKeys.season,
-    queryFn: () => api.get<SeasonState>('/api/season'),
-  })
+  return useQuery(seasonQuery)
 }
 
 /** The player's chips this season, or null outside a season. Hundredths. */
