@@ -64,7 +64,7 @@ What it suggests for the tuning session with Tyton (no config changed):
 
 ## Not done yet
 
-- A run of the browser tests against the deploy preview (waiting for the preview's E2E_PASSWORD).
+Nothing in the lane. The browser tests also pass against the deploy preview (4 of 4 on 2026-11-19; the first run signed up the sample players and started a season). The config changes the simulation suggests wait for the tuning session with Tyton.
 
 ## Shared changes needed
 
