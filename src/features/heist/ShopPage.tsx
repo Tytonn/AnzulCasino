@@ -54,12 +54,15 @@ export default function ShopPage() {
       )}
 
       {items.length > 0 && (
-        <section aria-label="For sale" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <section
+          aria-label="For sale"
+          className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"
+        >
           <Slot name="shop-items" props={{}} />
         </section>
       )}
 
-      <div className="mt-6 grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+      <div className="mt-6 grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
         <VaultPanel heist={heist} />
         <HowItWorks heist={heist} />
       </div>

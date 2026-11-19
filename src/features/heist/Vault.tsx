@@ -185,15 +185,15 @@ export function VaultPanel({ heist, compact = false }: { heist: Heist; compact?:
               note.tone === 'loss' && typed ? 'border-loss/70' : 'border-border'
             }`}
           >
-            <span className="sr-only">Amount to {direction}</span>
             <input
+              aria-label={`Amount to ${direction}`}
               value={text}
               onChange={(e) => setText(e.target.value)}
               disabled={disabled}
               inputMode="decimal"
               autoComplete="off"
               enterKeyHint="done"
-              placeholder="20, half or max"
+              placeholder="20 or max"
               aria-describedby="heist-vault-note"
               className="h-full min-w-0 flex-1 bg-transparent font-semibold tabular-nums placeholder:font-normal placeholder:text-faint focus:outline-none disabled:cursor-not-allowed"
             />
