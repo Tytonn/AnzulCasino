@@ -435,7 +435,7 @@ export default defineFeature({
 
 | Slot | Where | Props | Meant for |
 | --- | --- | --- | --- |
-| `top-bar` | The top bar, every page, desktop and phone | `{ compact }`: true on a phone, where a widget gets about 4.5rem | Work, slut and crime, shield pips, steal attempts |
+| `top-bar` | The top bar, every page, desktop and phone | `{ compact }`: true on a phone. On desktop the widgets sit beside the wallet while they all fit there, and move to a second line under the header when they do not; a phone always gives them that second line. A row too narrow for them scrolls sideways with a faded edge, so keep each widget small (about 2.75 to 3.5rem) | Work, slut and crime, shield pips, steal attempts |
 | `profile-actions` | A player's profile card, not your own | `{ player }` | Steal |
 | `profile-sections` | A player's profile card | `{ player }` | Season stats |
 | `chat-composer` | Beside the chat box | `{ sent(message) }`: call it with what the server saved | The GIF picker |
