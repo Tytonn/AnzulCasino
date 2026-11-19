@@ -1,6 +1,7 @@
 /**
  * Keeps the shared caches current from live events (spec: Live events >
- * Recovery): the wallet, the leaderboard, the ticker, chat and the season.
+ * Recovery): the wallet, the leaderboard, the ticker (rounds and steal
+ * attempts), chat and the season.
  * Whenever events may have been missed, it fetches again; events older than
  * what was fetched are dropped by their versions.
  */
@@ -12,7 +13,7 @@ import { userChannel } from '../../shared/events.ts'
 import type { PlayerSummary } from '../../shared/players.ts'
 import type { LeaderboardView } from '../../shared/seasons.ts'
 import { isTier } from '../../shared/tiers.ts'
-import { addTickerRound, applyWallet, queryKeys, useConfig } from '../kit/queries.ts'
+import { addTickerItem, applyWallet, queryKeys, useConfig } from '../kit/queries.ts'
 import { afterReveal } from '../kit/reveal.ts'
 import { toast } from '../kit/toast.tsx'
 import { useAwayAfter, useLiveEvent, useResync } from '../live/index.ts'
@@ -71,7 +72,12 @@ export function LiveSync({ me }: { me: Me }) {
   })
 
   useLiveEvent('feed', 'round.settled', (round) => {
-    afterReveal(round.userId, () => addTickerRound(queryClient, round))
+    afterReveal(round.userId, () => addTickerItem(queryClient, { kind: 'round', round }))
+  })
+
+  // A steal waits for the thief's reveal, like its chat post.
+  useLiveEvent('feed', 'steal.result', (steal) => {
+    afterReveal(steal.thiefId, () => addTickerItem(queryClient, { kind: 'steal', steal }))
   })
 
   useLiveEvent('feed', 'season.state', () => {

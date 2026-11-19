@@ -1,6 +1,6 @@
 # Foundation (Stage 1)
 
-Branch `foundation`, merged into `main` on 2026-11-19 (pull request #1). Last updated 2026-11-19 by the Foundation thread, which now makes the shared changes lanes ask for (batch 1 on branch `claude/project-thread-65plqj`).
+Branch `foundation`, merged into `main` on 2026-11-19 (pull request #1). Last updated 2026-11-19 by the Foundation thread, which now makes the shared changes lanes ask for on branch `claude/project-thread-65plqj` (batch 1 merged, batch 2 open).
 
 ## What already exists
 
@@ -126,6 +126,13 @@ Answered on 2026-11-18:
   - Config: a `milliseconds` unit and `blackjack_slow_reveal_pct` (50%), `blackjack_slow_lift_ms` (900) and `blackjack_slow_flip_ms` (400), for the slow card reveal Tyton asked the blackjack lane for.
   - Sounds: `thud` (a bust, a mine) and `sparkle` (a big moment, such as 21).
   - Tests: 3 integration tests for lowering a stake, 4 new unit tests for holds, and the milliseconds format. `docs/LANE_GUIDE.md` sections 7, 8, 10, 13 and 19 describe them.
+  - Tyton merged it (pull request #2) on 2026-11-19 at 20:34 UTC as `fed5678`, CI passed on `main`, and the four open lanes were told to pull.
+- **Shared changes, batch 2, 2026-11-19**, for the heist and economy lanes (pull request from the same branch):
+  - Steal attempts show in the ticker (Steal rules, rule 7). `StealView` and `StealResult` moved to `shared/steals.ts` as the heist lane wrote them, and `steal.result` is now a core feed event, so the shell can listen before heist merges. The heist lane drops its own declaration and re-exports the types.
+  - `GET /api/ticker` returns `{ items }`: rounds and steal attempts together, newest first, from `game_rounds` and `steals`. `shared/ticker.ts` has the `TickerItem` type and `tickerKey`; `addTickerItem` replaces `addTickerRound`.
+  - `LiveSync` adds a `steal.result` to the ticker after the thief's reveal. The ticker draws a steal in one line ("Alice robbed Bob 1,250", "Alice got caught robbing Bob · fined 300", "Bob's shield blocked Alice"), and clicking it opens the thief's profile card, where heist puts the Rob button. `MaskIcon` joins the icons.
+  - Economy: the full flavor-line pools the economy lane wrote (36 work, 44 and 32 for the third button, 26 and 26 for crime) are the defaults of `work_lines` and the rest, from `shared/config-lines.ts`, no longer provisional. `SystemMeta` gains `drop` for a chat drop's post.
+  - Tests: the ticker endpoint test now mixes in two steals by time and checks their shape, and 2 unit tests cover the ticker cache (each item once, a round and a steal with the same id both kept, the newest 40 kept). The config test checks every line of every pool.
 
 ## Not done
 
