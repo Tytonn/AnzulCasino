@@ -1,0 +1,113 @@
+/*
+ * Blackjack's own colors and card faces (docs/LANE_GUIDE.md: Colors for your
+ * game). Set on plain :root, so a theme can restyle them with
+ * :root[data-theme='<theme>']. Imported by src/games/blackjack/manifest.ts,
+ * so they load with the Floor, where the game's card art uses them.
+ */
+:root {
+  /* Card faces: warm paper, so the felt and the gold stay the loud colors. */
+  --bj-paper: #fbf9f4;
+  --bj-paper-shade: #ebe6da;
+  --bj-paper-edge: #d4cdbd;
+  --bj-ink: #1c2130;
+  --bj-ink-red: #d4364a;
+  /* Card backs: the room's violet, with a fine lattice. */
+  --bj-back: #5a4be0;
+  --bj-back-deep: #2b2287;
+  --bj-back-line: rgb(255 255 255 / 0.13);
+  --bj-back-frame: rgb(255 255 255 / 0.55);
+  /* Lines and lettering printed on the felt. */
+  --bj-print: rgb(233 236 243 / 0.16);
+  --bj-print-strong: rgb(233 236 243 / 0.3);
+  --bj-shadow: rgb(0 0 0 / 0.35);
+  --bj-shadow-lifted: rgb(0 0 0 / 0.5);
+}
+
+/* Card sizes: the table sets --bj-card-w for its screen size (Table.tsx), seats and art set their own. */
+.bj-table {
+  --bj-card-w: 46px;
+}
+
+.bj-card {
+  position: relative;
+  flex: none;
+  width: var(--bj-card-w);
+  height: calc(var(--bj-card-w) * 1.4);
+  perspective: calc(var(--bj-card-w) * 14);
+}
+
+.bj-card-turn {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+}
+
+.bj-card-face,
+.bj-card-back {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: calc(var(--bj-card-w) * 0.1);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  box-shadow:
+    0 1px 0 rgb(255 255 255 / 0.5) inset,
+    0 calc(var(--bj-card-w) * 0.05) calc(var(--bj-card-w) * 0.14) var(--bj-shadow);
+}
+
+.bj-card-face {
+  color: var(--bj-ink);
+  background: linear-gradient(160deg, var(--bj-paper) 55%, var(--bj-paper-shade));
+  border: 1px solid var(--bj-paper-edge);
+}
+.bj-card-face[data-red='true'] {
+  color: var(--bj-ink-red);
+}
+
+.bj-card-back {
+  transform: rotateY(180deg);
+  border: calc(var(--bj-card-w) * 0.05) solid var(--bj-paper);
+  background:
+    repeating-linear-gradient(45deg, var(--bj-back-line) 0 1px, transparent 1px 7px),
+    repeating-linear-gradient(-45deg, var(--bj-back-line) 0 1px, transparent 1px 7px),
+    radial-gradient(circle at 50% 40%, var(--bj-back), var(--bj-back-deep));
+  color: var(--bj-back-frame);
+}
+
+/* A lifted card throws a longer shadow while it waits to turn over. */
+.bj-card-lifted .bj-card-back,
+.bj-card-lifted .bj-card-face {
+  box-shadow:
+    0 1px 0 rgb(255 255 255 / 0.5) inset,
+    0 calc(var(--bj-card-w) * 0.22) calc(var(--bj-card-w) * 0.4) var(--bj-shadow-lifted);
+  transition: box-shadow 0.6s ease;
+}
+
+.bj-index {
+  font-size: calc(var(--bj-card-w) * 0.27);
+  line-height: 0.95;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+
+/* The betting circle and the lettering on the felt. */
+.bj-spot {
+  border: 1.5px dashed var(--bj-print-strong);
+}
+.bj-print {
+  fill: var(--bj-print);
+  color: var(--bj-print);
+}
+
+/* A gold burst over the table for a 21 on the slow reveal. */
+.bj-flash {
+  background: radial-gradient(
+    ellipse 60% 55% at 50% 72%,
+    color-mix(in oklab, var(--gold) 55%, transparent),
+    transparent 70%
+  );
+}
+/* A red pulse at the table's edge for a bust on the slow reveal. */
+.bj-thud {
+  box-shadow: inset 0 0 60px -10px color-mix(in oklab, var(--loss) 70%, transparent);
+}

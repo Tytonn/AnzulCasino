@@ -323,7 +323,7 @@ export function whyNot(detail: BlackjackDetail, move: Move): string | null {
  * is big, and the hand stands on a hard 12 or more, where one card can bust
  * it. Decided from the hand before the card, never from the card.
  */
-export function slowHitFor(detail: BlackjackDetail, hand: BlackjackHand): boolean {
+export function slowHitFor(detail: BlackjackDetail, hand: Pick<BlackjackHand, 'cards'>): boolean {
   if (!detail.slowReveal) return false
   const { total, soft } = handTotal(hand.cards)
   return !soft && total >= BUST_RISK_FROM
