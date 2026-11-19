@@ -137,6 +137,7 @@ Answered on 2026-11-18:
 - **Shared changes, batch 3, 2026-11-19**, for the blackjack and economy lanes:
   - The shell browser test opened `/room/blackjack` to check a placeholder, so it would fail the moment blackjack merged. It now opens the first room the Floor still marks Soon, and skips the check once every game is built, so no game lane's merge breaks it. Checked on `main` and on the blackjack lane's branch, at 1440 and 375.
   - The phone's row of top-bar widgets hides itself (`empty:hidden`) while every widget draws nothing, such as the economy's buttons between seasons, instead of leaving an empty 44px row under the header.
+  - `docs/LANE_GUIDE.md`, Migration numbers: a new pull request from the same branch is not a reliable way to get a fresh preview database. Batch 3's preview (pull request #8) started with the players the browser tests had made on batch 2's preview (#7, same branch), although #7's own preview had started empty after #1's. So after renaming a migration, a lane that still needs a preview asks Tyton for a new branch instead.
 
 ## Not done
 
