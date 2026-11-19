@@ -19,7 +19,7 @@ import { useCallback, useRef, useState } from 'react'
 
 import type { PlayResult } from '../../shared/rounds.ts'
 import { api, ApiError, errorMessage, requestKey } from './api.ts'
-import { applyWallet } from './queries.ts'
+import { applyWallet, useMe } from './queries.ts'
 import { afterReveal, holdReveal } from './reveal.ts'
 import { applyRound, roomKey } from './room.ts'
 import { toast } from './toast.tsx'
@@ -31,6 +31,7 @@ export interface SendOptions {
 
 export function usePlay<D = unknown>() {
   const queryClient = useQueryClient()
+  const me = useMe()
   const [busy, setBusy] = useState(false)
   const sending = useRef(false)
 
@@ -40,13 +41,13 @@ export function usePlay<D = unknown>() {
       if (sending.current) return null
       sending.current = true
       setBusy(true)
-      const release = holdReveal()
+      const release = holdReveal({ players: [me.id] })
       try {
         const result = await api.post<PlayResult<D>>(path, body, { key: requestKey() })
         const settled = result.round.status !== 'open'
         if (!settled) applyRound(queryClient, result.round)
         release(options.revealMs ?? 0)
-        afterReveal(() => {
+        afterReveal(me.id, () => {
           if (settled) applyRound(queryClient, result.round)
           applyWallet(queryClient, result.wallet)
         })
@@ -65,7 +66,7 @@ export function usePlay<D = unknown>() {
         setBusy(false)
       }
     },
-    [queryClient],
+    [queryClient, me.id],
   )
 
   return { send, busy }

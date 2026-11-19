@@ -1,6 +1,6 @@
 # Foundation (Stage 1)
 
-Branch `foundation`. Last updated 2026-11-19 by the Foundation thread (deliverables 1 to 11 done and the exit check passed on the deploy preview; the merge waits for Tyton).
+Branch `foundation`, merged into `main` on 2026-11-19 (pull request #1). Last updated 2026-11-19 by the Foundation thread, which now makes the shared changes lanes ask for (batch 1 on branch `claude/project-thread-65plqj`).
 
 ## What already exists
 
@@ -85,7 +85,7 @@ Netlify bills the database about 10 credits for every hour it is awake. It sleep
 4. ~~**Admin bootstrap code**~~ Done 2026-11-19 (the preview value is in the project thread, never in the repo). The step was: in the same place, add `ADMIN_BOOTSTRAP_CODE`, secret, scope Functions. Choose **Different value for each deploy context**: a long private phrase for Production, and a separate throwaway phrase for Deploy Previews that you send me, so I can create the first admin on the preview.
 5. ~~**Network access for this build container**~~ Done 2026-11-19: the cloud environment allows `*.netlify.app`, `main.realtime.ably.net` and `*.ably-realtime.com`. The browser tests send preview traffic through the container's `HTTPS_PROXY` by themselves.
 6. ~~**Make the project public**~~ Done 2026-11-19, from Project configuration > General > Visitor access > Project visibility. It was Private, Netlify's default for new teams, and on the Personal plan only the Team Owner can open a private project, so test browsers and players could not get past Netlify's login. The site keeps its own login and invite-only signups.
-7. **Approve the merge** of `foundation` into `main` (pull request #1). Merging builds production without publishing it while auto publishing is locked.
+7. ~~**Approve the merge**~~ Done 2026-11-19: Tyton merged pull request #1. Merging builds production without publishing it while auto publishing is locked.
 
 ## Open questions
 
@@ -118,10 +118,18 @@ Answered on 2026-11-18:
 - **Exit check, passed on the deploy preview on 2026-11-19** (commit `8f67592`, `https://deploy-preview-1--playanzul.netlify.app`, live updates through Ably). The 5 browser tests that run on a preview pass at both 1440 and 375 (10 runs): two players see each other online and in which room, chat both ways with a mention, open each other's cards, and see a closed tab leave the online list; two players flip coins and watch each other's seats, the leaderboard and the ticker change live; the Floor, a room and the setup page render; signing in and out works. The sixth, the live-layer test, needs the local relay, so it skips on a preview and runs in CI. CI passes on the same commit: 262 unit and integration tests and the browser tests on the local relay. Screenshots are in `/mnt/project-files/foundation/exit-check/`.
 - **Found on the preview and fixed in the tests:** Netlify adds its review drawer to every preview, over a phone's tab bar, so `signIn` blocks its script; and a test that closed only its browser context left the player online on Ably for 15 seconds, into the next test, so players now close with `player.close()`, which closes the tab the way a person does.
 - **Logo, 2026-11-19.** Tyton's logo, a white "A" with a four-point sparkle, replaces the drawn mark. `LogoMark` in `src/shell/Logo.tsx` is a trace of the original, which is kept in `docs/brand/anzul-logo.webp`, so the rail, the phone's top bar, the login page and the loading screen show it. The browser tab (`public/favicon.svg`, with `favicon.ico` for browsers without SVG icons) and a phone's home screen (`apple-touch-icon.png`) show it on the site's dark background.
+- **Merged, 2026-11-19.** Tyton merged pull request #1 into `main` (`5825ad7`), and CI passed there. The live site keeps its old deploy until Tyton publishes one.
+- **Shared changes, batch 1, 2026-11-19**, for the roulette and blackjack lanes (branch `claude/project-thread-65plqj`):
+  - `play.lower(round, { amount, detail, secret? })` and `lowerStake` in `server/lib/rounds.ts` hand part of an open round's stake back with a `refund` ledger row, keep the round open, clear the all-in flag and work out the big-bet flag again from what is left. They refuse nothing at all or the whole stake. Roulette takes one bet off with it.
+  - Reveal holds name players: `holdReveal({ players })` and `afterReveal(player, task)` in `src/kit/reveal.ts`. `usePlay` holds you; a shared round holds its bettors from the close until the wheel lands. `LiveSync` (the leaderboard, the ticker, chat posts about a result) and `useRoom` (seats) wait for any hold on the player the news is about, so nobody's result shows before the wheel lands, on any screen.
+  - `useRoom`'s `revealMs` can be a function of the settled round, for a blackjack hand whose reveal runs its own length.
+  - Config: a `milliseconds` unit and `blackjack_slow_reveal_pct` (50%), `blackjack_slow_lift_ms` (900) and `blackjack_slow_flip_ms` (400), for the slow card reveal Tyton asked the blackjack lane for.
+  - Sounds: `thud` (a bust, a mine) and `sparkle` (a big moment, such as 21).
+  - Tests: 3 integration tests for lowering a stake, 4 new unit tests for holds, and the milliseconds format. `docs/LANE_GUIDE.md` sections 7, 8, 10, 13 and 19 describe them.
 
 ## Not done
 
-Nothing in Stage 1. The merge of pull request #1 is Tyton's call.
+Nothing in Stage 1.
 
 ## Decisions
 
@@ -160,3 +168,4 @@ Nothing in Stage 1. The merge of pull request #1 is Tyton's call.
 ## Shared changes for lanes to know
 
 - Adding a config key or a ledger reason is a shared change: list it under "Shared changes needed" in the lane's pull request.
+- The Foundation thread makes the shared changes. A lane lists them in its pull request and progress file and sends them to the thread; each batch is one pull request from `main` for Tyton to merge, and the lanes pull `main` after it.

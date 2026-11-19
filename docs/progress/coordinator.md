@@ -2,21 +2,26 @@
 
 Running status for the whole build. The coordinator owns this file; the Foundation thread keeps it current while Stage 1 runs.
 
-Last updated: 2026-11-19 19:25 UTC
+Last updated: 2026-11-19 20:30 UTC
 
 ## Stage
 
-**Stage 1: Foundation.** No lane may start until the Stage 1 exit check passes on a deploy preview and `foundation` is merged to `main` with Tyton's approval.
+**Stage 2: Lanes.** Stage 1 passed its exit check and Tyton merged `foundation` into `main` on 2026-11-19, so lanes may start. The spec's first wave is Blackjack, Roulette, Heist and Economy, at most four at once.
 
 ## Threads
 
 | Thread | Lane | Branch | Stage | Status |
 | --- | --- | --- | --- | --- |
-| Foundation | foundation | `foundation` | Stage 1 | **Exit check passed on the deploy preview on 2026-11-19** (commit `8f67592`, live updates through Ably): two players see each other online, chat, play coin flip and watch each other's seats, the leaderboard and the ticker update live, at 1440 and 375. All 11 deliverables are done; CI passes (262 unit and integration tests and the browser tests). Pull request #1 is ready for review and waits for Tyton to approve the merge. |
+| Foundation | foundation | `foundation`, then `claude/project-thread-65plqj` | Stage 1 done | Merged into `main` on 2026-11-19 (pull request #1, `5825ad7`) after the exit check passed on the deploy preview. Now makes the shared changes lanes ask for: batch 1 (a partial refund for roulette, reveal holds on other players, blackjack's slow-reveal settings, two sounds and per-round reveal times) is on `claude/project-thread-65plqj`. |
+| Roulette | roulette | `lane/roulette` | Stage 2 | Started 2026-11-19. Its two shared changes are in batch 1. |
+| Blackjack | blackjack | `lane/blackjack` | Stage 2 | Started 2026-11-19. Its shared changes are in batch 1. |
+| Heist | heist | `lane/heist` | Stage 2 | Started 2026-11-19. |
+| Economy | economy | `lane/economy` | Stage 2 | Started 2026-11-19. |
 
 ## Merged to main
 
 - 2026-11-18: one starter commit (README only), with Tyton's approval, so `foundation` has a base. Commit message carries `[skip netlify]` so it costs no deploy credits.
+- 2026-11-19: `foundation`, Stage 1 (pull request #1, `5825ad7`), merged by Tyton. CI passed on `main`. The live site is unchanged until Tyton publishes a deploy.
 
 ## Netlify
 
@@ -26,17 +31,17 @@ Last updated: 2026-11-19 19:25 UTC
 
 ## Blocked
 
-- Nothing. Foundation waits only for Tyton to approve the merge of pull request #1, and the first wave waits for his go after that.
+- Nothing.
 
 ## Needs from Tyton
 
-All done for the exit check on 2026-11-19. What is left is the merge.
+All done on 2026-11-19.
 
 1. ~~Ably: `ABLY_API_KEY` in Netlify.~~ Done 2026-11-19.
 2. ~~`ADMIN_BOOTSTRAP_CODE` in Netlify, with a separate Deploy Previews value shared with the Foundation thread.~~ Done 2026-11-19.
 3. ~~Network access for the build container.~~ Done 2026-11-19: `*.netlify.app`, `main.realtime.ably.net` and `*.ably-realtime.com`.
 4. ~~Make the Netlify project public.~~ Done 2026-11-19: Private projects on the Personal plan open only for the Team Owner, so neither the test browsers nor the players could get in.
-5. **Approve the merge of `foundation` into `main`** (pull request #1), then give the go for the first wave.
+5. ~~Approve the merge of `foundation` into `main` (pull request #1).~~ Done 2026-11-19.
 
 ## Decisions
 

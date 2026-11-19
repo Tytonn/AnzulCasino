@@ -1,6 +1,7 @@
 /**
  * The sound manager (spec: Sound and keys): short sounds for chips, cards,
- * wins, losses, steals and shield blocks, at the player's volume and mute.
+ * wins, losses, steals, shield blocks, heavy knocks and bright bursts, at the
+ * player's volume and mute.
  * They are synthesized with Web Audio, so there are no files to load or
  * license, and a theme can replace any of them later.
  *
@@ -22,6 +23,8 @@ export const SOUNDS = [
   'loss',
   'steal',
   'block',
+  'thud',
+  'sparkle',
 ] as const
 export type SoundName = (typeof SOUNDS)[number]
 
@@ -104,6 +107,8 @@ const E5 = 659.25
 const G5 = 783.99
 const C6 = 1046.5
 const E6 = 1318.5
+const G6 = 1567.98
+const C7 = 2093
 
 const RECIPES: Record<SoundName, (ac: AudioContext, out: AudioNode, t: number) => void> = {
   // Two clay chips clicking together.
@@ -158,6 +163,22 @@ const RECIPES: Record<SoundName, (ac: AudioContext, out: AudioNode, t: number) =
     tone(ac, out, t, { frequency: 120, glideTo: 70, duration: 0.25, gain: 0.35 })
     tone(ac, out, t, { frequency: 1250, duration: 0.4, gain: 0.08, type: 'triangle' })
     hiss(ac, out, t, { duration: 0.06, frequency: 2500, q: 1, gain: 0.3 })
+  },
+  // A heavy knock: a bust, a mine.
+  thud(ac, out, t) {
+    tone(ac, out, t, { frequency: 140, glideTo: 48, duration: 0.32, gain: 0.55 })
+    tone(ac, out, t, { frequency: 70, glideTo: 40, duration: 0.4, gain: 0.3, type: 'triangle' })
+    hiss(ac, out, t, { duration: 0.08, frequency: 420, q: 0.9, gain: 0.45 })
+  },
+  // A bright burst for a big moment, such as hitting 21.
+  sparkle(ac, out, t) {
+    ;[G5, C6, E6, G6, C7].forEach((frequency, i) =>
+      tone(ac, out, t, { frequency, at: i * 0.045, duration: 0.25, gain: 0.14, type: 'triangle' }),
+    )
+    for (const frequency of [C6, E6, G6]) {
+      tone(ac, out, t, { frequency, at: 0.2, duration: 0.7, gain: 0.05 })
+    }
+    hiss(ac, out, t, { at: 0.05, duration: 0.6, frequency: 9000, q: 0.6, gain: 0.07 })
   },
 }
 
