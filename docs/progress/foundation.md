@@ -1,6 +1,6 @@
 # Foundation (Stage 1)
 
-Branch `foundation`, merged into `main` on 2026-11-19 (pull request #1). Last updated 2026-11-19 by the Foundation thread, which now makes the shared changes lanes ask for on branch `claude/project-thread-65plqj` (batches 1 and 2 merged, batch 3 open).
+Branch `foundation`, merged into `main` on 2026-11-19 (pull request #1). Last updated 2026-11-19 by the Foundation thread, which now makes the shared changes lanes ask for on branch `claude/project-thread-65plqj` (batches 1 to 3 merged; the latest is at the end of the shared changes list below).
 
 ## What already exists
 
@@ -138,6 +138,13 @@ Answered on 2026-11-18:
   - The shell browser test opened `/room/blackjack` to check a placeholder, so it would fail the moment blackjack merged. It now opens the first room the Floor still marks Soon, and skips the check once every game is built, so no game lane's merge breaks it. Checked on `main` and on the blackjack lane's branch, at 1440 and 375.
   - The phone's row of top-bar widgets hides itself (`empty:hidden`) while every widget draws nothing, such as the economy's buttons between seasons, instead of leaving an empty 44px row under the header.
   - `docs/LANE_GUIDE.md`, Migration numbers: a new pull request from the same branch is not a reliable way to get a fresh preview database. Batch 3's preview (pull request #8) started with the players the browser tests had made on batch 2's preview (#7, same branch), although #7's own preview had started empty after #1's. So after renaming a migration, a lane that still needs a preview asks Tyton for a new branch instead.
+  - Tyton merged it (pull request #8) on 2026-11-19 at 22:21 UTC as `b07c2cc`, then Heist (#3), Roulette (#5) and Economy (#6). CI passed on `main` at `448ee3b`.
+- **Shared changes, batch 4, 2026-11-19**, for the economy and heist lanes:
+  - With Heist, Roulette and Economy on `main`, the top bar's widgets needed about 484px on desktop and 408px on a phone, more than the room they had below 1440 (326px at 1280, 314px at 1100) and on a 375px phone. The row scrolled sideways with no hint, so Shield was cut off against the season clock.
+  - On desktop the widgets now sit beside the wallet while they fit there and move to a second line under the header when they do not, like the phone. `TopBar` is a grid: the wallet, the room between it and the clock, then the clock and buttons. The widgets keep one place in the page whichever line they are on, so nothing remounts, and `useWidgetsBelow` compares their natural width with that room. They move back up only with 24px to spare, so a countdown that changes width cannot make the header jump. The first line stays 64px.
+  - Any row that still scrolls, on desktop or phone, fades the edge it has widgets beyond (`fadeMask`, 1.5rem). The widgets are wrapped in `[data-top-bar-content]` at their natural width, and the row hides while that is empty (`has-[>:empty]:hidden`), as batch 3's `empty:hidden` did.
+  - The heist lane is shrinking Steals and Shield to an icon over a short value (about 2.75rem), and the economy lane is tightening its buttons. With both, the row fits beside the wallet at 1440 and without scrolling on a 375px phone, and the second line covers 1100 to 1400.
+  - New browser test: "the top bar keeps every widget in view, or fades the edge it scrolls past", at 1440, 1280, 1100 and 900 on desktop, and 375 and 320 on a phone.
 
 ## Not done
 

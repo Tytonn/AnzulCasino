@@ -3,8 +3,21 @@
  * count, the vault, the features' widgets (work, slut and crime, Collect,
  * shield pips, steal attempts), the season countdown and the sound toggle.
  * It is in every room on desktop and phone, so widgets are always in reach.
+ *
+ * On desktop the widgets sit between the wallet and the season clock while
+ * they fit there, and move to a second line under the header when they do
+ * not, as on a phone. A row that still has more than it can show scrolls
+ * sideways, and its edges fade where widgets are hidden.
  */
-import { type ReactNode, useEffect, useRef, useState } from 'react'
+import {
+  type CSSProperties,
+  type ReactNode,
+  type RefObject,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react'
 import { Link } from 'react-router'
 
 import { api, ApiError, errorMessage } from '../../kit/api.ts'
@@ -225,17 +238,136 @@ function SidebarButton() {
   )
 }
 
-export function TopBar() {
+/** How far a row's edge fades where more widgets are hidden. */
+const FADE = '1.5rem'
+
+/** A mask that fades the sides a scrolling row has more widgets beyond. */
+function fadeMask(left: boolean, right: boolean): CSSProperties | undefined {
+  if (!left && !right) return undefined
+  const start = left ? `transparent, black ${FADE}` : 'black'
+  const end = right ? `black calc(100% - ${FADE}), transparent` : 'black'
+  const mask = `linear-gradient(to right, ${start}, ${end})`
+  return { maskImage: mask, WebkitMaskImage: mask }
+}
+
+/** Which ends of a sideways-scrolling row have widgets hidden beyond them. */
+function useHiddenEnds(
+  row: RefObject<HTMLElement | null>,
+  content: RefObject<HTMLElement | null>,
+): { left: boolean; right: boolean } {
+  const [ends, setEnds] = useState({ left: false, right: false })
+  useLayoutEffect(() => {
+    const scroller = row.current
+    const widgets = content.current
+    if (!scroller || !widgets) return
+    const update = () => {
+      const max = scroller.scrollWidth - scroller.clientWidth
+      const left = scroller.scrollLeft > 1
+      const right = scroller.scrollLeft < max - 1
+      setEnds((was) => (was.left === left && was.right === right ? was : { left, right }))
+    }
+    update()
+    scroller.addEventListener('scroll', update, { passive: true })
+    const observer = new ResizeObserver(update)
+    observer.observe(scroller)
+    observer.observe(widgets)
+    return () => {
+      scroller.removeEventListener('scroll', update)
+      observer.disconnect()
+    }
+  }, [row, content])
+  return ends
+}
+
+/**
+ * The features' widgets in one row. It scrolls sideways when they do not fit,
+ * and hides itself while every widget draws nothing, such as between seasons.
+ */
+function WidgetRow({
+  compact,
+  content,
+  className,
+}: {
+  compact: boolean
+  /** The widgets themselves, at their natural width. */
+  content: RefObject<HTMLDivElement | null>
+  className: string
+}) {
+  const row = useRef<HTMLDivElement>(null)
+  const { left, right } = useHiddenEnds(row, content)
   return (
-    <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-4 border-b border-border bg-glass px-5 backdrop-blur-md">
-      <Wallet compact={false} />
-      <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto" data-slot="top-bar">
-        <Slot name="top-bar" props={{ compact: false }} />
+    <div
+      ref={row}
+      data-slot="top-bar"
+      className={`scroll-quiet flex overflow-x-auto has-[>:empty]:hidden ${className}`}
+      style={fadeMask(left, right)}
+    >
+      <div ref={content} data-top-bar-content className="flex w-max shrink-0 items-center gap-2">
+        <Slot name="top-bar" props={{ compact }} />
       </div>
-      <SeasonClock />
-      <SoundToggle />
-      <SidebarButton />
-      <MeMenu withSound={false} />
+    </div>
+  )
+}
+
+/**
+ * Whether the widgets need the second line: they are wider than the room
+ * between the wallet and the clock. Once there, they come back only with
+ * some room to spare, so a countdown that changes width every second cannot
+ * make the header jump between one line and two.
+ */
+function useWidgetsBelow(
+  room: RefObject<HTMLElement | null>,
+  content: RefObject<HTMLElement | null>,
+): boolean {
+  const [below, setBelow] = useState(false)
+  useLayoutEffect(() => {
+    const space = room.current
+    const widgets = content.current
+    if (!space || !widgets) return
+    const measure = () => {
+      const need = widgets.getBoundingClientRect().width
+      const have = space.getBoundingClientRect().width
+      setBelow((was) => need > (was ? have - SPARE : have))
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(space)
+    observer.observe(widgets)
+    return () => observer.disconnect()
+  }, [room, content])
+  return below
+}
+
+/** The room to spare, in pixels, before widgets on the second line move back up. */
+const SPARE = 24
+
+export function TopBar() {
+  const room = useRef<HTMLDivElement>(null)
+  const content = useRef<HTMLDivElement>(null)
+  const below = useWidgetsBelow(room, content)
+  return (
+    <header
+      data-widgets={below ? 'below' : 'inline'}
+      className="sticky top-0 z-20 grid shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] grid-rows-[calc(4rem-1px)] items-center gap-x-4 border-b border-border bg-glass px-5 backdrop-blur-md"
+    >
+      <div className="col-start-1 row-start-1 flex min-w-0 items-center">
+        <Wallet compact={false} />
+      </div>
+      {/* The room between the wallet and the clock, measured whichever line the widgets are on. */}
+      <div ref={room} aria-hidden="true" className="col-start-2 row-start-1 h-px" />
+      <WidgetRow
+        compact={false}
+        content={content}
+        className={
+          below ? 'col-span-full row-start-2 -mx-5 px-5 pb-2.5' : 'col-start-2 row-start-1'
+        }
+      />
+      <div className="col-start-3 row-start-1 flex items-center gap-4">
+        <SeasonClock />
+        <SoundToggle />
+        <SidebarButton />
+        <MeMenu withSound={false} />
+      </div>
     </header>
   )
 }
@@ -243,6 +375,7 @@ export function TopBar() {
 /** The phone's top bar: the wallet and clock, then a row of widgets when there are any. */
 export function PhoneTopBar() {
   const widgets = useSlot('top-bar')
+  const content = useRef<HTMLDivElement>(null)
   return (
     <header className="sticky top-0 z-20 shrink-0 border-b border-border bg-glass pt-[env(safe-area-inset-top)] backdrop-blur-md">
       <div className="flex h-14 items-center gap-3 px-4">
@@ -256,13 +389,7 @@ export function PhoneTopBar() {
         <MeMenu withSound />
       </div>
       {widgets.length > 0 && (
-        // Hidden while every widget draws nothing, such as between seasons.
-        <div
-          className="scroll-quiet flex h-11 items-center gap-2 overflow-x-auto px-4 pb-1 empty:hidden"
-          data-slot="top-bar"
-        >
-          <Slot name="top-bar" props={{ compact: true }} />
-        </div>
+        <WidgetRow compact content={content} className="h-11 items-center px-4 pb-1" />
       )}
     </header>
   )
