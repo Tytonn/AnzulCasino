@@ -27,6 +27,7 @@ import {
   type IncomeCommand,
   incomeReason,
   type IncomeResponse,
+  flavorLines,
   linesKey,
   nextTier,
   streakBonus,
@@ -36,7 +37,6 @@ import {
   type TierResponse,
   type WalletAfter,
 } from '../../../shared/features/economy.ts'
-import { linePool } from '../../../shared/features/economy-lines.ts'
 import { addGameDays, gameDay } from '../../../shared/game-day.ts'
 import { type Tier, TIER_LABELS } from '../../../shared/tiers.ts'
 import type { Wire } from '../../../shared/wire.ts'
@@ -195,7 +195,7 @@ export function pressButton(ctx: EconomyRequest, command: IncomeCommand) {
       chance,
       below: randomBelow,
     })
-    const line = pick(linePool(e.config, linesKey(command, paid)))
+    const line = pick(flavorLines(e.config, linesKey(command, paid)))
 
     let balances: Balances | null = null
     if (amount > 0n) {

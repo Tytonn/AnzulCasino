@@ -25,6 +25,7 @@ import {
   dropShare,
   expectedPerHour,
   expectedPerPress,
+  flavorLines,
   incomeFullInMs,
   nextTier,
   parseChallengeId,
@@ -38,11 +39,10 @@ import {
   tierLadder,
   tierUnlocksAt,
 } from '../../../shared/features/economy.ts'
-import { FULL_LINE_POOLS, linePool } from '../../../shared/features/economy-lines.ts'
 import { finalDayStartsAt, medal } from '../../../shared/features/season.ts'
 import { gameDay, gameDayStart } from '../../../shared/game-day.ts'
 import { waitText } from '../../../server/features/economy/actions.ts'
-import { podiumText } from '../../../server/features/season/lifecycle.ts'
+import { finalDayText, podiumText } from '../../../server/features/season/lifecycle.ts'
 import { chance, randomBelow } from '../../../server/lib/rng.ts'
 
 const config = configDefaults()
@@ -206,14 +206,22 @@ describe('work, slut and crime', () => {
 })
 
 describe('the flavor lines', () => {
-  it('has the full pools, every line within the admin panel limits', () => {
-    expect(FULL_LINE_POOLS.work_lines.length).toBeGreaterThanOrEqual(30)
-    expect(FULL_LINE_POOLS.hustle_win_lines.length).toBeGreaterThanOrEqual(40)
-    expect(FULL_LINE_POOLS.hustle_fine_lines.length).toBeGreaterThanOrEqual(30)
-    expect(FULL_LINE_POOLS.crime_win_lines.length).toBeGreaterThanOrEqual(25)
-    expect(FULL_LINE_POOLS.crime_fine_lines.length).toBeGreaterThanOrEqual(25)
-    for (const [key, pool] of Object.entries(FULL_LINE_POOLS)) {
-      expect(parseConfigValue(key as keyof typeof FULL_LINE_POOLS, [...pool]).ok, key).toBe(true)
+  const POOLS = {
+    work_lines: CONFIG.work_lines.default,
+    hustle_win_lines: CONFIG.hustle_win_lines.default,
+    hustle_fine_lines: CONFIG.hustle_fine_lines.default,
+    crime_win_lines: CONFIG.crime_win_lines.default,
+    crime_fine_lines: CONFIG.crime_fine_lines.default,
+  } as const
+
+  it('starts with the full pools, every line within the admin panel limits', () => {
+    expect(POOLS.work_lines.length).toBeGreaterThanOrEqual(30)
+    expect(POOLS.hustle_win_lines.length).toBeGreaterThanOrEqual(40)
+    expect(POOLS.hustle_fine_lines.length).toBeGreaterThanOrEqual(30)
+    expect(POOLS.crime_win_lines.length).toBeGreaterThanOrEqual(25)
+    expect(POOLS.crime_fine_lines.length).toBeGreaterThanOrEqual(25)
+    for (const [key, pool] of Object.entries(POOLS)) {
+      expect(parseConfigValue(key as keyof typeof POOLS, [...pool]).ok, key).toBe(true)
       expect(new Set(pool).size, `${key} repeats a line`).toBe(pool.length)
       for (const line of pool) {
         expect(line.length, line).toBeLessThanOrEqual(120)
@@ -222,11 +230,12 @@ describe('the flavor lines', () => {
     }
   })
 
-  it("uses the full pool until an admin edits the setting, then the admin's lines", () => {
-    expect(linePool(config, 'hustle_win_lines')).toBe(FULL_LINE_POOLS.hustle_win_lines)
-    expect(CONFIG.hustle_win_lines.default.length).toBeGreaterThan(0)
+  it("uses the admin's lines once edited, and the starting pool if the list is emptied", () => {
+    expect(flavorLines(config, 'hustle_win_lines')).toBe(config.hustle_win_lines)
     const edited = { ...config, hustle_win_lines: ['You won the lottery.'] }
-    expect(linePool(edited, 'hustle_win_lines')).toEqual(['You won the lottery.'])
+    expect(flavorLines(edited, 'hustle_win_lines')).toEqual(['You won the lottery.'])
+    const emptied = { ...config, crime_fine_lines: [] }
+    expect(flavorLines(emptied, 'crime_fine_lines')).toBe(POOLS.crime_fine_lines)
   })
 })
 
@@ -392,5 +401,16 @@ describe('the end of a season', () => {
       '🏁 December is over! 🥇 Ava 12,345 · 🥈 Ben 999.50. Every place is in the Hall of Fame.',
     )
     expect(podiumText('Empty', [])).toBe('🏁 Empty is over.')
+  })
+
+  it('says how much of the final day is left when its post goes up', () => {
+    const left = (ms: number) => finalDayText('May', ms).split(': ')[1]?.split(' to go')[0]
+    expect(left(24 * 3_600_000 - 50)).toBe('24 hours')
+    expect(left(12 * 3_600_000 + 20 * 60_000)).toBe('12 hours')
+    expect(left(2 * 3_600_000 - 10 * 60_000)).toBe('2 hours')
+    expect(left(80 * 60_000)).toBe('about an hour')
+    expect(left(45 * 60_000)).toBe('about an hour')
+    expect(left(40 * 60_000)).toBe('40 minutes')
+    expect(left(20_000)).toBe('1 minute')
   })
 })

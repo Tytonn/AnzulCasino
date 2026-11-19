@@ -13,7 +13,7 @@ import { z } from 'zod'
 
 import { CHIP, floorToChip, formatMultiplier, mulDiv } from '../chips.ts'
 import type { ConfigValues } from '../config.ts'
-import { tierSettings } from '../config.ts'
+import { CONFIG, tierSettings } from '../config.ts'
 import { addGameDays, gameDay, gameDayStart } from '../game-day.ts'
 import type { LedgerReason } from '../ledger.ts'
 import { type Tier, TIERS } from '../tiers.ts'
@@ -232,6 +232,18 @@ export function linesKey(
   if (command === 'hustle') return paid ? 'hustle_win_lines' : 'hustle_fine_lines'
   return paid ? 'crime_win_lines' : 'crime_fine_lines'
 }
+
+/**
+ * The flavor lines to pick from for a result: the setting, which starts as
+ * the economy lane's pools (shared/config-lines.ts) and is edited in the
+ * admin panel. An emptied list falls back to the starting pool.
+ */
+export function flavorLines(config: ConfigValues, key: LinesKey): readonly string[] {
+  const lines = config[key]
+  return lines.length > 0 ? lines : CONFIG[key].default
+}
+
+export type LinesKey = ReturnType<typeof linesKey>
 
 /** A command's name on screen. The third one is a setting. */
 export function commandName(command: IncomeCommand, hustleName: string): string {

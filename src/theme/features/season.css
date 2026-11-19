@@ -1,0 +1,14 @@
+/*
+ * The season's own colors (docs/LANE_GUIDE.md: Colors for your game): the
+ * podium's three places and the final-day banner. Set on plain :root, so a
+ * theme can restyle them with :root[data-theme='<theme>'].
+ * Imported by src/features/season/manifest.ts.
+ */
+:root {
+  /* Gold is for first place; silver and bronze match the ranks of those names. */
+  --podium-first: var(--gold);
+  --podium-second: var(--tier-silver);
+  --podium-third: var(--tier-bronze);
+  /* The final day is the last chance to win: gold, like a win. */
+  --final-day: var(--gold);
+}

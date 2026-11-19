@@ -68,11 +68,26 @@ export async function advanceSeasons(
 
 // ---------------------------------------------------------------- the final day
 
-export function finalDayText(name: string, hours: number): string {
-  const left = hours === 1 ? '1 hour' : `${hours} hours`
+const HOUR_MS = 3_600_000
+const MINUTE_MS = 60_000
+
+/** "12 hours", "about an hour", "40 minutes": what is left when the post goes up. */
+function timeLeftText(leftMs: number): string {
+  const hours = Math.round(leftMs / HOUR_MS)
+  if (hours >= 2) return `${hours} hours`
+  if (leftMs >= 45 * MINUTE_MS) return 'about an hour'
+  const minutes = Math.max(1, Math.round(leftMs / MINUTE_MS))
+  return minutes === 1 ? '1 minute' : `${minutes} minutes`
+}
+
+/**
+ * The post for the final day. It goes up on the first request in the final
+ * day, which may come hours in, so it says what is actually left.
+ */
+export function finalDayText(name: string, leftMs: number): string {
   return (
-    `⏳ The final day of ${name} has begun: ${left} to go. Steals, shields, vault moves and ` +
-    'rank purchases are off now. The games stay open right to the end.'
+    `⏳ The final day of ${name} has begun: ${timeLeftText(leftMs)} to go. Steals, shields, ` +
+    'vault moves and rank purchases are off now. The games stay open right to the end.'
   )
 }
 
@@ -105,7 +120,7 @@ async function enterFinalDay(
     const post = await announce(tx, {
       seasonId: season.id,
       key: 'final_day',
-      body: finalDayText(season.name, config.final_freeze_hours),
+      body: finalDayText(season.name, season.endsAt.getTime() - now.getTime()),
     })
     return [seasonStateEvent(season.id, 'final_day'), ...post]
   })

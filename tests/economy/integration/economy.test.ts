@@ -20,7 +20,7 @@ import type {
   SavedChallenge,
   TierResponse,
 } from '../../../shared/features/economy.ts'
-import { FULL_LINE_POOLS } from '../../../shared/features/economy-lines.ts'
+import { CONFIG } from '../../../shared/config.ts'
 import { addGameDays, gameDay } from '../../../shared/game-day.ts'
 import { economyApi } from '../../../server/features/economy/api.ts'
 import { forgetMoments } from '../../../server/features/season/moments.ts'
@@ -185,7 +185,7 @@ describe('POST /api/economy/work', () => {
     expect(result.command).toBe('work')
     expect(result.outcome).toBe('paid')
     expect([200, 300, 400, 500, 600]).toContain(result.amount)
-    expect(FULL_LINE_POOLS.work_lines).toContain(result.line)
+    expect(CONFIG.work_lines.default).toContain(result.line)
     expect(wallet.balance).toBe(result.amount)
     expect(await balance(id)).toBe(BigInt(result.amount))
     const wait = Date.parse(result.readyAt) - (await dbNow(db())).getTime()
@@ -255,7 +255,7 @@ describe('POST /api/economy/hustle and /crime', () => {
     expect(result.drawn).toBeGreaterThanOrEqual(500)
     expect(result.drawn).toBeLessThanOrEqual(1_500)
     expect(result.amount).toBe(300)
-    expect(FULL_LINE_POOLS.hustle_fine_lines).toContain(result.line)
+    expect(CONFIG.hustle_fine_lines.default).toContain(result.line)
     expect(await balance(id)).toBe(0n)
     expect(await ledgerRows(id)).toEqual([
       {
@@ -283,7 +283,7 @@ describe('POST /api/economy/hustle and /crime', () => {
     expect(res.body.result.amount % 100).toBe(0)
     expect(res.body.result.amount).toBeGreaterThanOrEqual(2_000)
     expect(res.body.result.amount).toBeLessThanOrEqual(5_000)
-    expect(FULL_LINE_POOLS.hustle_win_lines).toContain(res.body.result.line)
+    expect(CONFIG.hustle_win_lines.default).toContain(res.body.result.line)
 
     await setConfig('hustle_name', 'Moonlight')
     const again = await client.post('/api/economy/hustle', {}, key())

@@ -109,7 +109,8 @@ describe('the season moving on', () => {
     expect(await seasonStatus(id)).toBe('final_day')
     const finals = posts().filter((p) => p.startsWith('⏳'))
     expect(finals).toEqual([
-      '⏳ The final day of Final season has begun: 24 hours to go. Steals, shields, vault moves and rank purchases are off now. The games stay open right to the end.',
+      // The post goes up on the first look, 12 hours before the end, and says so.
+      '⏳ The final day of Final season has begun: 12 hours to go. Steals, shields, vault moves and rank purchases are off now. The games stay open right to the end.',
     ])
     const state = capture.events.find((e) => e.name === 'season.state')
     expect(state?.envelope.data).toEqual({ seasonId: id, phase: 'final_day' })
