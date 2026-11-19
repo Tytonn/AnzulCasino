@@ -1,14 +1,18 @@
 /**
  * Another player's hand on their seat (spec: Blackjack > Other seats: "each
- * card as it lands, the hand total and the result"). Small cards, the
- * dealer's row over theirs, and a total for each hand. The result itself is
- * on the seat's own line under it.
+ * card as it lands, the hand total and the result"). One row: their cards
+ * and total (both hands after a split) and what the dealer shows. The
+ * result itself is on the seat's own line under it.
+ *
+ * The row is there dealt or not, so every seat keeps one height and your own
+ * table never shrinks because a friend started a hand.
  */
 import { motion, useReducedMotion } from 'motion/react'
 
 import {
   type BlackjackDetail,
   type Card,
+  cardValue,
   handTotal,
   isBust,
   isRed,
@@ -19,102 +23,100 @@ import {
 import type { RoundView } from '../../../shared/rounds.ts'
 import { SuitIcon } from './Card.tsx'
 
-function MiniCard({ card, delay }: { card: Card | null; delay: number }) {
+function MiniCard({ card, tight }: { card: Card; tight: boolean }) {
   const reduced = useReducedMotion()
   return (
     <motion.span
-      className="-ml-1.5 flex h-7 w-5 flex-col items-center justify-center rounded-[4px] border first:ml-0"
-      style={
-        card
-          ? {
-              background: 'var(--bj-paper)',
-              borderColor: 'var(--bj-paper-edge)',
-              color: isRed(card) ? 'var(--bj-ink-red)' : 'var(--bj-ink)',
-            }
-          : {
-              background: 'radial-gradient(circle at 50% 40%, var(--bj-back), var(--bj-back-deep))',
-              borderColor: 'var(--bj-paper)',
-            }
-      }
+      className={`flex h-7 w-5 shrink-0 flex-col items-start rounded-[4px] border pt-0.5 pl-[2px] first:ml-0 ${tight ? '-ml-2' : '-ml-1.5'}`}
+      style={{
+        background: 'var(--bj-paper)',
+        borderColor: 'var(--bj-paper-edge)',
+        color: isRed(card) ? 'var(--bj-ink-red)' : 'var(--bj-ink)',
+      }}
       initial={reduced ? { opacity: 0 } : { opacity: 0, y: -8, scale: 0.7 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ type: 'spring', stiffness: 520, damping: 28, delay }}
+      transition={{ type: 'spring', stiffness: 520, damping: 28 }}
     >
-      {card && (
-        <>
-          <span className="text-[0.6rem] leading-none font-extrabold tracking-tighter">
-            {rankLabel(card)}
-          </span>
-          <SuitIcon suit={suitOf(card)} className="mt-px w-2" />
-        </>
-      )}
+      <span className="text-[0.6rem] leading-none font-extrabold tracking-tighter">
+        {rankLabel(card)}
+      </span>
+      <SuitIcon suit={suitOf(card)} className="mt-px w-2" />
     </motion.span>
   )
 }
 
-function Row({
-  label,
+/** A hand: its cards and its total, the best one once it stands. */
+function Hand({
   cards,
-  hole,
-  delayFrom,
-  active,
+  final,
+  tight = false,
+  dim = false,
 }: {
-  label: string
   cards: Card[]
-  hole: boolean
-  /** Cards from this index on land one after another: the dealer drawing. */
-  delayFrom: number
-  active: boolean
+  final: boolean
+  tight?: boolean
+  dim?: boolean
 }) {
   const bust = isBust(cards)
+  const { total } = handTotal(cards)
   return (
-    <div className="flex min-w-0 items-center gap-1.5">
-      <span
-        className={`w-7 shrink-0 text-[0.6rem] font-semibold tracking-wide uppercase ${active ? 'text-accent-strong' : 'text-faint'}`}
-      >
-        {label}
-      </span>
+    <span
+      className={`flex min-w-0 items-center gap-1 transition-opacity ${dim ? 'opacity-50' : ''}`}
+    >
       <span className="flex min-w-0 items-center">
         {cards.map((card, i) => (
-          <MiniCard key={i} card={card} delay={i >= delayFrom ? (i - delayFrom + 1) * 0.14 : 0} />
+          <MiniCard key={i} card={card} tight={tight} />
         ))}
-        {hole && <MiniCard key="hole" card={null} delay={0} />}
       </span>
-      {cards.length > 0 && (
-        <span
-          className={`ml-auto shrink-0 text-xs font-bold tabular-nums ${bust ? 'text-loss' : handTotal(cards).total === 21 ? 'text-gold' : 'text-muted'}`}
-        >
-          {bust ? `Bust` : totalLabel(cards)}
-        </span>
-      )}
-    </div>
+      <span
+        className={`shrink-0 text-xs font-bold tabular-nums ${bust ? 'text-loss' : total === 21 ? 'text-gold' : 'text-text'}`}
+      >
+        {bust ? 'Bust' : final ? total : totalLabel(cards)}
+      </span>
+    </span>
   )
 }
 
+/** What the dealer shows: the up card while the hand plays, then the dealer's total. */
+function dealerShows(detail: BlackjackDetail, open: boolean): string {
+  const [up] = detail.dealer
+  if (!up) return '–'
+  if (open) return cardValue(up) === 1 ? 'A' : String(cardValue(up))
+  return isBust(detail.dealer) ? 'bust' : String(handTotal(detail.dealer).total)
+}
+
 export function MiniTable({ round }: { round: RoundView<BlackjackDetail> | null }) {
-  if (!round) return null
-  const { detail } = round
-  if (!Array.isArray(detail.hands) || detail.hands.length === 0) {
-    return <p className="py-2 text-xs text-muted">Dealing…</p>
+  const detail = round?.detail
+  const dealt = detail !== undefined && Array.isArray(detail.hands) && detail.hands.length > 0
+  if (!round || !dealt) {
+    return (
+      <div aria-hidden="true" className="flex h-7 w-full items-center">
+        <span className="h-7 w-5 rounded-[4px] border border-dashed border-border-strong opacity-60" />
+        <span className="-ml-2 h-7 w-5 rounded-[4px] border border-dashed border-border-strong opacity-60" />
+      </div>
+    )
   }
   const open = round.status === 'open'
   const split = detail.hands.length > 1
+  const dealer = dealerShows(detail, open)
   return (
     <div
-      className="flex w-full flex-col gap-1 py-0.5"
-      aria-label={`Dealer ${totalLabel(detail.dealer)}, ${detail.hands.map((h) => totalLabel(h.cards)).join(' and ')}`}
+      role="img"
+      className="flex h-7 w-full min-w-0 items-center gap-2"
+      aria-label={`${detail.hands.map((h) => totalLabel(h.cards)).join(' and ')} against the dealer's ${dealer}`}
     >
-      <Row label="Dlr" cards={detail.dealer} hole={open} delayFrom={open ? 99 : 1} active={false} />
       {detail.hands.map((hand, i) => (
-        <Row
+        <Hand
           key={i}
-          label={split ? `H${i + 1}` : 'Hand'}
           cards={hand.cards}
-          hole={false}
-          delayFrom={99}
-          active={open && split && detail.active === i}
+          final={!open || hand.done}
+          tight={split}
+          dim={open && split && detail.active !== i}
         />
       ))}
+      <span className="ml-auto shrink-0 text-[0.65rem] whitespace-nowrap text-faint">
+        vs <span className="font-bold text-muted tabular-nums">{dealer}</span>
+      </span>
     </div>
   )
 }

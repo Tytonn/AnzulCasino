@@ -183,6 +183,8 @@ export interface Pace {
   peek: number
   /** After a slow card turns over, before play goes on. */
   land: number
+  /** The last hand's cards going to the discard pile, before a new deal comes out. */
+  sweep: number
 }
 
 export const PACE: Pace = {
@@ -193,6 +195,7 @@ export const PACE: Pace = {
   dealer: 520,
   peek: 700,
   land: 420,
+  sweep: 300,
 }
 export const REDUCED_PACE: Pace = {
   deal: 70,
@@ -202,6 +205,7 @@ export const REDUCED_PACE: Pace = {
   dealer: 160,
   peek: 250,
   land: 200,
+  sweep: 120,
 }
 
 /** The slow reveal's timings, from the config. */
@@ -249,6 +253,8 @@ export function revealMs(round: TableRound, pace: Pace, slow: SlowPace): number 
   if (!final.done) return 0
   const last = round.detail.moves.at(-1)
   let frame: Frame = EMPTY_FRAME
+  // A deal may wait for the last hand's cards to clear first.
+  let ms = last ? 0 : pace.sweep
   if (last) {
     const cards = [...final.cards]
     if ((last.move === 'hit' || last.move === 'double') && cards[last.hand] !== undefined) {
@@ -256,7 +262,6 @@ export function revealMs(round: TableRound, pace: Pace, slow: SlowPace): number 
     }
     frame = { split: final.split, cards, dealer: 1, hole: true, done: false }
   }
-  let ms = 0
   for (let i = 0; i < 40; i++) {
     const next = nextStep(frame, round)
     if (!next) break

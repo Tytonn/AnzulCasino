@@ -50,10 +50,10 @@ export function CardFace({ card }: { card: Card | null }) {
   )
   return (
     <div className="bj-card-face" data-red={isRed(card)}>
-      <span className="absolute top-[5%] left-[7%] text-[calc(var(--bj-card-w)*0.27)]">
+      <span className="absolute top-[5%] left-[7%] text-[length:max(calc(var(--bj-card-w)*0.27),10px)]">
         {corner}
       </span>
-      <span className="absolute right-[7%] bottom-[5%] rotate-180 text-[calc(var(--bj-card-w)*0.27)]">
+      <span className="absolute right-[7%] bottom-[5%] rotate-180 text-[length:max(calc(var(--bj-card-w)*0.27),10px)]">
         {corner}
       </span>
       <span className="absolute inset-0 grid place-items-center">
@@ -95,6 +95,8 @@ export interface PlayingCardProps {
   turnMs?: number
   /** The dealer checking under an ace or a ten, for this long. */
   peekMs?: number
+  /** Comes onto the table face down and turns over as it lands, unless it stays down. */
+  dealt?: boolean
   className?: string
 }
 
@@ -110,6 +112,7 @@ export function PlayingCard({
   liftMs = 900,
   turnMs = TURN_MS,
   peekMs = 0,
+  dealt = false,
   className = '',
 }: PlayingCardProps) {
   const reduced = useReducedMotion()
@@ -147,7 +150,7 @@ export function PlayingCard({
       >
         <motion.div
           className="bj-card-turn"
-          initial={false}
+          initial={dealt ? { rotateY: 180 } : false}
           animate={{ rotateY: up ? 0 : 180 }}
           transition={
             reduced

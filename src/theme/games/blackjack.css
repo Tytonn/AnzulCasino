@@ -23,9 +23,18 @@
   --bj-shadow-lifted: rgb(0 0 0 / 0.5);
 }
 
-/* Card sizes: the table sets --bj-card-w for its screen size (Table.tsx), seats and art set their own. */
+/*
+ * Card sizes: the table sets --bj-card-w to fit its space (layout.ts), and
+ * the Floor art sets its own. Registered, so a new size eases in when the
+ * seat grows or shrinks instead of jumping.
+ */
+@property --bj-card-w {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 46px;
+}
 .bj-table {
-  --bj-card-w: 46px;
+  transition: --bj-card-w 0.3s var(--ease-out);
 }
 
 .bj-card {

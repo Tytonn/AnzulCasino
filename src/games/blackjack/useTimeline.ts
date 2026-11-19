@@ -61,6 +61,8 @@ const CLEAR: TableView<never> = {
 export class Timeline<R extends TableRound> {
   private state: TableView<R> = CLEAR
   private timer: ReturnType<typeof setTimeout> | null = null
+  /** When the last hand's cards left for the discard pile. */
+  private swept = -Infinity
   private waiting: (() => void)[] = []
   private listener: ((view: TableView<R>) => void) | null = null
   private options: TimelineOptions<R>
@@ -98,8 +100,15 @@ export class Timeline<R extends TableRound> {
   show(round: R, onShown?: () => void): void {
     if (onShown) this.waiting.push(onShown)
     if (this.state.round?.id !== round.id) {
+      if (this.hasCards()) this.swept = performance.now()
       this.stop()
       this.commit({ ...CLEAR, round, idle: false })
+      // The last hand's cards reach the discard pile before the new ones come out.
+      const wait = this.swept + this.options.pace.sweep - performance.now()
+      if (wait > 0) {
+        this.later(wait, this.advance)
+        return
+      }
     } else {
       this.commit({ ...this.state, round, idle: false })
     }
@@ -108,9 +117,15 @@ export class Timeline<R extends TableRound> {
 
   /** Shows a round as it stands, at once (a page load), or clears the table. */
   jump(round: R | null): void {
+    if (!round && this.hasCards()) this.swept = performance.now()
     this.stop()
     this.commit({ ...CLEAR, round, frame: round ? finalFrame(round) : EMPTY_FRAME })
     this.flush()
+  }
+
+  private hasCards(): boolean {
+    const { round, frame } = this.state
+    return round !== null && (frame.dealer > 0 || frame.hole || frame.cards.some((n) => n > 0))
   }
 
   /** Turns a slow card over now. Returns false when no slow card is waiting. */

@@ -119,12 +119,19 @@ function Actions({
     </Button>
   )
 
+  // Two rows of big buttons where the bet box takes two rows too (a narrow
+  // phone), one row elsewhere: the same height either way, so the table above
+  // keeps its size between hands.
   return (
     <div
       data-bet-box
-      className="rounded-lg border border-border bg-surface-1/95 p-2 shadow-card backdrop-blur-md md:p-2.5"
+      className="@container rounded-lg border border-border bg-surface-1/95 p-2 shadow-card backdrop-blur-md md:p-2.5"
     >
-      <div role="group" aria-label="Your move" className="grid grid-cols-4 gap-2">
+      <div
+        role="group"
+        aria-label="Your move"
+        className="grid grid-cols-2 gap-2 @min-[23rem]:grid-cols-4"
+      >
         {button('hit', 'Hit', 'primary')}
         {button('stand', 'Stand', 'secondary')}
         {button('double', 'Double', 'secondary')}
