@@ -21,7 +21,7 @@ import type { ConfigValues } from '../config.ts'
 import { addGameDays, gameDay, gameDayStart, seasonDay } from '../game-day.ts'
 import { BET_TEXT_MAX } from '../rounds.ts'
 import type { SeasonPhase } from '../seasons.ts'
-import type { StealOutcome } from '../steals.ts'
+import type { StealView } from '../steals.ts'
 
 export const HEIST = 'heist'
 
@@ -360,29 +360,8 @@ export function rateLabel(rate: number): string {
 
 // ---------------------------------------------------------------- what the API sends
 
-/** One steal attempt as the API and the `steal.result` event send it. Amounts in hundredths. */
-export interface StealView {
-  id: number
-  seasonId: number
-  thiefId: string
-  targetId: string
-  /** The game day it counts toward (YYYY-MM-DD). */
-  gameDay: string
-  outcome: StealOutcome
-  /** Moved from the target's wallet to the thief's, on a success. */
-  amount: number
-  /** Paid by the thief to the target, on a failure. */
-  fine: number
-  thiefRank: number
-  targetRank: number
-  createdAt: string
-}
-
-/** The `steal.result` feed event: the attempt, and the target's immunity it started. */
-export interface StealResult extends StealView {
-  /** When the target's immunity ends, after a success or a block. */
-  immuneUntil: string | null
-}
+// The attempt as everyone sees it lives in shared code, for the ticker too.
+export type { StealResult, StealView } from '../steals.ts'
 
 /** Another player's public heist state, for the target list and the profile card. */
 export interface TargetInfo {
@@ -489,10 +468,6 @@ export interface StealFoiledEvent {
 }
 
 declare module '../events.ts' {
-  interface FeedEvents {
-    /** Every steal attempt, for the log, chat and the ticker. Version: the steal id. */
-    'steal.result': StealResult
-  }
   interface UserEvents {
     /** You were robbed. Version: the steal id. */
     robbed: RobbedEvent

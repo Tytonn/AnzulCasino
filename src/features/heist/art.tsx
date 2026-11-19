@@ -8,17 +8,8 @@ import type { SVGProps } from 'react'
 
 type IconProps = SVGProps<SVGSVGElement>
 
-/** A thief's domino mask: steals. */
-export function MaskIcon(props: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="currentColor" {...props}>
-      <path
-        fillRule="evenodd"
-        d="M1.8 9.4c0-1.9 1.6-3.1 3.5-2.7 2.3.5 4.3 1.4 6.7 1.4s4.4-.9 6.7-1.4c1.9-.4 3.5.8 3.5 2.7 0 3.9-2.2 7.6-5.6 7.6-2 0-3.2-1.6-4.6-1.6s-2.6 1.6-4.6 1.6c-3.4 0-5.6-3.7-5.6-7.6Zm6.2-.3c-1.7 0-3.2.8-3.2 2 0 .9 1 1.6 2.5 1.6 1.7 0 3.2-.9 3.2-2 0-.9-1-1.6-2.5-1.6Zm8 0c-1.5 0-2.5.7-2.5 1.6 0 1.1 1.5 2 3.2 2 1.5 0 2.5-.7 2.5-1.6 0-1.2-1.5-2-3.2-2Z"
-      />
-    </svg>
-  )
-}
+// The site's mask, the same one the ticker shows for a steal.
+export { MaskIcon } from '../../kit/icons.tsx'
 
 /** A lockpick crossing a key: the extra steal attempt. */
 export function PickIcon(props: IconProps) {
