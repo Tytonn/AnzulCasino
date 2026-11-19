@@ -256,8 +256,9 @@ export function PhoneTopBar() {
         <MeMenu withSound />
       </div>
       {widgets.length > 0 && (
+        // Hidden while every widget draws nothing, such as between seasons.
         <div
-          className="scroll-quiet flex h-11 items-center gap-2 overflow-x-auto px-4 pb-1"
+          className="scroll-quiet flex h-11 items-center gap-2 overflow-x-auto px-4 pb-1 empty:hidden"
           data-slot="top-bar"
         >
           <Slot name="top-bar" props={{ compact: true }} />
