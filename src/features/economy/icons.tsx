@@ -35,12 +35,22 @@ export const HustleIcon = svg(
   </>,
 )
 
-/** Crime: a robber's mask. */
+/**
+ * Crime: a pair of handcuffs, hanging from their chain. Not a mask: that is
+ * Heist's steal, which sits beside Crime in the top bar.
+ */
 export const CrimeIcon = svg(
-  <path
-    fillRule="evenodd"
-    d="M2 9.6C2 8.2 3.1 7 4.6 7c2.6 0 4.8 1.2 7.4 1.2S16.8 7 19.4 7C20.9 7 22 8.2 22 9.6c0 4-2.3 7-5.3 7-2 0-3.5-1.3-4.7-3.2-1.2 1.9-2.7 3.2-4.7 3.2-3 0-5.3-3-5.3-7Zm4.2 1.3c.5-1.1 1.5-1.7 2.6-1.5 1 .2 1.6 1 1.7 2-1.4.6-3 .4-4.3-.5Zm11.6 0c-.5-1.1-1.5-1.7-2.6-1.5-1 .2-1.6 1-1.7 2 1.4.6 3 .4 4.3-.5Z"
-  />,
+  <>
+    <path
+      fillRule="evenodd"
+      d="M1.5 15.2a4.8 4.8 0 1 0 9.6 0 4.8 4.8 0 1 0-9.6 0Zm2.8 0a2 2 0 1 0 4 0 2 2 0 1 0-4 0Zm8.6 0a4.8 4.8 0 1 0 9.6 0 4.8 4.8 0 1 0-9.6 0Zm2.8 0a2 2 0 1 0 4 0 2 2 0 1 0-4 0Z"
+    />
+    <rect x="5.9" y="7.6" width="5" height="4" rx="1" transform="rotate(20 8.4 9.6)" />
+    <rect x="13.1" y="7.6" width="5" height="4" rx="1" transform="rotate(-20 15.6 9.6)" />
+    <circle cx="10" cy="6.3" r="1.5" />
+    <circle cx="12" cy="5.3" r="1.5" />
+    <circle cx="14" cy="6.3" r="1.5" />
+  </>,
 )
 
 /** Income and Collect: a stack of chips. */

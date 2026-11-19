@@ -9,14 +9,16 @@
  * Each is an icon over one short value: the name when it can be pressed,
  * the countdown while it cools down, what Collect would pay. They share the
  * bar with the wallet, the season clock and the heist's widgets, so they
- * stay small: about 3.4rem each, 3.1rem below 1100px and on a phone. The
- * full name is in each button's label.
+ * stay small: 3.1rem each on desktop and 2.75rem on a phone. The three job
+ * buttons and Daily keep that width exactly, so a ticking countdown never
+ * nudges the buttons beside it; Collect may grow for a long amount. The
+ * full story is in each button's label and tooltip.
  */
 import { useQueryClient } from '@tanstack/react-query'
 import { motion } from 'motion/react'
 import { type CSSProperties, type ReactNode, useRef } from 'react'
 
-import { formatChips } from '../../../shared/chips.ts'
+import { formatChips, formatChipsShort } from '../../../shared/chips.ts'
 import { commandName, type IncomeCommand } from '../../../shared/features/economy.ts'
 import { TIER_LABELS } from '../../../shared/tiers.ts'
 import { useNow } from '../../kit/clock.ts'
@@ -71,6 +73,14 @@ interface WidgetProps {
   onClick: (button: HTMLButtonElement) => void
   data: string
   place?: Place
+  /** Exactly the standard width (true), or at least it, growing for a long value. */
+  fixed?: boolean
+}
+
+/** The standard width: exact for a fixed button, the least for one that may grow. */
+function widthClass(compact: boolean, fixed: boolean): string {
+  if (compact) return fixed ? 'w-[2.75rem]' : 'min-w-[2.75rem]'
+  return fixed ? 'w-[3.1rem]' : 'min-w-[3.1rem]'
 }
 
 function Widget({
@@ -86,6 +96,7 @@ function Widget({
   onClick,
   data,
   place = 'alone',
+  fixed = true,
 }: WidgetProps) {
   const ref = useRef<HTMLButtonElement>(null)
   return (
@@ -98,9 +109,9 @@ function Widget({
       title={name}
       onClick={() => ref.current && onClick(ref.current)}
       style={{ '--tone': tone } as CSSProperties}
-      className={`group relative flex shrink-0 flex-col items-center justify-center gap-1 overflow-hidden border px-2 transition duration-150 select-none active:scale-[0.96] ${
-        compact ? 'h-10 min-w-[3.1rem]' : 'h-11 min-w-[3.1rem] desk:min-w-[3.4rem]'
-      } ${ROUND[place]} ${
+      className={`group relative flex shrink-0 flex-col items-center justify-center gap-1 overflow-hidden border px-1 transition duration-150 select-none focus-visible:z-20 active:scale-[0.96] ${
+        compact ? 'h-10' : 'h-11'
+      } ${widthClass(compact, fixed)} ${ROUND[place]} ${
         lit
           ? 'z-10 border-[color-mix(in_oklab,var(--tone)_55%,var(--border))] bg-[color-mix(in_oklab,var(--tone)_13%,var(--surface-2))] hover:bg-[color-mix(in_oklab,var(--tone)_22%,var(--surface-2))]'
           : 'border-border bg-surface-2/40 hover:z-10 hover:border-border-strong hover:bg-surface-2'
@@ -114,13 +125,13 @@ function Widget({
           animate={{ scale: 1 }}
           transition={{ type: 'spring', stiffness: 600, damping: 18 }}
         >
-          <Glyph className={compact ? 'size-4' : 'size-4 desk:size-[1.15rem]'} />
+          <Glyph className={compact ? 'size-4' : 'size-[1.1rem]'} />
         </motion.span>
         {badge}
       </span>
       <span
-        className={`leading-none font-semibold whitespace-nowrap tabular-nums ${
-          compact ? 'text-[0.66rem]' : 'text-[0.66rem] desk:text-[0.72rem]'
+        className={`max-w-full truncate leading-none font-semibold tabular-nums ${
+          compact ? 'text-[0.66rem]' : 'text-[0.7rem]'
         } ${lit ? 'text-text' : 'text-muted'}`}
       >
         {value}
@@ -140,7 +151,7 @@ function WidgetSkeleton({ compact, place = 'alone' }: { compact: boolean; place?
   return (
     <span
       aria-hidden="true"
-      className={`skeleton block shrink-0 ${compact ? 'h-10 w-[3.1rem]' : 'h-11 w-[3.1rem] desk:w-[3.4rem]'} ${ROUND[place]}`}
+      className={`skeleton block shrink-0 ${compact ? 'h-10' : 'h-11'} ${widthClass(compact, true)} ${ROUND[place]}`}
     />
   )
 }
@@ -199,7 +210,7 @@ function CommandWidget({
       tone={COMMAND_TONES[command]}
       lit={ready}
       icon={COMMAND_ICONS[command]}
-      value={ready ? name : compact ? shortWait(left) : longWait(left)}
+      value={ready ? name : shortWait(left)}
       name={
         ready
           ? `${name}: ready${shortcutHint(command, hustleName)}`
@@ -258,9 +269,10 @@ export function CollectWidget({ compact }: Props) {
       tone="var(--gold)"
       lit={has}
       icon={IncomeIcon}
-      value={`+${formatChips(waiting.total)}`}
+      value={`+${formatChipsShort(waiting.total)}`}
       name={name}
       busy={busy}
+      fixed={false}
       badge={
         bonus ? (
           <Badge tone="flame">
