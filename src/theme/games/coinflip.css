@@ -1,0 +1,12 @@
+/*
+ * Coin flip's own colors (docs/LANE_GUIDE.md: Colors for your game). Set on
+ * plain :root, so a theme can restyle them with :root[data-theme='<theme>'].
+ * Imported by src/games/coinflip/manifest.ts, so they load with the Floor.
+ */
+:root {
+  /* The coin: silver, so gold stays for the win. */
+  --coin: #c9cfdb;
+  --coin-shine: #f4f6fa;
+  --coin-edge: #7d8597;
+  --coin-ink: #3a4152;
+}

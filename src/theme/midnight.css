@@ -1,0 +1,79 @@
+/*
+ * The default theme. Every color, font, radius, shadow and speed in the app
+ * comes from these variables. Components never use raw values (checked by
+ * scripts/check-tokens.ts). A new theme is one more file like this one.
+ *
+ * Each game's own colors live in src/theme/games/<game>.css, owned by its
+ * lane and set on plain :root, so a theme can restyle them by setting the
+ * same names under :root[data-theme='<theme>'].
+ */
+:root,
+:root[data-theme='midnight'] {
+  color-scheme: dark;
+
+  /* Surfaces, from the page up to the highest card. */
+  --bg: #0b0d12;
+  --surface-1: #12151d;
+  --surface-2: #181c26;
+  --surface-3: #1f2430;
+  --border: #2a3040;
+  --border-strong: #3a4256;
+  /* The dim layer behind a sheet or drawer, and the see-through top bar. */
+  --backdrop: rgb(4 5 8 / 0.66);
+  --glass: rgb(14 16 23 / 0.84);
+
+  --text: #e9ecf3;
+  --text-muted: #a0a8b8;
+  --text-faint: #6b7385;
+
+  /* One bright accent. Gold is for wins and first place, red for a loss. */
+  --accent: #7c6cff;
+  --accent-strong: #998dff;
+  --on-accent: #0b0d12;
+  --gold: #f5c542;
+  --on-gold: #1c1503;
+  --loss: #ff5263;
+  --online: #3ddc97;
+
+  /* Tier name colors and badges (spec: Economy > Ranks; "Rank" on screen). */
+  --tier-base: var(--text);
+  --tier-bronze: #dc9461;
+  --tier-silver: #c9d2df;
+  --tier-gold: #eaa93c;
+  --tier-platinum: #8fe5dc;
+  --tier-diamond: #7ec9ff;
+  --tier-crown: #ff7fd1;
+
+  /* Avatar colors (shared/avatars.ts). */
+  --avatar-violet: #9182ff;
+  --avatar-blue: #4f8dff;
+  --avatar-cyan: #35c3e5;
+  --avatar-teal: #2bb9a1;
+  --avatar-green: #4fc96b;
+  --avatar-lime: #a5d63d;
+  --avatar-amber: #f2b23b;
+  --avatar-orange: #ff8a3e;
+  --avatar-red: #ff5d6c;
+  --avatar-pink: #ff70b4;
+
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+
+  /* The table in the middle of a room: a soft pool of light on the surface. */
+  --felt: color-mix(in oklab, var(--accent) 13%, var(--surface-2));
+  --felt-edge: var(--surface-1);
+
+  --shadow-card: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 8px 24px rgb(0 0 0 / 0.28);
+  --shadow-pop: 0 18px 48px rgb(0 0 0 / 0.55);
+
+  /* Interface motion runs 150 to 250ms; reveals up to 600ms (spec: Motion). */
+  --speed-fast: 150ms;
+  --speed-ui: 200ms;
+  --speed-slow: 250ms;
+  --speed-reveal: 600ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}

@@ -1,0 +1,12 @@
+node_modules
+dist
+.netlify
+playwright-report
+test-results
+coverage
+package-lock.json
+skills-lock.json
+.claude
+netlify/database/migrations
+# Markdown is written by hand and read on GitHub; Prettier would pad every table.
+*.md

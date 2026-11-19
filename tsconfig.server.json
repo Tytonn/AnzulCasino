@@ -1,0 +1,21 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.cache/tsc/server.tsbuildinfo",
+    "lib": ["ES2023"],
+    "types": ["node"]
+  },
+  "include": [
+    "shared",
+    "server",
+    "netlify",
+    "db",
+    "scripts",
+    "tests/**/integration",
+    "tests/helpers",
+    "vite.config.ts",
+    "vitest.config.ts",
+    "drizzle.config.ts",
+    "playwright.config.ts"
+  ]
+}
