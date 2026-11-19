@@ -1,15 +1,18 @@
 /**
- * The game kit's logic: rounds in the room cache, the reveal hold, the bet
- * box's rules, seats, the chip stack and shortcut keys.
+ * The game kit's logic: rounds in the room cache, the reveal hold, the
+ * ticker cache, the bet box's rules, seats, the chip stack and shortcut keys.
  */
+import { QueryClient } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { SeasonState } from '../../../shared/seasons.ts'
+import { type TickerItem, tickerKey } from '../../../shared/ticker.ts'
 import { type RoomState, type RoundView, roundVersion } from '../../../shared/rounds.ts'
 import { closedReason, stillTyping } from '../../../src/kit/BetBox.tsx'
 import { isBigWin } from '../../../src/kit/celebrate.tsx'
 import { chipsFor } from '../../../src/kit/ChipStack.tsx'
 import { isShortcut, pressesFocused, shortcutKey } from '../../../src/kit/Kbd.tsx'
+import { addTickerItem, queryKeys, TICKER_KEEP } from '../../../src/kit/queries.ts'
 import { afterReveal, holdReveal } from '../../../src/kit/reveal.ts'
 import { upsertRound } from '../../../src/kit/room.ts'
 import { seatOutcome, seatTag } from '../../../src/kit/Seat.tsx'
@@ -168,6 +171,67 @@ describe('the reveal hold', () => {
     holdReveal({ players: [] })
     afterReveal('alice', task)
     expect(task).toHaveBeenCalledOnce()
+  })
+})
+
+describe('the ticker cache', () => {
+  const settled = (roundId: number): TickerItem => ({
+    kind: 'round',
+    round: {
+      seasonId: 1,
+      roundId,
+      game: 'coinflip',
+      userId: 'alice',
+      stake: 10_000,
+      payout: 0,
+      net: -10_000,
+      multiplier: null,
+      summary: 'Heads',
+      bigBet: false,
+    },
+  })
+  const steal = (id: number): TickerItem => ({
+    kind: 'steal',
+    steal: {
+      id,
+      seasonId: 1,
+      thiefId: 'bob',
+      targetId: 'alice',
+      gameDay: '2026-11-19',
+      outcome: 'success',
+      amount: 12_500,
+      fine: 0,
+      thiefRank: 4,
+      targetRank: 1,
+      createdAt: '2026-11-19T20:00:00.000Z',
+    },
+  })
+  const keys = (queryClient: QueryClient) =>
+    queryClient.getQueryData<TickerItem[]>(queryKeys.ticker)?.map(tickerKey)
+
+  it('adds each round and steal once, newest first, even when their ids match', () => {
+    const queryClient = new QueryClient()
+    // Nothing fetched yet: the fetch brings it.
+    addTickerItem(queryClient, settled(1))
+    expect(keys(queryClient)).toBeUndefined()
+
+    queryClient.setQueryData<TickerItem[]>(queryKeys.ticker, [settled(1)])
+    addTickerItem(queryClient, steal(1))
+    addTickerItem(queryClient, settled(1))
+    addTickerItem(queryClient, steal(1))
+    expect(keys(queryClient)).toEqual(['steal:1', 'round:1'])
+  })
+
+  it(`keeps the newest ${TICKER_KEEP}`, () => {
+    const queryClient = new QueryClient()
+    queryClient.setQueryData<TickerItem[]>(queryKeys.ticker, [])
+    for (let id = 1; id <= TICKER_KEEP + 5; id++) {
+      addTickerItem(queryClient, id % 2 ? settled(id) : steal(id))
+    }
+    const kept = keys(queryClient) ?? []
+    expect(kept).toHaveLength(TICKER_KEEP)
+    expect(kept[0]).toBe(`round:${TICKER_KEEP + 5}`)
+    expect(kept.at(-1)).toBe('steal:6')
   })
 })
 

@@ -30,6 +30,13 @@
  * spec yet; the owning lane tunes them with the season simulation.
  */
 import { CHIP, chipCount, formatShare } from './chips.ts'
+import {
+  CRIME_FINE_LINES,
+  CRIME_WIN_LINES,
+  HUSTLE_FINE_LINES,
+  HUSTLE_WIN_LINES,
+  WORK_LINES,
+} from './config-lines.ts'
 import type { Tier } from './tiers.ts'
 
 export const CONFIG_GROUPS = [
@@ -576,77 +583,33 @@ export const CONFIG = {
   ),
 
   // Names and lines shown to players: plain text, edited in the admin panel,
-  // taking effect at once. The line pools are starters: the economy lane
-  // writes the full ones.
+  // taking effect at once. The economy lane wrote the line pools
+  // (shared/config-lines.ts).
   hustle_name: text('text', 'Slut', "The third income button's name, after UnbelievaBoat's .slut."),
   work_lines: lines(
     'text',
-    [
-      'You folded towels at the spa all afternoon.',
-      'You parked cars for the high rollers.',
-      'You polished every slot machine on the floor.',
-      'You ran drinks to the poker room.',
-      'You counted coins in the back office.',
-      'You swept up the confetti after a big win.',
-      'You dealt a few hands while the dealer took a break.',
-      "You walked the owner's very large dog.",
-      'You fixed the sign so it says ANZUL again.',
-      'You handed out flyers on the boardwalk.',
-    ],
+    WORK_LINES,
     'Work: one line is picked at random to show with each payout.',
-    { provisional: true },
   ),
   crime_win_lines: lines(
     'text',
-    [
-      'You ran a game of three-card monte, and the tourist never found the queen.',
-      "You sold a tourist a 'lucky' horseshoe.",
-      'You found a chip under the craps table and kept quiet.',
-      'You hustled the regulars at the pool table.',
-      'You talked your way into the VIP buffet and sold the shrimp.',
-      'You picked the vending machine lock on the first try.',
-      'You sold fake tickets to the magic show.',
-      'You swapped the dice and nobody noticed.',
-    ],
+    CRIME_WIN_LINES,
     'Crime: one line is picked at random to show with a crime that pays.',
-    { provisional: true },
   ),
   crime_fine_lines: lines(
     'text',
-    [
-      'Security caught you counting cards on your fingers.',
-      'The tourist was an undercover cop.',
-      'You tripped over the velvet rope on the way out.',
-      'The vending machine kept your coins and called the manager.',
-      'Your fake mustache fell off halfway through.',
-      'The pit boss watched the whole thing on camera.',
-      'You got lost in the parking garage and paid for three hours.',
-      'Your getaway driver left without you.',
-    ],
+    CRIME_FINE_LINES,
     'Crime: one line is picked at random to show with a fine.',
-    { provisional: true },
   ),
   hustle_win_lines: lines(
     'text',
-    [
-      'You danced on the bar and the tips came raining down.',
-      'You winked at the high roller and he paid for the wink.',
-      'You sold your phone number to three different tourists.',
-      'You worked the VIP lounge in your best outfit.',
-    ],
-    'Third income button: one line is picked at random to show when it pays. The economy lane writes the full pool of at least 40, joke-level and suggestive at most.',
-    { provisional: true },
+    HUSTLE_WIN_LINES,
+    'Third income button: one line is picked at random to show when it pays. Joke-level, suggestive at most.',
   ),
   hustle_fine_lines: lines(
     'text',
-    [
-      'You tripped in your heels in front of the whole casino.',
-      'Your date turned out to be the pit boss.',
-      'Security walked you out of the VIP lounge.',
-      'You spent more on the outfit than you made.',
-    ],
+    HUSTLE_FINE_LINES,
     'Third income button: one line is picked at random to show with a fine.',
-    { provisional: true },
   ),
 } satisfies Record<string, ConfigSetting>
 
