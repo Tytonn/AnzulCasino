@@ -1,6 +1,6 @@
 # Foundation (Stage 1)
 
-Branch `foundation`, merged into `main` on 2026-11-19 (pull request #1). Last updated 2026-11-19 by the Foundation thread, which now makes the shared changes lanes ask for on branch `claude/project-thread-65plqj` (batch 1 merged, batch 2 open).
+Branch `foundation`, merged into `main` on 2026-11-19 (pull request #1). Last updated 2026-11-19 by the Foundation thread, which now makes the shared changes lanes ask for on branch `claude/project-thread-65plqj` (batches 1 and 2 merged, batch 3 open).
 
 ## What already exists
 
@@ -133,6 +133,10 @@ Answered on 2026-11-18:
   - `LiveSync` adds a `steal.result` to the ticker after the thief's reveal. The ticker draws a steal in one line ("Alice robbed Bob 1,250", "Alice got caught robbing Bob · fined 300", "Bob's shield blocked Alice"), and clicking it opens the thief's profile card, where heist puts the Rob button. `MaskIcon` joins the icons.
   - Economy: the full flavor-line pools the economy lane wrote (36 work, 44 and 32 for the third button, 26 and 26 for crime) are the defaults of `work_lines` and the rest, from `shared/config-lines.ts`, no longer provisional. `SystemMeta` gains `drop` for a chat drop's post.
   - Tests: the ticker endpoint test now mixes in two steals by time and checks their shape, and 2 unit tests cover the ticker cache (each item once, a round and a steal with the same id both kept, the newest 40 kept). The config test checks every line of every pool.
+  - Tyton merged it (pull request #7) on 2026-11-19 at 21:04 UTC as `f04f2ce`, CI passed on `main`, and the four open lanes were told to pull.
+- **Shared changes, batch 3, 2026-11-19**, for the blackjack and economy lanes:
+  - The shell browser test opened `/room/blackjack` to check a placeholder, so it would fail the moment blackjack merged. It now opens the first room the Floor still marks Soon, and skips the check once every game is built, so no game lane's merge breaks it. Checked on `main` and on the blackjack lane's branch, at 1440 and 375.
+  - The phone's row of top-bar widgets hides itself (`empty:hidden`) while every widget draws nothing, such as the economy's buttons between seasons, instead of leaving an empty 44px row under the header.
 
 ## Not done
 
