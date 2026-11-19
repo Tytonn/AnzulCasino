@@ -11,10 +11,11 @@ Branch `claude/project-thread-7e0vog` (this thread can only push to that branch,
 - **Tests**: rules and payouts for every outcome (`tests/blackjack/unit/rules.test.ts`), 4 million hands of basic strategy against the expected edge (`edge.test.ts`, about 12 s), the deal order, slow-reveal steps and timings (`timeline.test.ts`), the table layout (`layout.test.ts`), the endpoints against a real database with a stacked shoe (`tests/blackjack/integration`), and two players in real browsers at 1440 and 375 (`tests/blackjack/e2e`).
 - **House edge**: 0.461% ± 0.018% over 40 million hands of basic strategy, which matches the published figure for these rules (about 0.46%). The test checks 4 million hands within 4.5 standard errors.
 - **Deploy preview**: the browser tests passed against https://deploy-preview-4--playanzul.netlify.app (alice and bob, at 1440 and 375), after the preview setup signed up the sample players and started a season.
+- **Merged with `main`** after shared changes batch 3 and the Heist, Roulette and Economy lanes (2026-11-19): typecheck, lint, 541 unit and integration tests and all 33 browser tests pass locally.
 
 ## Not done
 
-- Nothing in the lane. The one red check on the pull request is the foundation's shell test, which still expects Blackjack's placeholder (see Shared changes needed).
+- Nothing. Ready for Tyton to merge.
 
 ## Decisions
 
@@ -35,6 +36,4 @@ None blocking.
 
 ## Shared changes needed
 
-- `tests/foundation/e2e/shell.spec.ts`, the test "the Floor, a room and the setup page at both sizes" (lines 120 to 122): open `/room/race` and look for the heading `Race` instead of `/room/blackjack` and `Blackjack`. The Blackjack room no longer shows "Opening soon", so the test fails at both sizes until this lands. Race is the last second-wave lane, so it stays a placeholder longest. Checked on this branch with the change: 2 passed. Asked of the foundation thread on 2026-11-19.
-
-Earlier, the kit changes this lane needed (`holdReveal` for a player, `afterReveal`, `useRoom`'s `revealMs`, the slow-reveal config keys, the `thud` and `sparkle` sounds) landed in batch 1.
+None now. The shell test change this lane's merge needed (the test now opens the first room the Floor still marks Soon) landed in batch 3 (pull request #8), and the kit changes (`holdReveal` for a player, `afterReveal`, `useRoom`'s `revealMs`, the slow-reveal config keys, the `thud` and `sparkle` sounds) in batch 1.
