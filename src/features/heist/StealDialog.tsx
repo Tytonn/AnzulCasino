@@ -47,8 +47,11 @@ import { addToLog, appliedSteals, heistKeys, patchHeist, useHeist, useHeistUi } 
 import { applySteal, hoursInWords, shortDuration } from './derive.ts'
 import { VaultScene, type VaultMood } from './VaultScene.tsx'
 
-/** The dial's suspense before the ending shows, unless skipped. */
-const SUSPENSE_MS = 1_700
+/**
+ * The dial's suspense before the ending shows: about seven clicks, long
+ * enough to feel the heist, short enough not to wait on. A tap skips it.
+ */
+const SUSPENSE_MS = 1_200
 const REDUCED_SUSPENSE_MS = 300
 /** How long each ending runs before the news plays out. */
 const ENDING_MS = { success: 1_500, failed: 900, blocked: 700 } as const
