@@ -1,7 +1,8 @@
 /**
  * The round helper (spec: The room model), through a stand-in game built
  * the way a lane builds one: typed bets against the locked wallet, one open
- * round per player per game, moves, raises, payouts, refunds, big bets and
+ * round per player per game, moves, raises, lowered stakes, payouts,
+ * refunds, big bets and
  * their chat posts, idle rounds, the room's state, and that no secret ever
  * leaves the server.
  */
@@ -97,6 +98,22 @@ const testApi = createApi([
           detail: { step: round.detail.step + 1, note: 'doubled' },
         })
         return play.result(raised)
+      }),
+  }),
+  route({
+    method: 'POST',
+    path: '/api/testdice/lower',
+    auth: 'user',
+    idempotent: true,
+    input: z.strictObject({ amount: z.number().int() }),
+    run: (ctx) =>
+      playTransaction(ctx, dice, async (play) => {
+        const round = await play.require<Detail, Secret>()
+        const lowered = await play.lower(round, {
+          amount: BigInt(ctx.input.amount),
+          detail: { step: round.detail.step + 1, note: 'one bet off' },
+        })
+        return play.result(lowered)
       }),
   }),
   route({
@@ -406,6 +423,74 @@ describe('moves', () => {
         ref_id: String(start.body.round.id),
       })),
     )
+  })
+})
+
+describe('lowering the stake', () => {
+  it('hands part of the stake back and keeps the round open', async () => {
+    const { id, client } = await player(100n)
+    const start = await client.post('/api/testdice/start', { bet: '30' }, key())
+    const all = await client.post('/api/testdice/raise', { amount: 7000 }, key())
+    expect(all.body.round).toMatchObject({ stake: 10_000, allIn: true, bigBet: true })
+    capture.events.length = 0
+
+    const res = await client.post('/api/testdice/lower', { amount: 6000 }, key())
+    expect(res.status).toBe(200)
+    // 40 of the 100 the player held is under big_bet_pct (50%), and chips are back home.
+    expect(res.body.round).toMatchObject({
+      status: 'open',
+      stake: 4000,
+      allIn: false,
+      bigBet: false,
+      steps: 2,
+      detail: { step: 2, note: 'one bet off' },
+    })
+    expect(res.body.round).not.toHaveProperty('secret')
+    expect(res.body.wallet.balance).toBe(6000)
+    expect((await roundRow(start.body.round.id))?.secret).toEqual({ hidden: SECRET })
+
+    const roundId = String(start.body.round.id)
+    expect(await ledgerFor(id)).toEqual([
+      { delta: '-3000', reason: 'bet', ref_type: 'game_round', ref_id: roundId },
+      { delta: '-7000', reason: 'bet', ref_type: 'game_round', ref_id: roundId },
+      { delta: '6000', reason: 'refund', ref_type: 'game_round', ref_id: roundId },
+    ])
+    expect(await ledgerMismatches(db(), seasonId)).toEqual([])
+
+    await client.settle()
+    expect(events('round.action').map((e) => e.channel)).toEqual(['room:testdice'])
+    expect(events('round.action')[0]?.envelope.data).toMatchObject({ stake: 4000 })
+    expect(events('wallet.updated')).toHaveLength(1)
+
+    // What is left plays on: a 2x payout is on the 40 still in the round.
+    const settled = await client.post('/api/testdice/settle', { payout: 8000 }, key())
+    expect(settled.body.round).toMatchObject({ status: 'settled', stake: 4000, payout: 8000 })
+    expect(settled.body.round.multiplier).toBe(200)
+    expect((await wallet(id)).balance).toBe(14_000n)
+  })
+
+  it('keeps a big bet big while what is left is still big', async () => {
+    const { client } = await player(100n)
+    await client.post('/api/testdice/start', { bet: '80' }, key())
+    const res = await client.post('/api/testdice/lower', { amount: 2000 }, key())
+    expect(res.body.round).toMatchObject({ stake: 6000, bigBet: true, allIn: false })
+  })
+
+  it('refuses to hand back nothing, or the whole stake, and changes nothing', async () => {
+    const { id, client } = await player(100n)
+    await client.post('/api/testdice/start', { bet: '40' }, key())
+    for (const amount of [0, -100, 4000, 5000]) {
+      const res = await client.post('/api/testdice/lower', { amount }, key())
+      expect(res.status, String(amount)).toBe(400)
+      expect(res.body.error.code).toBe('bad_bet')
+    }
+    expect((await ledgerFor(id)).map((r) => [r.delta, r.reason])).toEqual([['-4000', 'bet']])
+    expect((await wallet(id)).balance).toBe(6000n)
+
+    await client.post('/api/testdice/refund', {}, key())
+    const none = await client.post('/api/testdice/lower', { amount: 1000 }, key())
+    expect(none.status).toBe(409)
+    expect(none.body.error.code).toBe('no_round')
   })
 })
 

@@ -78,14 +78,14 @@ describe('the reveal hold', () => {
 
   it('runs news at once when nothing is being revealed', () => {
     const task = vi.fn()
-    afterReveal(task)
+    afterReveal('alice', task)
     expect(task).toHaveBeenCalledOnce()
   })
 
   it('holds news while the request is out and until the animation ends', () => {
     const task = vi.fn()
-    const release = holdReveal()
-    afterReveal(task)
+    const release = holdReveal({ players: ['alice'] })
+    afterReveal('alice', task)
     vi.advanceTimersByTime(5_000)
     expect(task).not.toHaveBeenCalled()
 
@@ -98,9 +98,9 @@ describe('the reveal hold', () => {
 
   it('waits for every request in flight, and releasing twice changes nothing', () => {
     const task = vi.fn()
-    const first = holdReveal()
-    const second = holdReveal()
-    afterReveal(task)
+    const first = holdReveal({ players: ['alice'] })
+    const second = holdReveal({ players: ['alice'] })
+    afterReveal('alice', task)
     first(0)
     first(0)
     vi.advanceTimersByTime(10)
@@ -111,11 +111,62 @@ describe('the reveal hold', () => {
 
   it('lets the news go after 15 seconds if a request never answers', () => {
     const task = vi.fn()
-    holdReveal()
-    afterReveal(task)
+    holdReveal({ players: ['alice'] })
+    afterReveal('alice', task)
     vi.advanceTimersByTime(14_999)
     expect(task).not.toHaveBeenCalled()
     vi.advanceTimersByTime(1)
+    expect(task).toHaveBeenCalledOnce()
+  })
+
+  it('holds only the players it names, so other news goes on', () => {
+    const bob = vi.fn()
+    const carol = vi.fn()
+    const dave = vi.fn()
+    // A roulette close: every bettor waits for the wheel.
+    const release = holdReveal({ players: ['bob', 'carol'] })
+    afterReveal('bob', bob)
+    afterReveal('carol', carol)
+    afterReveal('dave', dave)
+    expect(dave).toHaveBeenCalledOnce()
+    expect(bob).not.toHaveBeenCalled()
+    expect(carol).not.toHaveBeenCalled()
+
+    release(6_000)
+    vi.advanceTimersByTime(5_999)
+    expect(bob).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(1)
+    expect(bob).toHaveBeenCalledOnce()
+    expect(carol).toHaveBeenCalledOnce()
+  })
+
+  it("waits for each hold on a player, yours and the table's", () => {
+    const task = vi.fn()
+    const mine = holdReveal({ players: ['alice'] })
+    const table = holdReveal({ players: ['alice', 'bob'] })
+    afterReveal('alice', task)
+    mine(300)
+    vi.advanceTimersByTime(300)
+    expect(task).not.toHaveBeenCalled()
+    table(0)
+    expect(task).toHaveBeenCalledOnce()
+  })
+
+  it("plays one player's news in the order it came, even past a late timer", () => {
+    const order: string[] = []
+    const release = holdReveal({ players: ['alice'] })
+    afterReveal('alice', () => order.push('first'))
+    release(500)
+    // The animation is over, but its timer has not fired yet.
+    vi.setSystemTime(Date.now() + 600)
+    afterReveal('alice', () => order.push('second'))
+    expect(order).toEqual(['first', 'second'])
+  })
+
+  it('holds nobody when nobody bet', () => {
+    const task = vi.fn()
+    holdReveal({ players: [] })
+    afterReveal('alice', task)
     expect(task).toHaveBeenCalledOnce()
   })
 })

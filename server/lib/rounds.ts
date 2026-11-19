@@ -20,7 +20,8 @@
  *
  * A round's life: `start` takes the stake (one open round per player per
  * game), `act` saves each move, `raise` takes more stake (a double down),
- * and `settle` pays out, or `refund` hands the stake back. Each step is
+ * `lower` hands part of it back (one bet taken off the table), and `settle`
+ * pays out, or `refund` hands the stake back. Each step is
  * published to the room after the commit, and the response carries the same
  * view, so the player animates without waiting for the echo.
  *
@@ -447,6 +448,52 @@ export async function raiseStake<D, S = never>(
   return { round: updated, wallet: after }
 }
 
+/**
+ * Hands part of an open round's stake back and keeps the round open, such as
+ * one bet taken off a roulette table before betting closes. To hand back the
+ * whole stake, refund the round. What is left is not checked against the bet
+ * limits: it is what remains of bets that passed them.
+ */
+export async function lowerStake<D, S = never>(
+  rt: RoundTx,
+  round: Round<D, S>,
+  input: RoundChange<D, S> & { amount: bigint },
+): Promise<{ round: Round<D, S>; wallet: Balances }> {
+  requireOpen(round)
+  if (input.amount <= 0n) throw badRequest('Lower by more than zero.', 'bad_bet')
+  if (input.amount >= round.stake) {
+    throw badRequest('That would hand back the whole bet. Refund the round instead.', 'bad_bet')
+  }
+  const after = await credit(rt.tx, {
+    seasonId: round.seasonId,
+    userId: round.userId,
+    amount: input.amount,
+    reason: 'refund',
+    refType: 'game_round',
+    refId: round.id,
+  })
+  const stake = round.stake - input.amount
+  const [row] = await rt.tx
+    .update(gameRounds)
+    .set({
+      stake,
+      // Chips went back to the wallet, so this is no longer everything the player had.
+      allIn: false,
+      // Measured as when a bet is placed: against what the player held before staking it.
+      bigBet: isBigBet(stake, after.balance + after.vault + stake, rt.config),
+      detail: input.detail ?? {},
+      ...(input.secret === undefined ? {} : { secret: input.secret }),
+      steps: sql`${gameRounds.steps} + 1`,
+      actedAt: sql`now()`,
+    })
+    .where(and(eq(gameRounds.id, round.id), eq(gameRounds.status, 'open')))
+    .returning(roundColumns)
+  if (!row) throw closed()
+  const updated = toRound<D, S>(row)
+  rt.emit(roomEvent('round.action', updated), ...walletEvents(round.seasonId, round.userId, after))
+  return { round: updated, wallet: after }
+}
+
 // ---------------------------------------------------------------- the end
 
 export interface Outcome<D> {
@@ -720,6 +767,14 @@ export class Play {
     const raised = await raiseStake(this.rt, round, input)
     this.track(raised.wallet)
     return raised.round
+  }
+
+  /** Hands part of the stake back and keeps the round open, such as one bet taken off the table. */
+  async lower<D, S = never>(round: Round<D, S>, input: RoundChange<D, S> & { amount: bigint }) {
+    this.mine(round)
+    const lowered = await lowerStake(this.rt, round, input)
+    this.track(lowered.wallet)
+    return lowered.round
   }
 
   /** Pays out and closes the round. */
