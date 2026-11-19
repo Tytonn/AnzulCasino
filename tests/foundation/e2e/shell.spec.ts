@@ -146,3 +146,45 @@ test('the Floor, a room and the setup page at both sizes', async ({ browser }, t
 
   await admin.close()
 })
+
+/** Whether the top bar's row cuts a widget off at its edges, and whether those edges fade. */
+function widgetRow(row: Locator) {
+  return row.evaluate((el) => {
+    const box = el.getBoundingClientRect()
+    const widgets = [...(el.querySelector('[data-top-bar-content]')?.children ?? [])]
+    const cut = widgets.some((widget) => {
+      const edge = widget.getBoundingClientRect()
+      return edge.left < box.left - 1 || edge.right > box.right + 1
+    })
+    return { cut, faded: getComputedStyle(el).maskImage !== 'none' }
+  })
+}
+
+test('the top bar keeps every widget in view, or fades the edge it scrolls past', async ({
+  browser,
+}, testInfo) => {
+  const alice = await openAs(browser, 'alice')
+  const { page } = alice
+  const phone = onPhone(testInfo)
+
+  await page.goto('/')
+  const row = page.getByRole('banner').locator('[data-slot="top-bar"]')
+  await expect(row.locator('[data-top-bar-content] > *').first()).toBeVisible()
+  await expect(row.locator('.skeleton')).toHaveCount(0)
+
+  // On desktop the widgets sit beside the wallet while they fit there, and on a
+  // second line under it when they do not, so none is ever cut off. A phone's
+  // row may still scroll, but then it fades the edge that widgets are behind.
+  for (const width of phone ? [375, 320] : [1440, 1280, 1100, 900]) {
+    await page.setViewportSize({ width, height: phone ? 812 : 900 })
+    await expect
+      .poll(async () => {
+        const { cut, faded } = await widgetRow(row)
+        return phone ? !cut || faded : !cut
+      })
+      .toBe(true)
+    if (width === (phone ? 375 : 1280)) await snap(page, 'foundation', 'top-bar', testInfo)
+  }
+
+  await alice.close()
+})
