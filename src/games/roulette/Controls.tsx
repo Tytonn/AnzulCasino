@@ -189,7 +189,10 @@ export function Controls({
     setLast(typed)
     saveTyped(typed)
     setNote(null)
-    focusBox(true)
+    // On a keyboard the bet stays selected, so Enter bets it again and typing
+    // replaces it. On a phone the box empties, and "Last bet" brings it back.
+    if (touch) setText('')
+    else focusBox(true)
   }
 
   // After each spin, the cursor is back in the box (spec: Bets are typed, not clicked).
@@ -401,7 +404,13 @@ export function Controls({
           </div>
         </div>
 
-        <div className="flex min-h-5 items-center justify-between gap-2 px-1 text-xs">
+        <div
+          className={`items-center justify-between gap-2 px-1 text-xs ${
+            // A phone keeps the room for the felt until there is something to
+            // say. sr-only, not hidden, so the note stays a live region.
+            touch && line === null && !offerLast ? 'sr-only' : 'flex min-h-5'
+          }`}
+        >
           <p id="roulette-bet-note" aria-live="polite" className="min-w-0 truncate">
             {line}
           </p>

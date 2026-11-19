@@ -23,6 +23,7 @@ import {
   type RouletteDetail,
   pocketColor,
   settleBets,
+  type Spot,
   spotById,
 } from '../../../shared/games/roulette.ts'
 import type { PlayerSummary } from '../../../shared/players.ts'
@@ -124,6 +125,20 @@ function InfoLine({
   )
 }
 
+/**
+ * A bet's name on a seat, where room is short: a split or corner by its
+ * numbers ("17/20"), a street or line by its first and last ("13-18").
+ */
+function seatName(spot: Spot): string {
+  const { kind, numbers } = spot
+  if (kind === 'split' || kind === 'corner') return numbers.join('/')
+  if (kind === 'street' || kind === 'line') {
+    // The trios with zero are not a run of numbers.
+    return numbers[0] === 0 ? numbers.join('/') : `${numbers[0]}-${numbers[numbers.length - 1]}`
+  }
+  return spot.name
+}
+
 /** Another player's bets on the spin the table shows, in their seat. */
 function SeatBets({
   round,
@@ -150,7 +165,7 @@ function SeatBets({
             wins.has(b.spot) ? 'bg-gold/15 text-gold' : 'bg-surface-2 text-muted'
           }`}
         >
-          {spotById(b.spot).name}{' '}
+          {seatName(spotById(b.spot))}{' '}
           <span className="font-semibold text-text">{formatChips(b.amount)}</span>
         </li>
       ))}
@@ -535,7 +550,7 @@ export default function RouletteRoom() {
           <WheelBox spins={spins} reduced={reduced} className="w-24 shrink-0 sm:w-28" />
           <div className="flex min-w-0 flex-1 flex-col gap-2">
             <Caption spins={spins} result={result} />
-            <RecentStrip recent={spins.recent} className="scroll-quiet overflow-x-auto" />
+            <RecentStrip recent={spins.recent} className="scroll-quiet -m-1 overflow-x-auto p-1" />
           </div>
         </div>
         {felt}
@@ -548,7 +563,13 @@ export default function RouletteRoom() {
       <RoomLayout
         game={manifest}
         room={room}
-        info="European wheel · 35 to 1 on a number · 2.7% house edge"
+        info={
+          <>
+            {/* A phone has room for the odds, not the wheel's name. */}
+            <span className="max-sm:hidden">European wheel · </span>35 to 1 on a number · 2.7% house
+            edge
+          </>
+        }
         seat={(seat) => <SeatBets round={seat.round} spin={shownSpin} />}
         table={
           <div ref={tableRef} className="w-full self-stretch">

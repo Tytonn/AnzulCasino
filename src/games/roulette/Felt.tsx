@@ -509,12 +509,14 @@ export function Felt({
                 initial={reduced ? { opacity: 0 } : { opacity: 0, scale: 1.6 }}
                 animate={
                   lost
-                    ? {
+                    ? // The house sweeps the losing chips off the felt.
+                      {
                         opacity: 0,
                         scale: reduced ? 1 : 0.6,
-                        transition: { delay: 0.7, duration: 0.45 },
+                        y: reduced ? p.y : p.y - layout.chipR * 2.5,
+                        transition: { delay: 0.7, duration: 0.5, ease: 'easeIn' },
                       }
-                    : { opacity: 1, scale: 1 }
+                    : { opacity: 1, scale: 1, y: p.y }
                 }
                 exit={{ opacity: 0, scale: reduced ? 1 : 0.7, transition: { duration: 0.25 } }}
                 transition={{ type: 'spring', stiffness: 700, damping: 30 }}
