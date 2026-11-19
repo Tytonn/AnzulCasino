@@ -123,6 +123,11 @@ export function heistAsOf(
 export interface TargetRow {
   standing: StandingView
   info: TargetInfo | undefined
+  /**
+   * Whether you can rob them now. Out of attempts, it says `no_attempts` only
+   * for a player the extra attempt would let you rob; anyone else shows their
+   * own block (tried today, immune, too poor).
+   */
   check: TargetCheck
   /** The same check as if you had an attempt left: what they are worth robbing. */
   worth: TargetCheck
@@ -170,11 +175,14 @@ export function targetRows(input: {
         cfg,
       }
       const check = checkTarget(facts)
+      const worth = attemptsLeft > 0 ? check : checkTarget({ ...facts, attemptsLeft: 1 })
       return {
         standing,
         info,
-        check,
-        worth: attemptsLeft > 0 ? check : checkTarget({ ...facts, attemptsLeft: 1 }),
+        // Out of attempts, a player you could not rob anyway (tried today,
+        // immune, too poor) says why, instead of offering the extra attempt.
+        check: !check.ok && check.reason === 'no_attempts' && !worth.ok ? worth : check,
+        worth,
         immuneLeft: immuneUntil !== null ? Math.max(0, immuneUntil - now) : 0,
       }
     })
@@ -230,6 +238,20 @@ export function shortDuration(ms: number): string {
   const rest = minutes % 60
   if (hours === 0) return `${rest}m`
   return rest === 0 ? `${hours}h` : `${hours}h ${rest}m`
+}
+
+/**
+ * "2h05", "4:59": your immunity on the top bar, short enough for a button the
+ * size of the economy's and written like their cooldowns. It rounds down, like
+ * the kit's countdown in the button's label.
+ */
+export function barCountdown(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000))
+  const hours = Math.floor(total / 3_600)
+  const minutes = Math.floor((total % 3_600) / 60)
+  const seconds = total % 60
+  if (hours > 0) return `${hours}h${String(minutes).padStart(2, '0')}`
+  return `${minutes}:${String(seconds).padStart(2, '0')}`
 }
 
 /** "3 hours", "1 hour", "90 minutes": a config's hours in words. */
