@@ -7,8 +7,9 @@
  * - Rob: on another player's card, what a steal would take, or why not.
  *
  * The two top-bar buttons are built like the economy's beside them: an icon
- * over one short value, about 2.75rem wide, lit while there is something to
- * use. The whole story is in each button's label and tooltip.
+ * over one short value, 3.1rem wide on desktop and 2.75rem on a phone, lit
+ * while there is something to use. The whole story is in each button's label
+ * and tooltip.
  */
 import { motion } from 'motion/react'
 import type { CSSProperties, ReactNode } from 'react'
@@ -80,8 +81,8 @@ function BarButton({
       title={title}
       onClick={onClick}
       style={{ '--tone': tone } as CSSProperties}
-      className={`group relative flex min-w-[2.75rem] shrink-0 flex-col items-center justify-center gap-1 overflow-hidden rounded-md border px-1.5 transition duration-150 select-none active:scale-[0.96] ${
-        compact ? 'h-10' : 'h-11'
+      className={`group relative flex shrink-0 flex-col items-center justify-center gap-1 overflow-hidden rounded-md border px-1 transition duration-150 select-none focus-visible:z-20 active:scale-[0.96] ${
+        compact ? 'h-10 min-w-[2.75rem]' : 'h-11 min-w-[3.1rem]'
       } ${look} ${faded ? 'opacity-60' : ''}`}
     >
       <motion.span
@@ -91,12 +92,12 @@ function BarButton({
         animate={{ scale: 1 }}
         transition={{ type: 'spring', stiffness: 600, damping: 18 }}
       >
-        {icon(compact ? 'size-4' : 'size-4 desk:size-[1.15rem]')}
+        {icon(compact ? 'size-4' : 'size-[1.1rem]')}
       </motion.span>
       {/* One line box the height of the economy's values, so the icons line up. */}
       <span
         className={`flex h-[1em] items-center leading-none font-semibold whitespace-nowrap tabular-nums ${
-          compact ? 'text-[0.66rem]' : 'text-[0.66rem] desk:text-[0.72rem]'
+          compact ? 'text-[0.66rem]' : 'text-[0.7rem]'
         }`}
       >
         {value}
@@ -116,7 +117,7 @@ function BarSkeleton({ compact }: BarProps) {
   return (
     <span
       aria-hidden="true"
-      className={`skeleton block w-[2.75rem] shrink-0 rounded-md ${compact ? 'h-10' : 'h-11'}`}
+      className={`skeleton block shrink-0 rounded-md ${compact ? 'h-10 w-[2.75rem]' : 'h-11 w-[3.1rem]'}`}
     />
   )
 }
