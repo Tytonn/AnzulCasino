@@ -9,6 +9,7 @@ import { Link } from 'react-router'
 import { formatChips } from '../../../shared/chips.ts'
 import type { RoundSummary } from '../../../shared/events.ts'
 import { seasonDay } from '../../../shared/game-day.ts'
+import type { TickerItem } from '../../../shared/ticker.ts'
 import { formatCountdown, useNow } from '../../kit/clock.ts'
 import { Avatar, PlayerName } from '../../kit/PlayerName.tsx'
 import { useMe, usePlayer, usePlayers, useSeason, useTicker } from '../../kit/queries.ts'
@@ -18,9 +19,11 @@ import { type GameEntry, games } from '../registry.ts'
 import { useTitle } from '../title.ts'
 
 /** The latest win in each game among the recent results. */
-function lastWins(rounds: readonly RoundSummary[] | undefined): Map<string, RoundSummary> {
+function lastWins(items: readonly TickerItem[] | undefined): Map<string, RoundSummary> {
   const wins = new Map<string, RoundSummary>()
-  for (const round of rounds ?? []) {
+  for (const item of items ?? []) {
+    if (item.kind !== 'round') continue
+    const { round } = item
     if (round.net > 0 && !wins.has(round.game)) wins.set(round.game, round)
   }
   return wins
@@ -157,8 +160,8 @@ function RoomCard({
 export function FloorPage() {
   useTitle('The Floor')
   const online = useOnlinePlayers()
-  const { data: rounds } = useTicker()
-  const wins = lastWins(rounds)
+  const { data: ticker } = useTicker()
+  const wins = lastWins(ticker)
   return (
     <div className="mx-auto w-full max-w-6xl p-4 md:p-8">
       <SeasonHeader />
