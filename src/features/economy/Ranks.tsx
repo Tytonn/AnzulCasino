@@ -7,7 +7,7 @@
  */
 import { useQueryClient } from '@tanstack/react-query'
 import { motion } from 'motion/react'
-import { type ReactNode, useEffect, useState } from 'react'
+import { type CSSProperties, type ReactNode, useEffect, useState } from 'react'
 
 import { formatChips } from '../../../shared/chips.ts'
 import type { EconomyState, TierStepView } from '../../../shared/features/economy.ts'
@@ -242,13 +242,25 @@ function LadderRow({
   )
 }
 
-/** Every rank, base first: its price, its income and where the player stands. */
-export function RankLadder({ state }: { state: EconomyState }) {
+/**
+ * Every rank, base first: its price, its income and where the player stands.
+ * With `columns`, from 640px up it reads down two columns, Base to Gold and
+ * then the rest, as the Shop's wide card does.
+ */
+export function RankLadder({ state, columns = false }: { state: EconomyState; columns?: boolean }) {
   const now = useNow().getTime()
   const balance = useWallet()?.balance ?? 0
   const next = nextRank(state, balance, now)
+  const rows = Math.ceil(state.ranks.ladder.length / 2)
   return (
-    <ol className="space-y-0.5">
+    <ol
+      className={
+        columns
+          ? 'grid gap-0.5 sm:grid-flow-col sm:grid-cols-2 sm:grid-rows-(--ladder-rows) sm:gap-x-2'
+          : 'space-y-0.5'
+      }
+      style={columns ? ({ '--ladder-rows': `repeat(${rows}, auto)` } as CSSProperties) : undefined}
+    >
       {state.ranks.ladder.map((step) => (
         <LadderRow key={step.tier} step={step} mine={state.income.tier} next={next} now={now} />
       ))}
@@ -256,13 +268,22 @@ export function RankLadder({ state }: { state: EconomyState }) {
   )
 }
 
-/** The Shop's rank card (the `shop-items` slot). */
+/**
+ * The Shop's rank card (the `shop-items` slot). It takes the grid's whole
+ * width, so the seven ranks sit in two short columns instead of one tall
+ * card that stretches every item beside it.
+ */
 export function RankCard() {
   const { data: state, isPending } = useEconomy()
   const now = useNow().getTime()
 
   if (isPending) {
-    return <div className="skeleton h-96 w-full rounded-lg" aria-label="Loading ranks" />
+    return (
+      <div
+        className="skeleton h-96 w-full rounded-lg sm:col-span-full sm:h-72"
+        aria-label="Loading ranks"
+      />
+    )
   }
   if (!state) return null
 
@@ -272,7 +293,7 @@ export function RankCard() {
   return (
     <section
       aria-labelledby="economy-ranks"
-      className="w-full overflow-hidden rounded-lg border border-border bg-surface-1 shadow-card"
+      className="w-full overflow-hidden rounded-lg border border-border bg-surface-1 shadow-card sm:col-span-full"
       data-economy="ranks"
     >
       <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border p-4">
@@ -304,7 +325,7 @@ export function RankCard() {
         )}
       </header>
       <div className="p-2">
-        <RankLadder state={state} />
+        <RankLadder state={state} columns />
       </div>
       <p className="border-t border-border px-4 py-3 text-xs leading-relaxed text-faint">
         Buy the next rank up, one a day. The price leaves the game and does not count toward your
