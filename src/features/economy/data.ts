@@ -4,7 +4,7 @@
  * (Overlay.tsx). Nothing here polls: the server moves the season on when a
  * browser asks, and live news covers the rest.
  */
-import { type QueryClient, useQuery } from '@tanstack/react-query'
+import { type QueryClient, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { formatChips } from '../../../shared/chips.ts'
 import {
@@ -24,18 +24,35 @@ export const economyKey = ['economy', 'state'] as const
 
 /** The player's economy this season, or null outside one. */
 export function useEconomy() {
-  return useQuery({
-    queryKey: economyKey,
-    queryFn: async () => (await api.get<EconomyStateResponse>('/api/economy/state')).state,
-  })
+  const queryClient = useQueryClient()
+  return useQuery({ queryKey: economyKey, queryFn: () => fetchEconomy(queryClient) })
+}
+
+/**
+ * Fetches the state, but keeps the cached one when that is newer. A fetch
+ * can start before a press and land after the press's answer (a resync on
+ * connect, news from another tab), and its older state would otherwise show
+ * the button as ready again.
+ */
+export async function fetchEconomy(queryClient: QueryClient): Promise<EconomyState | null> {
+  const { state } = await api.get<EconomyStateResponse>('/api/economy/state')
+  return newer(queryClient.getQueryData<EconomyState | null>(economyKey), state)
 }
 
 /** Puts a state from an answer into the cache, unless the cache already holds a newer one. */
 export function putEconomy(queryClient: QueryClient, state: EconomyState): void {
-  queryClient.setQueryData<EconomyState | null>(economyKey, (old) => {
-    if (old && old.seasonId === state.seasonId && old.version > state.version) return old
-    return state
-  })
+  queryClient.setQueryData<EconomyState | null>(economyKey, (old) => newer(old, state))
+}
+
+/** The cached state if it is newer than the one that came in, or else the one that came in. */
+function newer(
+  cached: EconomyState | null | undefined,
+  state: EconomyState | null,
+): EconomyState | null {
+  if (cached && state && cached.seasonId === state.seasonId && cached.version > state.version) {
+    return cached
+  }
+  return state
 }
 
 /** Changes the cached state in place, if there is one. */
