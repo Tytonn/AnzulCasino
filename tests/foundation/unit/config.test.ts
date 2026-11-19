@@ -216,7 +216,7 @@ describe('config values', () => {
     expect(parseConfigValue('work_lines', 'one line')).toMatchObject({ ok: false })
     expect(parseConfigValue('work_lines', [1, 2])).toMatchObject({ ok: false })
     expect(parseConfigValue('min_bet', ['1'])).toMatchObject({ ok: false })
-    expect(formatConfigValue('work_lines', defaults.work_lines)).toBe('10 lines')
+    expect(formatConfigValue('work_lines', defaults.work_lines)).toBe('36 lines')
     expect(configWireValue(defaults.work_lines)).toEqual([...defaults.work_lines])
     expect(configWireValue(chips(3))).toBe(300)
   })

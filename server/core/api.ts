@@ -37,7 +37,7 @@ import {
 import { login, redeemReset, signup, updateProfile } from './accounts.ts'
 import { chatPage, deleteChat, sendChat } from './chat.ts'
 import { createCode, listCodes } from './invites.ts'
-import { listPlayers, tickerRounds } from './players.ts'
+import { listPlayers, tickerItems } from './players.ts'
 
 /** Seasons as the API sends them, with their phase at `now` (database time). */
 async function seasonViews(now: Date) {
@@ -224,7 +224,7 @@ export const coreRoutes = [
     auth: 'user',
     async run() {
       const season = await currentSeason()
-      return { rounds: season ? await tickerRounds(season.id) : [] }
+      return { items: season ? await tickerItems(season.id) : [] }
     },
   }),
   route({

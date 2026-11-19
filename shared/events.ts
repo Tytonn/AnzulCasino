@@ -11,8 +11,8 @@
  * map for the channel from a file of its own:
  *
  *   declare module '../../shared/events.ts' {
- *     interface FeedEvents {
- *       'steal.result': StealResult
+ *     interface UserEvents {
+ *       'shield.blocked': ShieldBlockedEvent
  *     }
  *   }
  */
@@ -20,6 +20,7 @@
 import type { ChatMessage } from './chat.ts'
 import type { RoundView } from './rounds.ts'
 import type { SeasonPhase } from './seasons.ts'
+import type { StealResult } from './steals.ts'
 
 /** Logical channel names. The live layer adds a prefix per deploy. */
 export type Channel = 'presence' | 'chat' | 'feed' | `room:${string}` | `user:${string}`
@@ -36,6 +37,11 @@ export interface FeedEvents {
   'round.settled': RoundSummary
   /** A season started, entered its final day or ended: refetch the season. */
   'season.state': SeasonStateChanged
+  /**
+   * Every steal attempt, for the ticker, chat and the heist lane's log. The
+   * heist lane publishes it. Version: the steal id.
+   */
+  'steal.result': StealResult
 }
 
 export interface StandingChanged {
