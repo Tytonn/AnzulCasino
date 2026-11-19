@@ -6,7 +6,7 @@ Last updated: 2026-11-19 by the Economy thread.
 
 ## Status
 
-Built and ready for review on pull request #6. Unit, integration and browser tests pass locally at 1440 and 375; the deploy preview check is the last step.
+Built and ready for review on pull request #6. Unit, integration and browser tests pass locally at 1440 and 375, and the browser tests pass on the deploy preview too (the chat drop and the Hall of Fame's sample season need the local database, so on a preview they are skipped or check what is there).
 
 ## What is built
 
@@ -49,12 +49,11 @@ The server decides every outcome, every chip moves through `server/lib/wallet.ts
 ## Shared changes needed
 
 1. ~~`shared/config.ts`: the full flavor-line pools.~~ Done in shared changes batch 2 (pull request #7); `shared/features/economy-lines.ts` is gone.
-2. `src/shell/layout/TopBar.tsx`, `PhoneTopBar`: the phone's row of top-bar widgets shows whenever a lane has registered one, even when every widget draws nothing. Between seasons the economy's buttons go, which leaves an empty 44px row under the phone's header. Adding `empty:hidden` to that row's `div` fixes it for every lane.
+2. `src/shell/layout/TopBar.tsx`, `PhoneTopBar`: the phone's row of top-bar widgets shows whenever a lane has registered one, even when every widget draws nothing. Between seasons the economy's buttons go, which leaves an empty 44px row under the phone's header. Adding `empty:hidden` to that row's `div` fixes it for every lane. In shared changes batch 3 (pull request #8), waiting to merge.
 
 ## Not done yet
 
 - The rank card shows on the Shop page once the heist lane's Shop page lands (`shop-items` slot). Until then every rank is in the Daily panel under "All ranks".
-- Deploy preview check.
 
 ## Open questions
 

@@ -8,7 +8,7 @@
  * to the database first and removes it after; on a deploy preview it checks
  * whatever the Hall of Fame holds, empty or not.
  */
-import { expect, test } from '@playwright/test'
+import { expect, type Locator, test } from '@playwright/test'
 import pg from 'pg'
 
 import type { HallOfFame } from '../../../shared/features/season.ts'
@@ -16,6 +16,33 @@ import type { SeasonState } from '../../../shared/seasons.ts'
 import { onPhone, openAs, snap } from '../../e2e-helpers/players.ts'
 
 const HOUR = 3_600_000
+
+/**
+ * Waits until nothing in the podium has moved for a moment: the blocks have
+ * risen and the crown has landed. A fixed wait is not enough on a busy
+ * machine, where the rise starts late, and the picture would catch it halfway.
+ */
+async function podiumRisen(podium: Locator): Promise<void> {
+  const boxes = () =>
+    podium.evaluate((list) =>
+      [...list.querySelectorAll('*')]
+        .map((node) => {
+          const box = node.getBoundingClientRect()
+          return `${box.x.toFixed(1)},${box.y.toFixed(1)},${box.width.toFixed(1)},${box.height.toFixed(1)}`
+        })
+        .join(' '),
+    )
+  await expect
+    .poll(
+      async () => {
+        const before = await boxes()
+        await new Promise((resolve) => setTimeout(resolve, 400))
+        return before === (await boxes())
+      },
+      { message: 'The podium is still moving.', timeout: 15_000 },
+    )
+    .toBe(true)
+}
 
 test('the final day shows a banner and a countdown, and the end says so', async ({
   browser,
@@ -144,15 +171,14 @@ test('the Hall of Fame keeps each finished season, with its podium and standings
       await expect(card.locator('[aria-current="true"]')).toContainText('Alice')
       await expect(card).toContainText('You finished 2nd')
     }
-    // Let the podium finish rising before the picture.
-    await page.waitForTimeout(1_600)
+    await podiumRisen(podium)
     await snap(page, 'economy', 'hall-of-fame', testInfo)
 
     await card.getByRole('button', { name: `Replay the podium for ${latest.name}` }).click()
     const screen = page.getByRole('dialog').filter({ has: page.getByText('Final standings') })
     await expect(screen).toBeVisible()
     if (local) await expect(screen).toContainText(`Bob wins ${PAST}`)
-    await page.waitForTimeout(1_600)
+    await podiumRisen(screen.getByRole('list', { name: 'Podium' }))
     await snap(page, 'economy', 'podium', testInfo)
     await page.keyboard.press('Escape')
     await expect(screen).toBeHidden()
