@@ -336,17 +336,16 @@ export default function BlackjackRoom() {
     if (round && round.status !== 'open') timeline.finish()
   }
 
-  useShortcuts(
-    {
-      h: () => void act('hit'),
-      s: () => void act('stand'),
-      d: () => void act('double'),
-      p: () => void act('split'),
-      Space: onward,
-      Enter: onward,
-    },
-    { enabled: playing },
-  )
+  // The move keys stay on between hands: a listener added only once a hand
+  // is dealt arrives a moment after the buttons show, and a key pressed in that
+  // moment would be lost. act() does nothing while no hand is open.
+  useShortcuts({
+    h: () => void act('hit'),
+    s: () => void act('stand'),
+    d: () => void act('double'),
+    p: () => void act('split'),
+  })
+  useShortcuts({ Space: onward, Enter: onward }, { enabled: playing })
 
   // Any key turns a slow card over.
   useEffect(() => {
