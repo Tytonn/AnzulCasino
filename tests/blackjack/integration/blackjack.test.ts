@@ -14,6 +14,10 @@ import { CHIP } from '../../../shared/chips.ts'
 import {
   type BlackjackDetail,
   type Card,
+  cardValue,
+  handTotal,
+  isPair,
+  legalMoves,
   type Move,
   roundPayout,
 } from '../../../shared/games/blackjack.ts'
@@ -27,7 +31,6 @@ import { ledgerMismatches, readWallet } from '../../../server/lib/wallet.ts'
 import { apiClient, type ApiClient } from '../../helpers/api.ts'
 import { useTestDatabase } from '../../helpers/db.ts'
 import { createPlayer, createSeason, fundWallet, loggedIn } from '../../helpers/fixtures.ts'
-import { basicStrategy } from '../unit/basic-strategy.ts'
 
 /** The cards the next draws take, before the shoe goes back to random ones. */
 const stacked = vi.hoisted(() => ({ cards: [] as string[] }))
@@ -48,7 +51,8 @@ vi.mock('../../../server/games/blackjack/rules.ts', async (importOriginal) => {
 process.env.DATABASE_POOL_MAX = '30'
 const testDb = await useTestDatabase()
 
-type Hand = PlayResult<BlackjackDetail>
+/** An answer: the hand and the wallet, or a refusal in plain words. */
+type Hand = PlayResult<BlackjackDetail> & { error: { code: string; message: string } }
 type HandView = RoundView<BlackjackDetail>
 
 let seasonId: number
@@ -104,6 +108,20 @@ async function rounds(userId: string) {
     `select id, status, stake, secret from game_rounds where user_id = $1 order by id`,
     [userId],
   )
+}
+
+/** A simple strategy that uses every move: split aces and eights, double 10 and 11, hit to 17. */
+function simpleMove(detail: BlackjackDetail): Move {
+  const legal = legalMoves(detail)
+  const hand = detail.hands[detail.active ?? -1]
+  if (!hand) throw new Error('No hand to play')
+  const first = hand.cards[0]
+  if (legal.includes('split') && isPair(hand.cards) && first && [1, 8].includes(cardValue(first))) {
+    return 'split'
+  }
+  const { total } = handTotal(hand.cards)
+  if (legal.includes('double') && (total === 10 || total === 11)) return 'double'
+  return total < 17 ? 'hit' : 'stand'
 }
 
 function ok(res: { status: number; body: unknown }) {
@@ -560,14 +578,14 @@ describe('GET /api/blackjack/room', () => {
 })
 
 describe('a session of real hands', () => {
-  it('plays 40 random hands by basic strategy, and every chip adds up', async () => {
+  it('plays 40 random hands, and every chip adds up', async () => {
     const { id, client } = await player(1_000n)
     let expected = 1_000n * CHIP
     for (let i = 0; i < 40; i++) {
       let res = await deal(client, '5')
       ok(res)
       while (res.body.round.status === 'open') {
-        res = await move(client, res.body.round, basicStrategy(res.body.round.detail))
+        res = await move(client, res.body.round, simpleMove(res.body.round.detail))
         ok(res)
       }
       const { round } = res.body
