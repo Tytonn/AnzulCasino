@@ -16,7 +16,7 @@ Branch `claude/project-thread-gh6sj0`. Spec: Steal, shields and vault, Shop, and
   - The Shop page: every lane's `shop-items` (heist adds the shield charge and the extra attempt), the vault panel and how heists work, with the numbers from config. Keys: R picks a target, S buys a charge, E buys the extra attempt.
   - Alerts for the target the moment it lands: robbed, shield blocked, or caught (their fine is yours), each with Rob back.
   - Rob on another player's card, with the amount or the reason.
-- **Tests**: 35 unit tests on the rules, 42 integration tests on the endpoints, and browser tests at 1440 and 375 (`tests/heist/e2e/heist.spec.ts`: the Shop, a shield charge, a vault move, the panel, and a steal from start to end with the target watching, whatever the outcome). On a preview they adapt to what earlier runs left behind (charges full, vault moved, attempts used).
+- **Tests**: 35 unit tests on the rules, 56 integration tests on the endpoints, and browser tests at 1440 and 375 (`tests/heist/e2e/heist.spec.ts`: the Shop, a shield charge, a vault move, the panel, and a steal from start to end with the target watching, whatever the outcome). On a preview they adapt to what earlier runs left behind (charges full, vault moved, attempts used).
 - **The season simulation**: `node scripts/simulate-season.ts [--runs 1000] [--seed 1] [--json out.json]`. Results below.
 
 ## Decisions
