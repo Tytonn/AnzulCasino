@@ -1,0 +1,203 @@
+/**
+ * The quick-bet box (spec: Quick-bet box, added by Tyton): "<amount> <space>"
+ * as on UnbelievaBoat, such as "200 odd", "600 2nd", "50 17" and "all red".
+ * Splits, streets, corners and six lines are click-only. Typed amounts are
+ * resolved on the server against the wallet, one bet after another.
+ */
+import { describe, expect, it } from 'vitest'
+
+import {
+  parseQuickBet,
+  parseSpace,
+  RouletteBetInput,
+  RouletteRemoveInput,
+} from '../../../shared/games/roulette.ts'
+import { resolveBets } from '../../../server/games/roulette/rules.ts'
+
+const bets = (text: string) => {
+  const parsed = parseQuickBet(text)
+  if (!parsed.ok) throw new Error(parsed.error)
+  return parsed.bets
+}
+
+const error = (text: string) => {
+  const parsed = parseQuickBet(text)
+  if (parsed.ok) throw new Error(`"${text}" should not parse`)
+  return parsed.error
+}
+
+describe('the quick-bet box', () => {
+  it("reads the spec's examples", () => {
+    expect(bets('200 odd')).toEqual([{ amount: '200', spot: 'odd' }])
+    expect(bets('600 2nd')).toEqual([{ amount: '600', spot: 'col2' }])
+    expect(bets('50 17')).toEqual([{ amount: '50', spot: '17' }])
+    expect(bets('all red')).toEqual([{ amount: 'all', spot: 'red' }])
+  })
+
+  it('takes every space the spec lists', () => {
+    const spaces: Record<string, string> = {
+      '0': '0',
+      '36': '36',
+      '1-12': '1st12',
+      '13-24': '2nd12',
+      '25-36': '3rd12',
+      '1st': 'col1',
+      '2nd': 'col2',
+      '3rd': 'col3',
+      '1-18': 'low',
+      '19-36': 'high',
+      odd: 'odd',
+      even: 'even',
+      red: 'red',
+      black: 'black',
+    }
+    for (const [space, spot] of Object.entries(spaces)) {
+      expect(bets(`10 ${space}`), space).toEqual([{ amount: '10', spot }])
+    }
+  })
+
+  it('forgives case, spacing, long dashes and friendly words', () => {
+    expect(bets('  25   RED ')).toEqual([{ amount: '25', spot: 'red' }])
+    expect(bets('25 1 – 12')).toEqual([{ amount: '25', spot: '1st12' }])
+    expect(bets('5 green')).toEqual([{ amount: '5', spot: '0' }])
+    expect(bets('5 zero')).toEqual([{ amount: '5', spot: '0' }])
+    expect(bets('5 2nd column')).toEqual([{ amount: '5', spot: 'col2' }])
+    expect(bets('5 3rd dozen')).toEqual([{ amount: '5', spot: '3rd12' }])
+    expect(bets('5 low')).toEqual([{ amount: '5', spot: 'low' }])
+  })
+
+  it('reads amounts as the bet box does', () => {
+    expect(bets('2.5k black')).toEqual([{ amount: '2.5k', spot: 'black' }])
+    expect(bets('1,000 even')).toEqual([{ amount: '1,000', spot: 'even' }])
+    expect(bets('half 1st')).toEqual([{ amount: 'half', spot: 'col1' }])
+    expect(bets('max 0')).toEqual([{ amount: 'max', spot: '0' }])
+    expect(bets('.5 red')).toEqual([{ amount: '.5', spot: 'red' }])
+  })
+
+  it('accepts the place first when only that reading works', () => {
+    expect(bets('red 50')).toEqual([{ amount: '50', spot: 'red' }])
+    expect(bets('2nd all')).toEqual([{ amount: 'all', spot: 'col2' }])
+    // "17 50": 50 is not on the wheel, so this is 50 on 17.
+    expect(bets('17 50')).toEqual([{ amount: '50', spot: '17' }])
+    // "17 20" follows the documented order: 17 on 20.
+    expect(bets('17 20')).toEqual([{ amount: '17', spot: '20' }])
+  })
+
+  it('takes several bets in one line', () => {
+    expect(bets('50 red, 10 17; 5 0')).toEqual([
+      { amount: '50', spot: 'red' },
+      { amount: '10', spot: '17' },
+      { amount: '5', spot: '0' },
+    ])
+    expect(bets('1,000 red, 2,000 black')).toEqual([
+      { amount: '1,000', spot: 'red' },
+      { amount: '2,000', spot: 'black' },
+    ])
+  })
+
+  it('sets the chip size from a lone number, and bets the chip on a lone place', () => {
+    expect(parseQuickBet('25')).toEqual({ ok: true, bets: [], amount: '25' })
+    expect(parseQuickBet('2.5k')).toEqual({ ok: true, bets: [], amount: '2.5k' })
+    expect(bets('red')).toEqual([{ amount: null, spot: 'red' }])
+    expect(bets('2nd')).toEqual([{ amount: null, spot: 'col2' }])
+  })
+
+  it('explains what it cannot read, in plain words', () => {
+    expect(error('')).toMatch(/Type a bet/)
+    expect(error('all')).toBe('Say where it goes, like "all red".')
+    expect(error('50 00')).toMatch(/single zero/)
+    expect(error('50 37')).toMatch(/37 is not on the wheel/)
+    expect(error('50 purple')).toMatch(/"purple" is not a place on the table/)
+    expect(error('lots red')).toMatch(/Type an amount and a place/)
+    // Combinations are click-only (spec).
+    for (const combo of ['50 17-20', '50 17/18', '50 13-14-15', '50 1-2-4-5', '50 0-1-2-3']) {
+      expect(error(combo), combo).toMatch(/by clicking the table/)
+    }
+  })
+
+  it('reads a lone place for the table', () => {
+    expect(parseSpace('17')).toEqual({ ok: true, spot: '17' })
+    expect(parseSpace('07')).toEqual({ ok: true, spot: '7' })
+    expect(parseSpace('Black!')).toEqual({ ok: true, spot: 'black' })
+    expect(parseSpace('99').ok).toBe(false)
+  })
+})
+
+describe('the bet endpoint input', () => {
+  it('takes one to every spot, each with typed text', () => {
+    expect(
+      RouletteBetInput.safeParse({ spin: 4, bets: [{ spot: 'red', bet: '50' }] }).success,
+    ).toBe(true)
+    expect(RouletteBetInput.safeParse({ spin: 4, bets: [] }).success).toBe(false)
+    expect(
+      RouletteBetInput.safeParse({ spin: 4, bets: [{ spot: 'purple', bet: '50' }] }).success,
+    ).toBe(false)
+    expect(
+      RouletteBetInput.safeParse({ spin: -1, bets: [{ spot: 'red', bet: '50' }] }).success,
+    ).toBe(false)
+    expect(
+      RouletteBetInput.safeParse({ spin: 4, bets: [{ spot: 'red', bet: '50', payout: 9 }] })
+        .success,
+    ).toBe(false)
+    expect(RouletteRemoveInput.safeParse({ spin: 4, spot: '17' }).success).toBe(true)
+    expect(RouletteRemoveInput.safeParse({ spin: 4, spot: '17', amount: 0 }).success).toBe(false)
+  })
+})
+
+describe('resolving typed bets against the wallet', () => {
+  const limits = { minBet: 100n, maxBetPct: 10_000 }
+
+  it('resolves each bet against what is left once the ones before it are down', () => {
+    const resolved = resolveBets(
+      [
+        { spot: 'black', bet: '10' },
+        { spot: 'red', bet: 'all' },
+      ],
+      100_00n,
+      limits,
+    )
+    expect(resolved).toEqual({
+      ok: true,
+      bets: [
+        { spot: 'black', amount: 10_00n },
+        { spot: 'red', amount: 90_00n },
+      ],
+      total: 100_00n,
+    })
+    const halves = resolveBets(
+      [
+        { spot: 'odd', bet: 'half' },
+        { spot: 'even', bet: 'half' },
+      ],
+      100_00n,
+      limits,
+    )
+    expect(halves.ok && halves.bets.map((b) => b.amount)).toEqual([50_00n, 25_00n])
+  })
+
+  it('holds every bet to the limits, naming the place when there are several', () => {
+    expect(resolveBets([{ spot: 'red', bet: '0.5' }], 100_00n, limits)).toEqual({
+      ok: false,
+      error: 'The smallest bet is 1.',
+    })
+    expect(
+      resolveBets(
+        [
+          { spot: 'red', bet: '60' },
+          { spot: '17', bet: '60' },
+        ],
+        100_00n,
+        limits,
+      ),
+    ).toEqual({ ok: false, error: '17: You only have 40 chips.' })
+    const capped = resolveBets([{ spot: 'red', bet: '60' }], 100_00n, {
+      minBet: 100n,
+      maxBetPct: 5_000,
+    })
+    expect(capped.ok).toBe(false)
+    expect(resolveBets([{ spot: 'red', bet: 'all' }], 0n, limits)).toEqual({
+      ok: false,
+      error: 'Your wallet is empty.',
+    })
+  })
+})

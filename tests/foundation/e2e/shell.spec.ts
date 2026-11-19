@@ -117,10 +117,20 @@ test('the Floor, a room and the setup page at both sizes', async ({ browser }, t
   await snap(page, 'foundation', 'shell-floor', testInfo)
 
   // A game that is not built yet shows its placeholder, with the shell around it.
-  await page.goto('/room/blackjack')
-  await expect(page.getByRole('heading', { level: 1, name: 'Blackjack' })).toBeVisible()
-  await expect(page.getByText(/Opening soon/)).toBeVisible()
-  await snap(page, 'foundation', 'shell-room', testInfo)
+  // Lanes replace placeholders as they merge, so open the first room the Floor
+  // still marks Soon. Once every game is built there is none left to check.
+  const unbuilt = page
+    .getByRole('main')
+    .getByRole('link')
+    .filter({ has: page.getByText('Soon', { exact: true }) })
+  if ((await unbuilt.count()) > 0) {
+    const card = unbuilt.first()
+    const name = await card.getByRole('heading', { level: 2 }).innerText()
+    await card.click()
+    await expect(page.getByRole('heading', { level: 1, name })).toBeVisible()
+    await expect(page.getByText(/Opening soon/)).toBeVisible()
+    await snap(page, 'foundation', 'shell-room', testInfo)
+  }
 
   // Admins reach setup from the account menu.
   await page.getByRole('button', { name: 'Your account' }).click()

@@ -1,0 +1,19 @@
+/*
+ * The economy's own colors (docs/LANE_GUIDE.md: Colors for your game): the
+ * three income buttons, the streak flame and the chat drop. Set on plain
+ * :root, so a theme can restyle them with :root[data-theme='<theme>'].
+ * Imported by src/features/economy/manifest.ts, so they load with the shell.
+ */
+:root {
+  /* Work: steady and safe. */
+  --economy-work: #5cb8ff;
+  /* Slut (the hustle button): flirty, between work and crime. */
+  --economy-hustle: #ff74b6;
+  /* Crime: risky, warm, and never the loss red. */
+  --economy-crime: #ff9150;
+  /* The streak flame: a hot core inside an orange flame. */
+  --economy-flame: #ff9a3c;
+  --economy-flame-core: #ffd56b;
+  /* A chat drop is chips for the taking: gold, like a win. */
+  --economy-drop: var(--gold);
+}

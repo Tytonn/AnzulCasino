@@ -1,0 +1,69 @@
+/*
+ * Roulette's own colors (docs/LANE_GUIDE.md: Colors for your game). Set on
+ * plain :root, so a theme can restyle them with :root[data-theme='<theme>'].
+ * Imported by src/games/roulette/manifest.ts, so they load with the Floor.
+ *
+ * Red and black here are the wheel's colors, not the site's win and loss
+ * colors: gold still means a win.
+ */
+:root {
+  /* Pockets on the wheel and numbers on the felt. */
+  --roulette-red: #c22a3e;
+  --roulette-red-deep: #8e1729;
+  --roulette-black: #1c202a;
+  --roulette-black-deep: #10131a;
+  --roulette-green: #139158;
+  --roulette-green-deep: #0a5d38;
+  --roulette-digit: #f5f6f9;
+
+  /* The table: felt, lines, and the light that follows the pointer. */
+  --roulette-felt: #141826;
+  --roulette-felt-glow: #1d2236;
+  --roulette-line: rgb(233 236 243 / 0.15);
+  --roulette-hover: rgb(255 255 255 / 0.16);
+  --roulette-label: #c3c9d6;
+
+  /* The wheel: rim, ball track, frets and the turret in the middle. */
+  --roulette-rim: #1a1e29;
+  --roulette-rim-edge: #39415a;
+  --roulette-track: #0d1016;
+  --roulette-fret: #b8c0d0;
+  --roulette-metal: #c7cedb;
+  --roulette-metal-dark: #3d4456;
+  --roulette-cone: #232838;
+  --roulette-ball: #fbfcfe;
+  --roulette-ball-shade: #a7afbf;
+  --roulette-shadow: rgb(0 0 0 / 0.45);
+
+  /* The edge stripes of a chip, and the marker on the winning number. */
+  --roulette-chip-edge: rgb(255 255 255 / 0.88);
+  --roulette-chip-ink: #0b0d12;
+  --roulette-marker: #fbfcfe;
+}
+
+@keyframes roulette-idle {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes roulette-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .roulette-idle {
+    animation: roulette-idle 24s linear infinite;
+    transform-origin: 50% 50%;
+    transform-box: fill-box;
+  }
+  .roulette-pulse {
+    animation: roulette-pulse 1.1s ease-in-out infinite;
+  }
+}
