@@ -90,7 +90,7 @@ test('two players see each other online and chat', async ({ browser }, testInfo)
   })
 
   await test.step('a closed tab drops out of the online list', async () => {
-    await bob.context.close()
+    await bob.close()
     if (phone) {
       await alice.page
         .getByRole('dialog', { name: 'Chat' })
@@ -104,7 +104,7 @@ test('two players see each other online and chat', async ({ browser }, testInfo)
     ).toContainText('Nobody inside')
   })
 
-  await alice.context.close()
+  await alice.close()
 })
 
 test('the Floor, a room and the setup page at both sizes', async ({ browser }, testInfo) => {
@@ -134,5 +134,5 @@ test('the Floor, a room and the setup page at both sizes', async ({ browser }, t
   await page.goto('/nowhere')
   await expect(page.getByRole('link', { name: /Floor/ }).first()).toBeVisible()
 
-  await admin.context.close()
+  await admin.close()
 })

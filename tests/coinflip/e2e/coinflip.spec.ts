@@ -130,6 +130,6 @@ test('two players flip and watch each other live', async ({ browser }, testInfo)
     await expect(card).toBeHidden()
   })
 
-  await alice.context.close()
-  await bob.context.close()
+  await alice.close()
+  await bob.close()
 })

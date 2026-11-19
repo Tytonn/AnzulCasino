@@ -26,6 +26,8 @@ export interface Player {
   id: string
   context: BrowserContext
   page: Page
+  /** Closes the player's tabs the way a person does, then the context (`closeTabs`). */
+  close(): Promise<void>
 }
 
 /**
@@ -37,8 +39,18 @@ export interface Player {
  */
 const sessions = new Map<string, { id: string; cookies: Cookie[] }>()
 
+/**
+ * Keeps Netlify's review drawer off the page. Netlify adds it to every
+ * deploy preview, and on a phone it covers the tab bar. `signIn` calls it,
+ * so call it yourself only on a context that never signs in.
+ */
+export async function hideNetlifyDrawer(context: BrowserContext) {
+  await context.route('**/.netlify/scripts/cdp', (route) => route.abort())
+}
+
 /** Signs a context in and returns the player's id. */
 export async function signIn(context: BrowserContext, username: string): Promise<string> {
+  await hideNetlifyDrawer(context)
   const saved = sessions.get(username)
   if (saved) {
     await context.addCookies(saved.cookies)
@@ -54,11 +66,29 @@ export async function signIn(context: BrowserContext, username: string): Promise
   return id
 }
 
-/** A player signed in with a page open. Close it with `player.context.close()`. */
+/** A player signed in with a page open. Close it with `player.close()`. */
 export async function openAs(browser: Browser, username: string): Promise<Player> {
   const context = await browser.newContext()
   const id = await signIn(context, username)
-  return { id, context, page: await context.newPage() }
+  return { id, context, page: await context.newPage(), close: () => closeTabs(context) }
+}
+
+/**
+ * Closes a context's tabs the way a person closes a tab, so each page hears
+ * beforeunload and the player leaves the online list at once, then closes
+ * the context. Closing only the context drops the connection instead, and
+ * on a preview Ably keeps the player online for 15 more seconds, which is
+ * long enough to show up in the next test.
+ */
+export async function closeTabs(context: BrowserContext) {
+  await Promise.all(
+    context.pages().map(async (page) => {
+      const closed = page.waitForEvent('close', { timeout: 5_000 }).catch(() => undefined)
+      await page.close({ runBeforeUnload: true })
+      await closed
+    }),
+  )
+  await context.close()
 }
 
 /** Whether this test runs in the phone project (375px, touch). */
