@@ -6,7 +6,7 @@ Last updated: 2026-11-19 by the Economy thread.
 
 ## Status
 
-Merged to `main` in pull request #6 on 2026-11-19, with Heist and Roulette. The follow-up pull request from the same branch makes the economy's top-bar buttons fit beside Heist's and lays the rank card across the Shop. Unit, integration and browser tests pass locally at 1440 and 375, and the browser tests pass on deploy previews too (the chat drop and the Hall of Fame's sample season need the local database, so on a preview they are skipped or check what is there).
+Merged to `main` in pull request #6 on 2026-11-19, with Heist and Roulette. The follow-up pull request from the same branch (#9) makes the economy's top-bar buttons fit beside Heist's, gives Crime a pair of handcuffs so it no longer looks like Heist's Steals mask, and lays the rank card across the Shop. Unit, integration and browser tests pass locally at 1440 and 375, and the browser tests pass on deploy previews too (the chat drop and the Hall of Fame's sample season need the local database, so on a preview they are skipped or check what is there).
 
 ## What is built
 
@@ -28,7 +28,7 @@ The server decides every outcome, every chip moves through `server/lib/wallet.ts
    - `GET /api/economy/hall-of-fame`: every finished season's frozen standings, and a season whose standings are still being settled.
 4. **Season lifecycle, lazily** (`server/features/season/`): the two GETs move seasons on. The first request in the final day sets `final_day` and posts it; the first request after the end freezes the standings into `season_results` once no round is open (or `round_timeout_minutes` after the end), sets `ended` and posts the podium. Rank unlocks and chat drops land the same way. Each instance remembers when the next moment is due (`moments.ts`), so a request costs no extra query until then.
 5. **Screens**:
-   - `src/features/economy/`: the top-bar buttons (Collect, the joined Work · Slut · Crime group, Daily) with cooldowns and progress on the buttons, 3.1rem wide on desktop and 2.75rem on a phone, fixed so a ticking countdown never moves its neighbours; the result card with the flavor line; the Daily panel (popover on desktop, sheet on a phone) with Collect, the streak, challenges, the rank row or every rank, and recent results; the Shop's rank card (`shop-items`), across the Shop's whole width with the ranks in two columns; the Grab button under a drop's chat post and the drop pill at the top of every page; Shift shortcuts (W, S, C, I, D).
+   - `src/features/economy/`: the top-bar buttons (Collect, the joined Work · Slut · Crime group, Daily) with cooldowns and progress on the buttons, Crime drawn as handcuffs since the mask is Heist's Steals, 3.1rem wide on desktop and 2.75rem on a phone, fixed so a ticking countdown never moves its neighbours; the result card with the flavor line; the Daily panel (popover on desktop, sheet on a phone) with Collect, the streak, challenges, the rank row or every rank, and recent results; the Shop's rank card (`shop-items`), across the Shop's whole width with the ranks in two columns; the Grab button under a drop's chat post and the drop pill at the top of every page; Shift shortcuts (W, S, C, I, D).
    - `src/features/season/`: the final-day banner (countdown, what is off, a line that runs down with the day); the between-seasons banner (winner, the player's finish, the next season's start, or "being settled"); the podium screen, which opens by itself once per season and from the banner after that; and `/hall-of-fame` (latest season with podium and table, earlier seasons that open, most titles, empty and loading states, a podium replay).
 6. **Tests**: `tests/economy/unit` (math, pools, wording), `tests/economy/integration` (every endpoint: parallel and replayed requests, hidden data, refusals, the lifecycle), `tests/economy/e2e` (the buttons, Collect, the Daily panel, a chat drop two players race for, the final day, the Hall of Fame and podium; at 1440 and 375).
 
@@ -53,7 +53,7 @@ The server decides every outcome, every chip moves through `server/lib/wallet.ts
 
 ## Not done yet
 
-- The top bar still overflows on narrow screens once Heist's Steals and Shield sit beside the economy's buttons (they need about 412px at 375 and 460px on desktop; the row has 343px at 375 and 295 to 307px at 1100 to 1280). The economy's part is done. The shell (a second line on desktop when the row overflows, and an edge fade) and Heist (narrower Steals and Shield) were asked for through the coordinator on 2026-11-19.
+- Nothing for the economy. For the record, the top bar with Heist's Steals and Shield: since shared changes batch 4 (pull request #11) the widgets move under the header on desktop when they do not fit, and the phone's row fades at its edge. At 375 that row still scrolls a little (the widgets need about 380px of its 343px) until Heist's narrower Steals and Shield land (Heist's pull request #10).
 
 ## Open questions
 
