@@ -1,0 +1,113 @@
+/*
+ * Heist's own colors (docs/LANE_GUIDE.md: Colors for your game). Set on plain
+ * :root, so a theme can restyle them with :root[data-theme='<theme>'].
+ * Imported by src/features/heist/manifest.ts, so they load with the shell.
+ */
+:root {
+  /* Shields: cold steel blue, so gold stays for wins and red for losses. */
+  --heist-shield: #63c7ff;
+  --heist-shield-deep: #1f5f94;
+  --heist-shield-glow: color-mix(in oklab, var(--heist-shield) 45%, transparent);
+
+  /* The vault door: brushed steel with darker bolts. */
+  --heist-steel: #9aa4b8;
+  --heist-steel-light: #d2d9e5;
+  --heist-steel-dark: #3a4254;
+  --heist-steel-deep: #1d222d;
+  --heist-vault-inside: #0a0b10;
+
+  /* The alarm when a steal goes wrong: hotter than the plain loss red. */
+  --heist-alarm: #ff3049;
+  --heist-alarm-glow: color-mix(in oklab, var(--heist-alarm) 40%, transparent);
+}
+
+@keyframes heist-alarm {
+  0%,
+  100% {
+    opacity: 0.15;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+@keyframes heist-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-7px) rotate(-1deg);
+  }
+  40% {
+    transform: translateX(6px) rotate(1deg);
+  }
+  60% {
+    transform: translateX(-4px);
+  }
+  80% {
+    transform: translateX(3px);
+  }
+}
+
+@keyframes heist-immune {
+  0%,
+  100% {
+    box-shadow: 0 0 0 1px var(--heist-shield-glow);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px var(--heist-shield),
+      0 0 14px -2px var(--heist-shield-glow);
+  }
+}
+
+/* Plain classes, not in a layer: this file may load before Tailwind's. */
+
+/* Red lights sweeping the room when a thief is caught. */
+.heist-alarm {
+  animation: heist-alarm 0.45s ease-in-out 4;
+}
+
+.heist-shake {
+  animation: heist-shake 0.42s ease-in-out 1;
+}
+
+/* A widget or a row while its player is immune. */
+.heist-immune {
+  animation: heist-immune 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .heist-alarm,
+  .heist-shake {
+    animation: none;
+  }
+  .heist-immune {
+    animation: none;
+    box-shadow: 0 0 0 1px var(--heist-shield);
+  }
+}
+
+/* A big score's number glows gold for a moment. */
+@keyframes heist-haul {
+  0%,
+  100% {
+    text-shadow: 0 0 0 transparent;
+  }
+  40% {
+    text-shadow:
+      0 0 18px color-mix(in oklab, var(--gold) 70%, transparent),
+      0 0 42px color-mix(in oklab, var(--gold) 35%, transparent);
+  }
+}
+
+.heist-haul {
+  animation: heist-haul 1.6s var(--ease-out) 0.5s 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .heist-haul {
+    animation: none;
+  }
+}
