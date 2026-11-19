@@ -75,19 +75,22 @@ export interface Room<D = unknown> {
   retry: () => void
 }
 
-export interface RoomOptions {
+export interface RoomOptions<D = unknown> {
   /**
    * How long another player's result takes to show on their seat: the
    * length of the game's reveal animation (a coin in the air), so their seat
-   * spins before it lands, as yours does.
+   * spins before it lands, as yours does. A function gives each round its
+   * own length, such as a blackjack hand whose dealer draws more cards.
    */
-  revealMs?: number
+  revealMs?: number | ((round: RoundView<D>) => number)
 }
 
-export function useRoom<D = unknown>(game: string, options: RoomOptions = {}): Room<D> {
+export function useRoom<D = unknown>(game: string, options: RoomOptions<D> = {}): Room<D> {
   const me = useMe()
   const queryClient = useQueryClient()
   const revealMs = options.revealMs ?? 0
+  const revealFor = (round: RoundView<D>) =>
+    typeof revealMs === 'function' ? revealMs(round) : revealMs
   const query = useQuery({
     queryKey: roomKey(game),
     queryFn: () => api.get<RoomState<D>>(`/api/${game}/room`),
@@ -106,21 +109,23 @@ export function useRoom<D = unknown>(game: string, options: RoomOptions = {}): R
   const channel = roomChannel(game)
   useLiveEvent(channel, 'round.started', (round) => applyRound(queryClient, round as RoundView<D>))
   useLiveEvent(channel, 'round.action', (round) => applyRound(queryClient, round as RoundView<D>))
-  useLiveEvent(channel, 'round.settled', (round) => {
-    // Your own result waits for your reveal, like the rest of its news.
-    if (round.userId === me.id) {
-      afterReveal(() => applyRound(queryClient, round as RoundView<D>))
-      return
-    }
-    if (revealMs <= 0) {
-      applyRound(queryClient, round as RoundView<D>)
-      return
-    }
-    const timer = setTimeout(() => {
-      timers.current.delete(timer)
-      applyRound(queryClient, round as RoundView<D>)
-    }, revealMs)
-    timers.current.add(timer)
+  useLiveEvent(channel, 'round.settled', (event) => {
+    const round = event as RoundView<D>
+    // A result waits for any reveal holding its player (reveal.ts): yours
+    // while your coin is in the air, every bettor's while the wheel spins.
+    afterReveal(round.userId, () => {
+      // Your own reveal has ended by now, like the rest of its news.
+      const ms = round.userId === me.id ? 0 : revealFor(round)
+      if (ms <= 0) {
+        applyRound(queryClient, round)
+        return
+      }
+      const timer = setTimeout(() => {
+        timers.current.delete(timer)
+        applyRound(queryClient, round)
+      }, ms)
+      timers.current.add(timer)
+    })
   })
   useResync(() => {
     void queryClient.invalidateQueries({ queryKey: roomKey(game) }, { cancelRefetch: false })
