@@ -12,9 +12,9 @@ import { type QueryClient, useQuery } from '@tanstack/react-query'
 
 import type { Me } from '../../shared/accounts.ts'
 import type { ConfigValues } from '../../shared/config.ts'
-import type { RoundSummary } from '../../shared/events.ts'
 import type { PlayerSummary } from '../../shared/players.ts'
 import type { LeaderboardView, SeasonState } from '../../shared/seasons.ts'
+import { type TickerItem, tickerKey } from '../../shared/ticker.ts'
 import type { Wire } from '../../shared/wire.ts'
 import { isNewer } from '../live/versions.ts'
 import { api, ApiError } from './api.ts'
@@ -85,10 +85,11 @@ export function usePlayer(userId: string | null | undefined): PlayerSummary | un
   return data.find((p) => p.id === userId)
 }
 
+/** The ticker's rounds and steal attempts, newest first. */
 export function useTicker() {
   return useQuery({
     queryKey: queryKeys.ticker,
-    queryFn: async () => (await api.get<{ rounds: RoundSummary[] }>('/api/ticker')).rounds,
+    queryFn: async () => (await api.get<{ items: TickerItem[] }>('/api/ticker')).items,
   })
 }
 
@@ -127,14 +128,15 @@ export function applyWallet(queryClient: QueryClient, wallet: WalletNews): void 
   })
 }
 
-/** Rounds kept in the ticker. */
+/** Items kept in the ticker. */
 export const TICKER_KEEP = 40
 
-/** Adds a settled round to the front of the ticker, once. */
-export function addTickerRound(queryClient: QueryClient, round: RoundSummary): void {
-  queryClient.setQueryData<RoundSummary[]>(queryKeys.ticker, (old) => {
+/** Adds a settled round or a steal attempt to the front of the ticker, once. */
+export function addTickerItem(queryClient: QueryClient, item: TickerItem): void {
+  queryClient.setQueryData<TickerItem[]>(queryKeys.ticker, (old) => {
     if (!old) return old
-    if (old.some((r) => r.roundId === round.roundId)) return old
-    return [round, ...old].slice(0, TICKER_KEEP)
+    const key = tickerKey(item)
+    if (old.some((i) => tickerKey(i) === key)) return old
+    return [item, ...old].slice(0, TICKER_KEEP)
   })
 }
