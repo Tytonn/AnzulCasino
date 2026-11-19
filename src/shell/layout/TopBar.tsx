@@ -5,9 +5,12 @@
  * It is in every room on desktop and phone, so widgets are always in reach.
  *
  * On desktop the widgets sit between the wallet and the season clock while
- * they fit there, and move to a second line under the header when they do
- * not, as on a phone. A row that still has more than it can show scrolls
- * sideways, and its edges fade where widgets are hidden.
+ * they fit there. When they do not, the bar tightens: the widgets draw
+ * compact, the sound toggle moves into the account menu and the clock goes
+ * compact, as on a phone. Only when that is not enough do the widgets move to
+ * a second line under the header, which costs every room some height. A row
+ * that still has more than it can show scrolls sideways, and its edges fade
+ * where widgets are hidden.
  */
 import {
   type CSSProperties,
@@ -310,44 +313,116 @@ function WidgetRow({
 }
 
 /**
- * Whether the widgets need the second line: they are wider than the room
- * between the wallet and the clock. Once there, they come back only with
- * some room to spare, so a countdown that changes width every second cannot
- * make the header jump between one line and two.
+ * Where the widgets go on desktop: beside the wallet with the whole bar
+ * (`roomy`), beside it in a tightened bar (`tight`), or on a second line
+ * (`below`).
  */
-function useWidgetsBelow(
+type Fit = 'roomy' | 'tight' | 'below'
+
+/** The room to spare, in pixels, before the widgets move back to a looser fit. */
+const SPARE = 24
+
+/** The sound toggle and the gap before it, which a tight bar leaves out: 2.25rem and 1rem. */
+const SOUND_REM = 3.25
+
+function widthOf(element: Element | null): number {
+  return element ? element.getBoundingClientRect().width : 0
+}
+
+/** The room a tight bar adds beside the wallet: the sound toggle, and what the compact clock saves. */
+function tightSaving(right: HTMLElement): number {
+  const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+  const clock =
+    widthOf(right.querySelector('[data-clock="full"]')) -
+    widthOf(right.querySelector('[data-clock="compact"]'))
+  return SOUND_REM * rem + Math.max(0, clock)
+}
+
+/**
+ * Picks the fit from the widgets' width and the room between the wallet and
+ * the clock. Compact widgets cannot be measured until they are drawn, so a
+ * tight bar is tried, and how far it fell short is remembered: from the
+ * second line it is tried again only once there is that much more room, or
+ * the widgets are that much narrower, with some to spare. Each new fit is
+ * measured before the browser paints, so one that does not work is never
+ * seen. A looser fit always needs room to spare, so a countdown that changes
+ * width every second cannot make the header jump.
+ */
+function useWidgetFit(
   room: RefObject<HTMLElement | null>,
   content: RefObject<HTMLElement | null>,
-): boolean {
-  const [below, setBelow] = useState(false)
+  right: RefObject<HTMLElement | null>,
+): Fit {
+  const [fit, setFit] = useState<Fit>('roomy')
+  const memory = useRef({
+    /** The fit on the page, which the room and the widgets were measured in. */
+    shown: 'roomy' as Fit,
+    /** The widgets' full width, from the last time they were drawn full size. */
+    full: 0,
+    /** When a tight bar last did not fit: the room a full bar had, the widgets' full width, and how far it fell short. */
+    failed: null as { room: number; full: number; short: number } | null,
+  })
+  const measure = useRef(() => {})
+
   useLayoutEffect(() => {
     const space = room.current
     const widgets = content.current
-    if (!space || !widgets) return
-    const measure = () => {
-      const need = widgets.getBoundingClientRect().width
-      const have = space.getBoundingClientRect().width
-      setBelow((was) => need > (was ? have - SPARE : have))
+    const cluster = right.current
+    if (!space || !widgets || !cluster) return
+    measure.current = () => {
+      const m = memory.current
+      const have = widthOf(space)
+      const need = widthOf(widgets)
+      if (m.shown === 'tight') {
+        const roomy = have - tightSaving(cluster)
+        if (need > have) {
+          m.failed = { room: roomy, full: m.full, short: need - have }
+          setFit('below')
+        } else if (m.full <= roomy - SPARE) {
+          m.failed = null
+          setFit('roomy')
+        } else setFit('tight')
+        return
+      }
+      m.full = need
+      if (need <= have - (m.shown === 'below' ? SPARE : 0)) {
+        m.failed = null
+        setFit('roomy')
+        return
+      }
+      const failed = m.failed
+      const retry =
+        !failed ||
+        have - failed.room >= failed.short + SPARE ||
+        failed.full - need >= failed.short + SPARE
+      setFit(retry ? 'tight' : 'below')
     }
-    measure()
-    const observer = new ResizeObserver(measure)
+    measure.current()
+    const observer = new ResizeObserver(() => measure.current())
     observer.observe(space)
     observer.observe(widgets)
+    observer.observe(cluster)
     return () => observer.disconnect()
-  }, [room, content])
-  return below
-}
+  }, [room, content, right])
 
-/** The room to spare, in pixels, before widgets on the second line move back up. */
-const SPARE = 24
+  useLayoutEffect(() => {
+    memory.current.shown = fit
+    measure.current()
+  }, [fit])
+
+  return fit
+}
 
 export function TopBar() {
   const room = useRef<HTMLDivElement>(null)
   const content = useRef<HTMLDivElement>(null)
-  const below = useWidgetsBelow(room, content)
+  const right = useRef<HTMLDivElement>(null)
+  const fit = useWidgetFit(room, content, right)
+  const tight = fit === 'tight'
   return (
     <header
-      data-widgets={below ? 'below' : 'inline'}
+      data-widgets={fit === 'below' ? 'below' : 'inline'}
+      data-fit={fit}
       className="sticky top-0 z-20 grid shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] grid-rows-[calc(4rem-1px)] items-center gap-x-4 border-b border-border bg-glass px-5 backdrop-blur-md"
     >
       <div className="col-start-1 row-start-1 flex min-w-0 items-center">
@@ -356,17 +431,19 @@ export function TopBar() {
       {/* The room between the wallet and the clock, measured whichever line the widgets are on. */}
       <div ref={room} aria-hidden="true" className="col-start-2 row-start-1 h-px" />
       <WidgetRow
-        compact={false}
+        compact={tight}
         content={content}
         className={
-          below ? 'col-span-full row-start-2 -mx-5 px-5 pb-2.5' : 'col-start-2 row-start-1'
+          fit === 'below'
+            ? 'col-span-full row-start-2 -mx-5 px-5 pb-2.5'
+            : 'col-start-2 row-start-1'
         }
       />
-      <div className="col-start-3 row-start-1 flex items-center gap-4">
-        <SeasonClock />
-        <SoundToggle />
+      <div ref={right} className="col-start-3 row-start-1 flex items-center gap-4">
+        <SeasonClock compact={tight} measured />
+        {!tight && <SoundToggle />}
         <SidebarButton />
-        <MeMenu withSound={false} />
+        <MeMenu withSound={tight} />
       </div>
     </header>
   )

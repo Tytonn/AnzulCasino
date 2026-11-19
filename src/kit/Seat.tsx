@@ -143,7 +143,12 @@ export function Seat<D>({
       </header>
 
       {children !== undefined && (
-        <div className={`relative grid min-h-0 place-items-center ${large ? 'flex-1' : ''}`}>
+        // One column no wider than the seat (`minmax(0, 1fr)`), so a table that
+        // could be wider, like a long row of recent numbers, scrolls inside its
+        // seat instead of widening the whole page on a phone.
+        <div
+          className={`relative grid min-h-0 grid-cols-1 place-items-center ${large ? 'flex-1' : ''}`}
+        >
           {children}
         </div>
       )}

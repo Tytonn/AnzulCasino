@@ -1,6 +1,7 @@
 /**
- * The game kit's logic: rounds in the room cache, the reveal hold, the
- * ticker cache, the bet box's rules, seats, the chip stack and shortcut keys.
+ * The game kit's logic: rounds in the room cache, the season cache, the
+ * reveal hold, the ticker cache, the bet box's rules, seats, the chip stack
+ * and shortcut keys.
  */
 import { QueryClient } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -12,7 +13,14 @@ import { closedReason, stillTyping } from '../../../src/kit/BetBox.tsx'
 import { isBigWin } from '../../../src/kit/celebrate.tsx'
 import { chipsFor } from '../../../src/kit/ChipStack.tsx'
 import { isShortcut, pressesFocused, shortcutKey } from '../../../src/kit/Kbd.tsx'
-import { addTickerItem, queryKeys, TICKER_KEEP } from '../../../src/kit/queries.ts'
+import {
+  addTickerItem,
+  applyWallet,
+  keepNewerWallet,
+  queryKeys,
+  seasonQuery,
+  TICKER_KEEP,
+} from '../../../src/kit/queries.ts'
 import { afterReveal, holdReveal } from '../../../src/kit/reveal.ts'
 import { upsertRound } from '../../../src/kit/room.ts'
 import { seatOutcome, seatTag } from '../../../src/kit/Seat.tsx'
@@ -171,6 +179,55 @@ describe('the reveal hold', () => {
     holdReveal({ players: [] })
     afterReveal('alice', task)
     expect(task).toHaveBeenCalledOnce()
+  })
+})
+
+describe('the season cache', () => {
+  const view = (id = 1): SeasonState['current'] => ({
+    id,
+    name: 'November',
+    startsAt: '2026-11-01T00:00:00.000Z',
+    endsAt: '2026-12-01T00:00:00.000Z',
+    startingBalance: 100_000,
+    status: 'active',
+    phase: 'open',
+  })
+  const state = (version: number, balance: number, over: Partial<SeasonState> = {}) => ({
+    current: view(),
+    next: null,
+    wallet: { balance, vault: 1_237, tier: 'base', version },
+    ...over,
+  })
+  const wallet = (queryClient: QueryClient) =>
+    queryClient.getQueryData<SeasonState>(queryKeys.season)?.wallet
+
+  it('keeps the wallet already shown when a fetch brings an older one', () => {
+    const shown = state(5, 9_063)
+    const late = state(4, 8_463, { next: view(2) })
+    // The rest of the season comes from the fetch.
+    expect(keepNewerWallet(shown, late)).toEqual({ ...late, wallet: shown.wallet })
+  })
+
+  it('takes the fetched wallet when it is as new or newer, or another season’s', () => {
+    expect(keepNewerWallet(state(5, 1), state(5, 2)).wallet?.balance).toBe(2)
+    expect(keepNewerWallet(state(5, 1), state(6, 2)).wallet?.balance).toBe(2)
+    expect(keepNewerWallet(state(5, 1), state(4, 2, { current: view(2) })).wallet?.balance).toBe(2)
+    expect(keepNewerWallet(undefined, state(4, 2)).wallet?.balance).toBe(2)
+    expect(keepNewerWallet(state(5, 1, { wallet: null }), state(4, 2)).wallet?.balance).toBe(2)
+    expect(keepNewerWallet(state(5, 1), state(4, 2, { wallet: null })).wallet).toBeNull()
+  })
+
+  it('a fetch that set off before a press cannot undo the press’s answer', async () => {
+    const queryClient = new QueryClient()
+    await queryClient.fetchQuery({ ...seasonQuery, queryFn: async () => state(3, 8_463) })
+    // The press's answer lands first, then the fetch that read the database before it.
+    applyWallet(queryClient, { seasonId: 1, balance: 9_063, vault: 1_237, version: 5 })
+    await queryClient.fetchQuery({ ...seasonQuery, queryFn: async () => state(4, 8_463) })
+    expect(wallet(queryClient)).toMatchObject({ balance: 9_063, version: 5 })
+    // A fetch with newer chips moves it on as usual.
+    await queryClient.fetchQuery({ ...seasonQuery, queryFn: async () => state(6, 9_563) })
+    expect(wallet(queryClient)).toMatchObject({ balance: 9_563, version: 6 })
+    queryClient.clear()
   })
 })
 
