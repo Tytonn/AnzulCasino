@@ -34,6 +34,7 @@ Branch `claude/project-thread-gh6sj0`. Spec: Steal, shields and vault, Shop, and
 - **Your own steal counts once.** The thief's tab gets no `heist.changed` for a steal (the feed tells their other tabs), the answer carries `attemptsUsed` (set, not added), and any refetch waits for your reveal to end.
 - **The steal dialog is its own celebration.** It does not call the kit's `celebrate()` banner, which would sit on top of the dialog's own amount. A haul worth a tenth of your net worth or more is a "Big score": twice the chips, a gold glow and the big-win fanfare.
 - **The top-bar buttons match the economy's** (merged PR #3 had wider pills with a STEALS or SHIELD caption, 62 to 102px): with seven buttons in the row, the shield was cut off at 1440. They now match the economy's sizes (PR #9: 3.1rem on desktop, 2.75rem on a phone), and the captions moved into the labels.
+- **Out of attempts, the extra attempt is offered only for a player it would let you rob.** Anyone you already tried today, or who is immune or too poor, shows that reason on their card, in the Rob list and in the steal dialog instead. The browser tests found it on a preview whose database an earlier run had left with Alice out of attempts.
 - **Opening the steal dialog closes the profile card and the panel** (stacked sheets would all close on one Escape). "Rob someone else" opens the panel again.
 
 ## Season simulation (2026-11-19, 1,000 seasons, seed 1, config defaults)

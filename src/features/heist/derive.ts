@@ -123,6 +123,11 @@ export function heistAsOf(
 export interface TargetRow {
   standing: StandingView
   info: TargetInfo | undefined
+  /**
+   * Whether you can rob them now. Out of attempts, it says `no_attempts` only
+   * for a player the extra attempt would let you rob; anyone else shows their
+   * own block (tried today, immune, too poor).
+   */
   check: TargetCheck
   /** The same check as if you had an attempt left: what they are worth robbing. */
   worth: TargetCheck
@@ -170,11 +175,14 @@ export function targetRows(input: {
         cfg,
       }
       const check = checkTarget(facts)
+      const worth = attemptsLeft > 0 ? check : checkTarget({ ...facts, attemptsLeft: 1 })
       return {
         standing,
         info,
-        check,
-        worth: attemptsLeft > 0 ? check : checkTarget({ ...facts, attemptsLeft: 1 }),
+        // Out of attempts, a player you could not rob anyway (tried today,
+        // immune, too poor) says why, instead of offering the extra attempt.
+        check: !check.ok && check.reason === 'no_attempts' && !worth.ok ? worth : check,
+        worth,
         immuneLeft: immuneUntil !== null ? Math.max(0, immuneUntil - now) : 0,
       }
     })
