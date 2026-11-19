@@ -1,7 +1,7 @@
 /**
  * Basic chat, the player list and the ticker (spec: Social layer): pages of
- * messages, the burst limit, plain text, an admin deleting, and the live
- * news of each.
+ * messages, the burst limit, plain text, an admin deleting, the live news of
+ * each, and rounds and steal attempts together in the ticker.
  */
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
@@ -9,6 +9,7 @@ import { coreApi } from '../../../server/core/api.ts'
 import { systemPost } from '../../../server/lib/chat.ts'
 import { db } from '../../../server/lib/db.ts'
 import { captureLive, type Outgoing } from '../../../server/lib/live.ts'
+import type { TickerItem } from '../../../shared/ticker.ts'
 import { apiClient } from '../../helpers/api.ts'
 import { useTestDatabase } from '../../helpers/db.ts'
 import { createPlayer, createSeason, fundWallet, loggedIn } from '../../helpers/fixtures.ts'
@@ -210,9 +211,11 @@ describe('GET /api/players and /api/ticker', () => {
     )
   })
 
-  it('shows the latest settled rounds of the season, newest first, with no secrets', async () => {
+  it('shows the latest rounds and steal attempts of the season, newest first, with no secrets', async () => {
     const userId = await createPlayer(testDb)
+    const targetId = await createPlayer(testDb)
     await fundWallet(seasonId, userId, 10_000n)
+    await fundWallet(seasonId, targetId, 10_000n)
     for (const [i, payout] of [0, 400, 150].entries()) {
       await testDb.query(
         `insert into game_rounds (season_id, user_id, game, status, stake, payout, multiplier,
@@ -227,26 +230,59 @@ describe('GET /api/players and /api/ticker', () => {
        values ($1, $2, 'coinflip', 100, '{"hidden":true}')`,
       [seasonId, userId],
     )
+    // One attempt between the first two rounds, and one newer than every round.
+    for (const [outcome, amount, fine, ago] of [
+      ['failed', 0, 300, 29.5],
+      ['success', 1_250, 0, 10],
+    ] as const) {
+      await testDb.query(
+        `insert into steals (season_id, thief_id, target_id, game_day, outcome, amount, fine,
+           thief_rank, target_rank, created_at)
+         values ($1, $2, $3, current_date, $4, $5, $6, 4, 1, now() - make_interval(secs => $7))`,
+        [seasonId, userId, targetId, outcome, amount, fine, ago],
+      )
+    }
     const player = await loggedIn(coreApi, userId)
     const res = await player.get('/api/ticker')
     expect(res.status).toBe(200)
-    expect(res.body.rounds.map((r: { summary: string }) => r.summary)).toEqual([
-      'Round 2',
-      'Round 1',
-      'Round 0',
-    ])
-    expect(res.body.rounds[1]).toEqual({
-      seasonId,
-      roundId: expect.any(Number),
-      game: 'coinflip',
-      userId,
-      stake: 200,
-      payout: 400,
-      net: 200,
-      multiplier: 200,
-      summary: 'Round 1',
-      bigBet: true,
+    const items = res.body.items as TickerItem[]
+    expect(
+      items.map((item) =>
+        item.kind === 'round' ? item.round.summary : `${item.steal.outcome} steal`,
+      ),
+    ).toEqual(['success steal', 'Round 2', 'Round 1', 'failed steal', 'Round 0'])
+    expect(items[2]).toEqual({
+      kind: 'round',
+      round: {
+        seasonId,
+        roundId: expect.any(Number),
+        game: 'coinflip',
+        userId,
+        stake: 200,
+        payout: 400,
+        net: 200,
+        multiplier: 200,
+        summary: 'Round 1',
+        bigBet: true,
+      },
     })
+    expect(items[0]).toEqual({
+      kind: 'steal',
+      steal: {
+        id: expect.any(Number),
+        seasonId,
+        thiefId: userId,
+        targetId,
+        gameDay: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+        outcome: 'success',
+        amount: 1_250,
+        fine: 0,
+        thiefRank: 4,
+        targetRank: 1,
+        createdAt: expect.any(String),
+      },
+    })
+    expect(items[3]).toMatchObject({ kind: 'steal', steal: { outcome: 'failed', fine: 300 } })
     expect(JSON.stringify(res.body)).not.toContain('hidden')
   })
 })

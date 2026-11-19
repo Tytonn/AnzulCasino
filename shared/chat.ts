@@ -64,6 +64,11 @@ export interface SystemMeta {
   roundId?: number
   /** The game it is about, such as "coinflip". */
   game?: string
+  /**
+   * A chat drop (the economy lane's): its id, the pot, how many players
+   * claimed a share and each share, in hundredths.
+   */
+  drop?: { id: number; pot: number; winners: number; share: number }
 }
 
 /** Bidirectional overrides can make a message read backwards. */
