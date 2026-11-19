@@ -2,7 +2,7 @@
 
 Running status for the whole build. The coordinator owns this file; the Foundation thread keeps it current while Stage 1 runs.
 
-Last updated: 2026-11-19 19:00 UTC
+Last updated: 2026-11-19 19:25 UTC
 
 ## Stage
 
@@ -12,7 +12,7 @@ Last updated: 2026-11-19 19:00 UTC
 
 | Thread | Lane | Branch | Stage | Status |
 | --- | --- | --- | --- | --- |
-| Foundation | foundation | `foundation` | Stage 1 | All 11 deliverables pushed: repo, database, accounts, wallet and ledger, config, season basics, live layer, shell, game kit, the coin flip, and `docs/LANE_GUIDE.md`, plus the shared parts of every spec addition so far. 262 unit and integration tests and 11 browser tests (two players, 1440 and 375) pass locally. Left: the exit check on the deploy preview, which waits on Tyton's three items below. Pull request #1 open as a draft. |
+| Foundation | foundation | `foundation` | Stage 1 | **Exit check passed on the deploy preview on 2026-11-19** (commit `8f67592`, live updates through Ably): two players see each other online, chat, play coin flip and watch each other's seats, the leaderboard and the ticker update live, at 1440 and 375. All 11 deliverables are done; CI passes (262 unit and integration tests and the browser tests). Pull request #1 is ready for review and waits for Tyton to approve the merge. |
 
 ## Merged to main
 
@@ -26,16 +26,17 @@ Last updated: 2026-11-19 19:00 UTC
 
 ## Blocked
 
-- **The Stage 1 exit check** waits on one item below: the Netlify project is Private (the default for new teams), so every page, previews included, answers with Netlify's login, and on the Personal plan only Tyton can pass it. Tyton set the Ably key and the admin code and opened the network on 2026-11-19. Everything the exit check covers passes locally on the local live relay, and the browser tests now set up a fresh preview themselves (sample players and a season, through the site's API), so the check is one command once the three items arrive. Lanes test their own previews the same way (`docs/LANE_GUIDE.md`, Testing on a preview).
+- Nothing. Foundation waits only for Tyton to approve the merge of pull request #1, and the first wave waits for his go after that.
 
 ## Needs from Tyton
 
-Needed for the exit check, the last step of Stage 1.
+All done for the exit check on 2026-11-19. What is left is the merge.
 
 1. ~~Ably: `ABLY_API_KEY` in Netlify.~~ Done 2026-11-19.
 2. ~~`ADMIN_BOOTSTRAP_CODE` in Netlify, with a separate Deploy Previews value shared with the Foundation thread.~~ Done 2026-11-19.
 3. ~~Network access for the build container.~~ Done 2026-11-19: `*.netlify.app`, `main.realtime.ably.net` and `*.ably-realtime.com`.
-4. **Make the Netlify project public** (Project configuration > General > Visitor access > Project visibility). Private projects on the Personal plan open only for the Team Owner, so the test browsers cannot reach the preview, and players could not reach the live site. Netlify may want one production deploy first (15 credits); Tyton decides.
+4. ~~Make the Netlify project public.~~ Done 2026-11-19: Private projects on the Personal plan open only for the Team Owner, so neither the test browsers nor the players could get in.
+5. **Approve the merge of `foundation` into `main`** (pull request #1), then give the go for the first wave.
 
 ## Decisions
 
