@@ -10,7 +10,7 @@ Branch `claude/project-thread-gh6sj0`. Spec: Steal, shields and vault, Shop, and
   - `GET /api/heist/steals`: the season's latest attempts.
   - `POST /api/heist/steal`, `/shield`, `/extra-attempt`, `/vault`: one keyed, locked transaction each.
 - **Screens** in `src/features/heist/` (manifest: the `/shop` route and the `top-bar`, `profile-actions`, `overlay` and `shop-items` slots):
-  - Top bar: steal attempts as pips (opens the heist panel) and shield charges as pips, or the immunity countdown (opens Defend).
+  - Top bar: two buttons built like the economy's beside them, an icon over one short value, 2.75rem wide. Steals shows your attempts left as pips (opens the heist panel). Shield shows your charges as pips, or your immunity as a short countdown (`2h05`, `4:59`) with a bar draining along the bottom (opens Defend). The full story is in each button's label and tooltip.
   - The heist panel (right sheet on tablet and desktop, bottom sheet on phone): Rob (every player with what a steal would take, or why not), Defend (shield, immunity, today's losses against the cap, the vault) and Log (the season's attempts, live).
   - The steal dialog: you against them, the odds from config, then the vault being cracked while the request is out (the dial clicks through a combination; tap, Enter or Escape skips). The door swings open and chips burst out and fly to your wallet, the alarm goes off, or a shield slams down. Its news (leaderboard, ticker, chat) waits for the reveal.
   - The Shop page: every lane's `shop-items` (heist adds the shield charge and the extra attempt), the vault panel and how heists work, with the numbers from config. Keys: R picks a target, S buys a charge, E buys the extra attempt.
@@ -33,6 +33,7 @@ Branch `claude/project-thread-gh6sj0`. Spec: Steal, shields and vault, Shop, and
 - **The browser never polls.** The heist state is fetched once and kept current from live events: `steal.result` on the feed patches the log, the target's immunity and cap and the thief's attempts; `shield.blocked` sets your charges; `heist.changed` (your shield, extra attempt or vault in another tab) refetches. The 4:00 AM reset and the week's end roll over in the browser, so an idle tab never wakes the database.
 - **Your own steal counts once.** The thief's tab gets no `heist.changed` for a steal (the feed tells their other tabs), the answer carries `attemptsUsed` (set, not added), and any refetch waits for your reveal to end.
 - **The steal dialog is its own celebration.** It does not call the kit's `celebrate()` banner, which would sit on top of the dialog's own amount. A haul worth a tenth of your net worth or more is a "Big score": twice the chips, a gold glow and the big-win fanfare.
+- **The top-bar buttons match the economy's** (merged PR #3 had wider pills with a STEALS or SHIELD caption, 62 to 102px): with seven buttons in the row, the shield was cut off at 1440. Each is now 44px, and the captions moved into the labels.
 - **Opening the steal dialog closes the profile card and the panel** (stacked sheets would all close on one Escape). "Rob someone else" opens the panel again.
 
 ## Season simulation (2026-11-19, 1,000 seasons, seed 1, config defaults)

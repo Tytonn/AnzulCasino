@@ -3,9 +3,16 @@
  * shows charges as pips and immunity as an exact countdown"):
  *
  * - Steals: your attempts left today as pips. Opens the heist panel.
- * - Shield: your charges as pips, and your immunity counting down.
+ * - Shield: your charges as pips, or your immunity counting down. Opens Defend.
  * - Rob: on another player's card, what a steal would take, or why not.
+ *
+ * The two top-bar buttons are built like the economy's beside them: an icon
+ * over one short value, about 2.75rem wide, lit while there is something to
+ * use. The whole story is in each button's label and tooltip.
  */
+import { motion } from 'motion/react'
+import type { CSSProperties, ReactNode } from 'react'
+
 import { formatChips } from '../../../shared/chips.ts'
 import { blockMessage } from '../../../shared/features/heist.ts'
 import { Button } from '../../kit/Button.tsx'
@@ -14,59 +21,145 @@ import { ShieldIcon } from '../../kit/icons.tsx'
 import type { SlotProps } from '../../shell/manifests.ts'
 import { MaskIcon, Pips } from './art.tsx'
 import { useHeist, useHeistUi } from './data.ts'
-import { shortDuration } from './derive.ts'
+import { barCountdown, shortDuration } from './derive.ts'
 
-const PILL =
-  'flex shrink-0 items-center rounded-md border transition hover:border-border-strong hover:bg-surface-3 active:scale-95'
+type BarProps = SlotProps['top-bar']
 
-export function StealsWidget({ compact }: SlotProps['top-bar']) {
-  const heist = useHeist()
-  const openPanel = useHeistUi((s) => s.openPanel)
-  if (!heist.ready)
-    return <div className={`skeleton shrink-0 ${compact ? 'h-9 w-16' : 'h-10 w-24'}`} />
-  const state = heist.state
-  if (!state) return null
-  const allowed = state.me.attemptsAllowed
-  const left = heist.attemptsLeft
-  const label = heist.open
-    ? `Steals: ${left} of ${allowed} attempts left today`
-    : 'Steals are closed right now'
+const HOUR_MS = 3_600_000
+
+// ---------------------------------------------------------------- the top-bar button
+
+const TINT = 'bg-[color-mix(in_oklab,var(--tone)_13%,var(--surface-2))]'
+const TINT_HOVER = 'hover:bg-[color-mix(in_oklab,var(--tone)_22%,var(--surface-2))]'
+
+interface BarButtonProps extends BarProps {
+  data: string
+  /** A color variable for the icon and the lit look. */
+  tone: string
+  /** Lit up: something to use (attempts left, a charge, immunity running). */
+  lit: boolean
+  icon: (className: string) => ReactNode
+  /** One short value under the icon. */
+  value: ReactNode
+  /** What a screen reader says: the whole story. */
+  label: string
+  title: string
+  onClick: () => void
+  /** Closed for now, such as on the season's final day. */
+  faded?: boolean
+  /** Immune: the ring pulses in the shield's color. */
+  glow?: boolean
+  /** 0 to 1, a thin bar along the bottom: how much immunity is left. */
+  progress?: number | null
+}
+
+function BarButton({
+  compact,
+  data,
+  tone,
+  lit,
+  icon,
+  value,
+  label,
+  title,
+  onClick,
+  faded = false,
+  glow = false,
+  progress = null,
+}: BarButtonProps) {
+  const look = glow
+    ? `heist-immune border-transparent ${TINT} ${TINT_HOVER}`
+    : lit
+      ? `border-[color-mix(in_oklab,var(--tone)_55%,var(--border))] ${TINT} ${TINT_HOVER}`
+      : 'border-border bg-surface-2/40 hover:border-border-strong hover:bg-surface-2'
   return (
     <button
       type="button"
-      onClick={() => openPanel('rob')}
-      title={label}
-      aria-label={`${label}. Open the heist panel.`}
-      className={`${PILL} border-border bg-surface-2 ${compact ? 'h-9 gap-1.5 px-2' : 'h-10 gap-2 px-2.5'} ${heist.open ? '' : 'opacity-60'}`}
+      data-heist={data}
+      aria-label={label}
+      title={title}
+      onClick={onClick}
+      style={{ '--tone': tone } as CSSProperties}
+      className={`group relative flex min-w-[2.75rem] shrink-0 flex-col items-center justify-center gap-1 overflow-hidden rounded-md border px-1.5 transition duration-150 select-none active:scale-[0.96] ${
+        compact ? 'h-10' : 'h-11'
+      } ${look} ${faded ? 'opacity-60' : ''}`}
     >
-      <MaskIcon
-        className={`${compact ? 'size-4.5' : 'size-5'} ${left > 0 && heist.open ? 'text-accent-strong' : 'text-faint'}`}
-      />
-      {compact ? (
-        <Pips filled={heist.open ? left : 0} total={allowed} size="sm" />
-      ) : (
-        <span className="flex flex-col items-start leading-none">
-          <span className="text-[0.6rem] tracking-[0.1em] text-faint uppercase">Steals</span>
-          <span className="mt-1">
-            <Pips filled={heist.open ? left : 0} total={allowed} size="sm" />
-          </span>
-        </span>
+      <motion.span
+        key={lit ? 'lit' : 'dim'}
+        className={`block ${lit ? 'text-(--tone)' : 'text-faint group-hover:text-muted'}`}
+        initial={{ scale: lit ? 0.5 : 1 }}
+        animate={{ scale: 1 }}
+        transition={{ type: 'spring', stiffness: 600, damping: 18 }}
+      >
+        {icon(compact ? 'size-4' : 'size-4 desk:size-[1.15rem]')}
+      </motion.span>
+      {/* One line box the height of the economy's values, so the icons line up. */}
+      <span
+        className={`flex h-[1em] items-center leading-none font-semibold whitespace-nowrap tabular-nums ${
+          compact ? 'text-[0.66rem]' : 'text-[0.66rem] desk:text-[0.72rem]'
+        }`}
+      >
+        {value}
+      </span>
+      {progress !== null && (
+        <span
+          aria-hidden="true"
+          className="absolute bottom-0 left-0 h-0.5 bg-[color-mix(in_oklab,var(--tone)_70%,transparent)] transition-[width] duration-1000 ease-linear"
+          style={{ width: `${Math.round(progress * 100)}%` }}
+        />
       )}
     </button>
   )
 }
 
-export function ShieldWidget({ compact }: SlotProps['top-bar']) {
+function BarSkeleton({ compact }: BarProps) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`skeleton block w-[2.75rem] shrink-0 rounded-md ${compact ? 'h-10' : 'h-11'}`}
+    />
+  )
+}
+
+// ---------------------------------------------------------------- steals and shield
+
+export function StealsWidget({ compact }: BarProps) {
   const heist = useHeist()
   const openPanel = useHeistUi((s) => s.openPanel)
-  if (!heist.ready)
-    return <div className={`skeleton shrink-0 ${compact ? 'h-9 w-16' : 'h-10 w-24'}`} />
+  if (!heist.ready) return <BarSkeleton compact={compact} />
+  const state = heist.state
+  if (!state) return null
+  const allowed = state.me.attemptsAllowed
+  const left = heist.open ? heist.attemptsLeft : 0
+  const label = heist.open
+    ? `Steals: ${heist.attemptsLeft} of ${allowed} attempts left today`
+    : 'Steals are closed right now'
+  return (
+    <BarButton
+      compact={compact}
+      data="steals"
+      tone="var(--accent-strong)"
+      lit={left > 0}
+      faded={!heist.open}
+      icon={(className) => <MaskIcon className={className} />}
+      value={<Pips filled={left} total={allowed} size="sm" />}
+      label={`${label}. Open the heist panel.`}
+      title={label}
+      onClick={() => openPanel('rob')}
+    />
+  )
+}
+
+export function ShieldWidget({ compact }: BarProps) {
+  const heist = useHeist()
+  const openPanel = useHeistUi((s) => s.openPanel)
+  if (!heist.ready) return <BarSkeleton compact={compact} />
   const state = heist.state
   if (!state) return null
   const charges = state.me.charges
   const max = heist.cfg.shield_max_charges
   const immune = heist.immuneLeft > 0
-  const lit = charges > 0 || immune
+  const span = heist.cfg.immunity_hours * HOUR_MS
   const label = [
     charges === 1 ? '1 shield charge' : `${charges} shield charges`,
     immune ? `immune for ${formatCountdown(heist.immuneLeft)}` : null,
@@ -74,48 +167,25 @@ export function ShieldWidget({ compact }: SlotProps['top-bar']) {
     .filter(Boolean)
     .join(', ')
   return (
-    <button
-      type="button"
-      onClick={() => openPanel('defend')}
-      title={label}
-      aria-label={`${label}. Open your defenses.`}
-      className={`${PILL} ${immune ? 'heist-immune border-transparent' : 'border-border'} bg-surface-2 ${compact ? 'h-9 gap-1.5 px-2' : 'h-10 gap-2 px-2.5'}`}
-    >
-      <ShieldIcon
-        className={compact ? 'size-4.5' : 'size-5'}
-        style={{ color: lit ? 'var(--heist-shield)' : 'var(--text-faint)' }}
-      />
-      {compact ? (
+    <BarButton
+      compact={compact}
+      data="shield"
+      tone="var(--heist-shield)"
+      lit={charges > 0 || immune}
+      glow={immune}
+      icon={(className) => <ShieldIcon className={className} />}
+      value={
         immune ? (
-          <span
-            className="text-xs font-semibold tabular-nums"
-            style={{ color: 'var(--heist-shield)' }}
-          >
-            {formatCountdown(heist.immuneLeft)}
-          </span>
+          <span className="text-(--tone)">{barCountdown(heist.immuneLeft)}</span>
         ) : (
           <Pips filled={charges} total={max} shape="shield" tone="shield" size="sm" />
         )
-      ) : (
-        <span className="flex flex-col items-start leading-none">
-          <span className="text-[0.6rem] tracking-[0.1em] text-faint uppercase">
-            {immune ? 'Immune' : 'Shield'}
-          </span>
-          {immune ? (
-            <span
-              className="mt-0.5 text-sm font-semibold tabular-nums"
-              style={{ color: 'var(--heist-shield)' }}
-            >
-              {formatCountdown(heist.immuneLeft)}
-            </span>
-          ) : (
-            <span className="mt-0.5">
-              <Pips filled={charges} total={max} shape="shield" tone="shield" size="sm" />
-            </span>
-          )}
-        </span>
-      )}
-    </button>
+      }
+      label={`${label}. Open your defenses.`}
+      title={label}
+      progress={immune && span > 0 ? Math.min(1, heist.immuneLeft / span) : null}
+      onClick={() => openPanel('defend')}
+    />
   )
 }
 

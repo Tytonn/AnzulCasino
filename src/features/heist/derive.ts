@@ -232,6 +232,20 @@ export function shortDuration(ms: number): string {
   return rest === 0 ? `${hours}h` : `${hours}h ${rest}m`
 }
 
+/**
+ * "2h05", "4:59": your immunity on the top bar, short enough for a button the
+ * size of the economy's and written like their cooldowns. It rounds down, like
+ * the kit's countdown in the button's label.
+ */
+export function barCountdown(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000))
+  const hours = Math.floor(total / 3_600)
+  const minutes = Math.floor((total % 3_600) / 60)
+  const seconds = total % 60
+  if (hours > 0) return `${hours}h${String(minutes).padStart(2, '0')}`
+  return `${minutes}:${String(seconds).padStart(2, '0')}`
+}
+
 /** "3 hours", "1 hour", "90 minutes": a config's hours in words. */
 export function hoursInWords(hours: number): string {
   if (hours < 1) return `${Math.round(hours * 60)} minutes`
