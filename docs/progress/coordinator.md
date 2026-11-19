@@ -15,6 +15,8 @@ Last updated: 2026-11-19 20:30 UTC
 | Foundation | foundation | `foundation`, then `claude/project-thread-65plqj` | Stage 1 done | Merged into `main` on 2026-11-19 (pull request #1, `5825ad7`) after the exit check passed on the deploy preview. Now makes the shared changes lanes ask for: batch 1 (a partial refund for roulette, reveal holds on other players, blackjack's slow-reveal settings, two sounds and per-round reveal times) is on `claude/project-thread-65plqj`. |
 | Roulette | roulette | `lane/roulette` | Stage 2 | Started 2026-11-19. Its two shared changes are in batch 1. |
 | Blackjack | blackjack | `lane/blackjack` | Stage 2 | Started 2026-11-19. Its shared changes are in batch 1. |
+| Heist | heist | `lane/heist` | Stage 2 | Started 2026-11-19. |
+| Economy | economy | `lane/economy` | Stage 2 | Started 2026-11-19. |
 
 ## Merged to main
 
