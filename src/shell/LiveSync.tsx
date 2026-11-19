@@ -38,10 +38,11 @@ export function LiveSync({ me }: { me: Me }) {
     }
   })
 
-  // News of your own chips and rounds waits while a game is revealing a
-  // result (src/kit/reveal.ts), so nothing gives it away early.
+  // News about a player waits while a game is revealing their result
+  // (src/kit/reveal.ts): yours while your coin is in the air, every
+  // bettor's while a roulette wheel spins. So nothing gives a result away.
   useLiveEvent(userChannel(me.id), 'wallet.updated', (wallet, { version }) => {
-    afterReveal(() => applyWallet(queryClient, { ...wallet, version }))
+    afterReveal(me.id, () => applyWallet(queryClient, { ...wallet, version }))
   })
 
   useLiveEvent(userChannel(me.id), 'notification', ({ text, tone }) => {
@@ -66,13 +67,11 @@ export function LiveSync({ me }: { me: Me }) {
         )
       }
     }
-    if (change.userId === me.id) afterReveal(apply)
-    else apply()
+    afterReveal(change.userId, apply)
   })
 
   useLiveEvent('feed', 'round.settled', (round) => {
-    if (round.userId === me.id) afterReveal(() => addTickerRound(queryClient, round))
-    else addTickerRound(queryClient, round)
+    afterReveal(round.userId, () => addTickerRound(queryClient, round))
   })
 
   useLiveEvent('feed', 'season.state', () => {
@@ -82,9 +81,9 @@ export function LiveSync({ me }: { me: Me }) {
   useLiveEvent('chat', 'chat.message', (message) => {
     const add = () =>
       queryClient.setQueryData<ChatPage>(queryKeys.chat, (old) => addMessage(old, message))
-    // A post about your own big result waits for your reveal.
-    const about = (message.meta as SystemMeta | null)?.userId
-    if (message.kind === 'system' && about === me.id) afterReveal(add)
+    // A post about a big result waits for that player's reveal.
+    const about = message.kind === 'system' ? (message.meta as SystemMeta | null)?.userId : null
+    if (about) afterReveal(about, add)
     else add()
     const players = queryClient.getQueryData<PlayerSummary[]>(queryKeys.players)
     if (message.userId && players && !players.some((p) => p.id === message.userId)) {

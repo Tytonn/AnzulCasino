@@ -56,7 +56,8 @@ export const DELAYED_GROUPS: readonly ConfigGroup[] = [
   'vault',
 ]
 
-type NumberUnit = 'share' | 'count' | 'seconds' | 'minutes' | 'hours' | 'days' | 'times'
+type NumberUnit =
+  'share' | 'count' | 'milliseconds' | 'seconds' | 'minutes' | 'hours' | 'days' | 'times'
 
 interface SettingBase {
   group: ConfigGroup
@@ -442,6 +443,26 @@ export const CONFIG = {
     200,
     'Coin flip house edge: a win pays twice the bet, less this share.',
     { max: 2_000 },
+  ),
+  blackjack_slow_reveal_pct: share(
+    'games',
+    5_000,
+    "Blackjack: a bet over this share of the player's wallet, or any all-in, gets the slow reveal: a hit on a hard 12 or more, and the dealer's hidden card, come out face down, lift slowly, then flip.",
+    { min: 1 },
+  ),
+  blackjack_slow_lift_ms: number(
+    'games',
+    'milliseconds',
+    900,
+    'Blackjack: how long a slow-reveal card lifts before it flips.',
+    { min: 0, max: 5_000 },
+  ),
+  blackjack_slow_flip_ms: number(
+    'games',
+    'milliseconds',
+    400,
+    'Blackjack: how long a slow-reveal card takes to flip.',
+    { min: 100, max: 2_000 },
   ),
   roulette_betting_seconds: number(
     'games',

@@ -196,6 +196,7 @@ describe('config values', () => {
     expect(formatConfigValue('immunity_hours', 1)).toBe('1 hour')
     expect(formatConfigValue('crash_max_multiplier', 1_000)).toBe('1000x')
     expect(formatConfigValue('steal_attempts_per_day', 2)).toBe('2')
+    expect(formatConfigValue('blackjack_slow_lift_ms', 900)).toBe('900 milliseconds')
   })
 
   it('can be lists of plain-text lines', () => {

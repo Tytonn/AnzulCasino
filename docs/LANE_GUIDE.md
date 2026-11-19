@@ -382,6 +382,7 @@ playTransaction(ctx, blackjack, async (play) => {
   const round = await play.require<HandDetail, HandSecret>() // the player's open round, locked
   const next = await play.act(round, { detail, secret }) // saves the move, tells the room
   // or: await play.raise(round, { amount: round.stake, detail }) // a double down
+  // or: await play.lower(round, { amount: oneBet, detail }) // one bet taken off the table
   // or: await play.settle(round, { payout, detail, summary: 'Blackjack' })
   return play.result(next)
 })
@@ -390,6 +391,7 @@ playTransaction(ctx, blackjack, async (play) => {
 - **One open round per player per game.** A second `start` is refused with "You already have a round going here". Keep a split hand or several bets in one round's detail.
 - **Hidden state goes in `secret`**, such as a hole card for the peek. `act` keeps it unless you pass a new one (null clears it), `settle` and `refund` clear it, and no response or event carries it. Everything else is drawn at the moment it is revealed.
 - **`raise` takes more stake** and checks only the wallet, since the first bet already passed the limits. To apply the bet limits to an extra bet, check it yourself with `checkBetAmount` from `shared/bet-amount.ts`.
+- **`lower` hands part of the stake back** and keeps the round open, such as one roulette bet taken off before the close. It writes a `refund` ledger row, clears the all-in flag (chips are back in the wallet) and works out the big-bet flag again from what is left. It refuses nothing at all or the whole stake: to hand everything back, `refund` the round.
 - **`refund`** closes a round with the stake handed back, such as a lobby nobody joined. It leaves the ticker and chat alone.
 - **Resume after a refresh.** `room.open` is your open round from `GET /api/<game>/room`. Draw it as it was and let the player carry on.
 - **Idle rounds settle safely** (spec: The room model). Call `finishIdleRounds(game, ctx.waitUntil, finish)` at the start of your room route. It finds rounds idle longer than `round_timeout_minutes` and hands each to `finish(play, round)`, which must settle or refund it by your game's safest rule. Calling it from the room route means no timer wakes the database.
@@ -408,6 +410,7 @@ Your game's section in the spec says how its rounds move on: roulette and race o
 - **Settle it once.** Lock the shared row before you draw or settle. Save the result, then settle each player's round with `lockRound(tx, id)` and `settleRound(rt, game, round, outcome)`, inside `roundTransaction(ctx.waitUntil, (rt) => ...)`. A second request finds the result saved and only reads it.
 - **Compare times in SQL.** `opens_at` and `closes_at` are checked against `now()`. Browsers draw the wheel, the race or the multiplier from those times and `serverNow()`, never from a stream of events.
 - **Keep hidden things hidden.** A crash point lives in `shared_rounds.secret` until the crash. A roulette number or a race winner does not exist until it is drawn.
+- **Hold the table's news until the reveal.** Every bettor's result reaches every screen at the close, seconds before the wheel lands. At the close, before any result can arrive, call `holdReveal({ players })` with the round's bettors, and call what it returns when the wheel lands. Until then their seats, the ticker, the leaderboard and big-result chat posts wait, on every screen (section 13).
 - **A backup sweep** for rounds left unsettled may run as a scheduled function at most once a day (section 16).
 
 Add the spec's extra room events (`bet.placed`, `round.closed`, `cashout` and so on) as in section 11.
@@ -508,6 +511,7 @@ route({
 | `play.current()` / `play.require()` | The player's open round, locked, or null / or refused |
 | `play.act(round, { detail, secret? })` | Saves a move and tells the room |
 | `play.raise(round, { amount, detail, secret? })` | Takes more stake |
+| `play.lower(round, { amount, detail, secret? })` | Hands part of the stake back; the round stays open |
 | `play.settle(round, { payout, detail, summary, multiplier? })` | Pays out (stake included, rounded down) and closes it |
 | `play.refund(round, { detail, summary })` | Hands the stake back and closes it |
 | `play.result(round)` | The response: `{ round, wallet }` |
@@ -515,7 +519,7 @@ route({
 | `roomState(game)` | The room route's answer |
 | `finishIdleRounds(game, waitUntil, finish)` | Settles idle rounds by your safest rule |
 | `roundTransaction(waitUntil, rt => ...)` | Round work no player keyed, such as a shared round's settle |
-| `lockRound`, `readRound`, `settleRound`, `refundRound`, `roundView` | The pieces under `Play`, for that kind of work |
+| `lockRound`, `readRound`, `raiseStake`, `lowerStake`, `settleRound`, `refundRound`, `roundView` | The pieces under `Play`, for that kind of work |
 
 Big bets, all-ins, the ticker line and the chat post for a big result are automatic. `big_bet_pct`, `big_win_times` and the bet limits come from config.
 
@@ -619,9 +623,9 @@ One import: `import { ... } from '../../kit/index.ts'`. Icons come from `src/kit
 
 | Export | What it is |
 | --- | --- |
-| `useRoom(game, { revealMs })` | The room: `seats`, `mine`, `open`, `loading`, `failed`, `retry` |
+| `useRoom(game, { revealMs })` | The room: `seats`, `mine`, `open`, `loading`, `failed`, `retry`. `revealMs` is how long another player's result takes to land on their seat: a number, or `(round) => ms` when each round's reveal runs its own length |
 | `usePlay()` | `send(path, body, { revealMs })` and `busy` |
-| `holdReveal()`, `afterReveal(fn)` | The reveal hold under `usePlay`, for moves that do not use it |
+| `holdReveal({ players })`, `afterReveal(player, fn)` | The reveal hold. News about the players it names (their seats, the top bar, the leaderboard, the ticker, chat posts about their results) waits until it is released. `usePlay` holds your own; a shared round holds its bettors from the close until the wheel lands |
 | `applyRound`, `roomKey` | Put a round into the room's cache; the room's query key |
 | `RoomLayout` | The room: header, how-to-play, other seats, your seat with the table, controls |
 | `BetBox` | The typed bet box, with ½, 2× and Max, and `children` for your own controls |
@@ -632,7 +636,7 @@ One import: `import { ... } from '../../kit/index.ts'`. Icons come from `src/kit
 | `ChipStack`, `AnimatedNumber` | A stack of chips for an amount; a number that counts to its new value |
 | `Avatar`, `PlayerName`, `TierBadge`, `tierColor` | A player, with their tier's color and badge |
 | `Sheet` | A panel that slides in: `placement` bottom, right or center |
-| `playSound(name)`, `SOUNDS` | chip, deal, flip, tick, win, bigwin, loss, steal, block |
+| `playSound(name)`, `SOUNDS` | chip, deal, flip, tick, win, bigwin, loss, steal, block, thud (a bust, a mine), sparkle (a big moment, such as 21) |
 | `celebrate({ net, big, note })`, `isBigWin(round, bigWinTimes)` | The win celebration, scaled to the win |
 | `toast.info`, `toast.good`, `toast.error` | Plain-word messages |
 | `api`, `ApiError`, `errorMessage`, `requestKey` | The API client. Pass `{ key: requestKey() }` on a chip-moving request |
@@ -729,13 +733,13 @@ Secrets live in Netlify only, never in the repo or in browser code. The server r
 
 Starting points, not rules. Your spec sections decide.
 
-- **Blackjack.** A multi-move round (section 7). Draw each card when it is dealt, from what is left of the six decks (the dealt cards are in the detail). Only a hole card the peek needs waits in `secret`. A double down or a split takes more stake with `play.raise`, and a split's two hands live in one round's detail. Pick the safe rule for `finishIdleRounds` and write it in your progress file.
-- **Roulette.** A shared round on the clock (section 8). The quick-bet box parses amounts with `parseBetAmount` from `shared/bet-amount.ts`. A player's bets on one spin share one game round: `start` the first, `raise` the rest after checking each with `checkBetAmount`. Clearing every bet before the close fits `play.refund`; removing one bet needs part of a stake handed back, which the round helper cannot do yet, so ask for it as a shared change early.
-- **Crash.** A shared round with its crash point in `shared_rounds.secret`, drawn with `randomUnit()` by the formula in the spec. Cash-outs are decided by the server's receive time against the round's start, in SQL. The browser draws the curve from the start time and `serverNow()`. The spec's runner is a Background Function: check the current Netlify docs for its limits.
+- **Blackjack.** A multi-move round (section 7). Draw each card when it is dealt, from what is left of the six decks (the dealt cards are in the detail). Only a hole card the peek needs waits in `secret`. A double down or a split takes more stake with `play.raise`, and a split's two hands live in one round's detail. Pick the safe rule for `finishIdleRounds` and write it in your progress file. The slow reveal's threshold and timings are config (`blackjack_slow_reveal_pct`, `blackjack_slow_lift_ms`, `blackjack_slow_flip_ms`), and since a hand's reveal runs its own length, pass `useRoom` a `revealMs` function of the round.
+- **Roulette.** A shared round on the clock (section 8). The quick-bet box parses amounts with `parseBetAmount` from `shared/bet-amount.ts`. A player's bets on one spin share one game round: `start` the first, `raise` the rest after checking each with `checkBetAmount`. Clearing every bet before the close fits `play.refund`, and taking one bet off fits `play.lower`. At the close, hold the spin's bettors with `holdReveal({ players })` until the wheel lands (section 8).
+- **Crash.** A shared round with its crash point in `shared_rounds.secret`, drawn with `randomUnit()` by the formula in the spec. Cash-outs are decided by the server's receive time against the round's start, in SQL. The browser draws the curve from the start time and `serverNow()`, and the crash reveals everyone still in at once, so hold them with `holdReveal({ players })` until the curve has crashed on screen. The spec's runner is a Background Function: check the current Netlify docs for its limits.
 - **Mines and Plinko.** Mines is a multi-move round: each opened tile is a mine with `chance(m, 25 - k)`, and the layout is placed only for the reveal. Plinko settles in one request like the coin flip, but several balls fly at once while `usePlay` sends one move at a time, so send each ball with `api.post(path, body, { key: requestKey() })` and the reveal hold from `src/kit/reveal.ts` (see how `src/kit/play.ts` uses it), or ask for a parallel option as a shared change.
 - **Slots.** One request per spin, like the coin flip. The return-to-player test is the heart of it.
 - **Russian roulette.** Chips between players use the `pvp_ante` and `pvp_pot` ledger reasons through `wallet.ts`. The solo mode and a cancelled lobby use the round helper like any game (`bet`, `payout`, `refund`). If you want the round helper to write the player-against-player reasons too, so those rounds reach the ticker and History by themselves, ask for it as a shared change. A turn timer that runs out is acted on by the next request after the deadline, like a roulette close.
-- **Race.** A shared round on the clock, about every 75 seconds. Draw the field of six when the race is created and the winner with `pickWeighted` when betting closes, never earlier. Typed bets work like roulette's.
+- **Race.** A shared round on the clock, about every 75 seconds. Draw the field of six when the race is created and the winner with `pickWeighted` when betting closes, never earlier. Typed bets work like roulette's, and so does holding the bettors' news until the finish line (section 8).
 - **Economy.** Work, slut and crime are `top-bar` slot widgets (`compact` on a phone). Their cooldowns are the `*_ready_at` columns on the wallet, compared with `now()`. The daily bonus, streaks, challenges and the rank purchase use `daily_state`. Challenge progress comes from querying settled rounds, so no game needs challenge code. The final-day banner is a `banner` slot, and `/hall-of-fame` replaces its placeholder.
 - **Heist.** Steal from the `profile-actions` slot, the Shop page at `/shop` drawing the `shop-items` slot, the vault through `moveBetweenAccounts`, and shields in their core tables. `net_worth_at_reset` can be worked out from the ledger as of the reset. `scripts/simulate-season.ts` can import `shared/config.ts` and the rules directly.
 - **Social.** The GIF picker is a `chat-composer` slot and reactions a `chat-message` slot. Seat emotes are a `seat` slot that publishes `seat.emote` through your API. History and replays find each game's `replay` with `gameById(id)?.manifest?.replay` from `src/shell/registry.ts`. The pages `/leaderboard`, `/history`, `/history/:roundId`, `/profile` and `/players/:username` replace their placeholders.
