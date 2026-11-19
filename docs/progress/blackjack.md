@@ -10,10 +10,11 @@ Branch `claude/project-thread-7e0vog` (this thread can only push to that branch,
 - **The room** (`src/games/blackjack/`): the felt measures its seat and sizes the cards to fit (`layout.ts`), so the whole table shows above the controls on a 375×812 phone and a 1366×768 laptop with friends seated. Cards fly in face down from the shoe and turn as they land, a split slides the second card to its own hand, a new deal sweeps the last hand to the discard pile first. Totals sit beside each hand; the result line sits between the rows where the felt lettering is. Hit, Stand, Double and Split (H, S, D, P) take the bet box's place during a hand, in two big rows on a narrow phone so the table keeps its size. Other seats show the player's cards, total and the dealer's card or total in one row. Floor card art and the History replay are in.
 - **Tests**: rules and payouts for every outcome (`tests/blackjack/unit/rules.test.ts`), 4 million hands of basic strategy against the expected edge (`edge.test.ts`, about 12 s), the deal order, slow-reveal steps and timings (`timeline.test.ts`), the table layout (`layout.test.ts`), the endpoints against a real database with a stacked shoe (`tests/blackjack/integration`), and two players in real browsers at 1440 and 375 (`tests/blackjack/e2e`).
 - **House edge**: 0.461% ± 0.018% over 40 million hands of basic strategy, which matches the published figure for these rules (about 0.46%). The test checks 4 million hands within 4.5 standard errors.
+- **Deploy preview**: the browser tests passed against https://deploy-preview-4--playanzul.netlify.app (alice and bob, at 1440 and 375), after the preview setup signed up the sample players and started a season.
 
 ## Not done
 
-- Tried on the deploy preview with two players: in progress when this was written.
+- Nothing in the lane. The one red check on the pull request is the foundation's shell test, which still expects Blackjack's placeholder (see Shared changes needed).
 
 ## Decisions
 
@@ -34,4 +35,6 @@ None blocking.
 
 ## Shared changes needed
 
-None now. The kit changes this lane needed (`holdReveal` for a player, `afterReveal`, `useRoom`'s `revealMs`, the slow-reveal config keys, the `thud` and `sparkle` sounds) landed in batch 1.
+- `tests/foundation/e2e/shell.spec.ts`, the test "the Floor, a room and the setup page at both sizes" (lines 120 to 122): open `/room/race` and look for the heading `Race` instead of `/room/blackjack` and `Blackjack`. The Blackjack room no longer shows "Opening soon", so the test fails at both sizes until this lands. Race is the last second-wave lane, so it stays a placeholder longest. Checked on this branch with the change: 2 passed. Asked of the foundation thread on 2026-11-19.
+
+Earlier, the kit changes this lane needed (`holdReveal` for a player, `afterReveal`, `useRoom`'s `revealMs`, the slow-reveal config keys, the `thud` and `sparkle` sounds) landed in batch 1.
