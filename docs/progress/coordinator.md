@@ -2,7 +2,7 @@
 
 Running status for the whole build. The coordinator owns this file; the Foundation thread keeps it current while Stage 1 runs.
 
-Last updated: 2026-11-19 22:55 UTC
+Last updated: 2026-11-19 23:30 UTC
 
 ## Stage
 
@@ -12,7 +12,7 @@ Last updated: 2026-11-19 22:55 UTC
 
 | Thread | Lane | Branch | Stage | Status |
 | --- | --- | --- | --- | --- |
-| Foundation | foundation | `foundation`, then `claude/project-thread-65plqj` | Stage 1 done | Merged into `main` on 2026-11-19 (pull request #1, `5825ad7`) after the exit check passed on the deploy preview. Now makes the shared changes lanes ask for, on `claude/project-thread-65plqj`. Batch 1 (a partial refund for roulette, reveal holds on other players, blackjack's slow-reveal settings, two sounds and per-round reveal times) merged as pull request #2. Batch 2 (steal attempts in the ticker for heist; the full flavor lines and the chat-drop post type for economy) merged as pull request #7. Batch 3 (a shell browser test that no game merge breaks, for blackjack; the phone's empty widget row, for economy) merged as pull request #8. Batch 4 (the top bar's widget row: a second line on desktop when the widgets do not fit beside the wallet, and a faded edge on any row that scrolls) is open. |
+| Foundation | foundation | `foundation`, then `claude/project-thread-65plqj` | Stage 1 done | Merged into `main` on 2026-11-19 (pull request #1, `5825ad7`) after the exit check passed on the deploy preview. Now makes the shared changes lanes ask for, on `claude/project-thread-65plqj`. Batch 1 (a partial refund for roulette, reveal holds on other players, blackjack's slow-reveal settings, two sounds and per-round reveal times) merged as pull request #2. Batch 2 (steal attempts in the ticker for heist; the full flavor lines and the chat-drop post type for economy) merged as pull request #7. Batch 3 (a shell browser test that no game merge breaks, for blackjack; the phone's empty widget row, for economy) merged as pull request #8. Batch 4 (the top bar's widget row: a second line on desktop when the widgets do not fit beside the wallet, and a faded edge on any row that scrolls) merged as pull request #11. Batch 5 (a tightened bar before the second line, so laptop rooms keep their height) is open. |
 | Roulette | roulette | `claude/project-thread-llyz59` | Stage 2 | Started 2026-11-19. Its two shared changes merged in batch 1. Pull request #5 merged on 2026-11-19. |
 | Blackjack | blackjack | `claude/project-thread-7e0vog` | Stage 2 | Started 2026-11-19. Pull request #4. Its shared changes merged in batch 1, and the shell test change its merge needed in batch 3; it is updating to `main`. |
 | Heist | heist | `claude/project-thread-gh6sj0` | Stage 2 | Started 2026-11-19. Pull request #3 merged on 2026-11-19. Its shared change (steal attempts in the ticker) merged in batch 2. Now shrinking Steals and Shield in the top bar. |
@@ -25,6 +25,7 @@ Last updated: 2026-11-19 22:55 UTC
 - 2026-11-19: shared changes batch 1 (pull request #2, `fed5678`), merged by Tyton. CI passed on `main`, and the four open lanes were told to pull it.
 - 2026-11-19: shared changes batch 2 (pull request #7, `f04f2ce`), merged by Tyton. CI passed on `main`, and the four open lanes were told to pull it.
 - 2026-11-19: shared changes batch 3 (pull request #8, `b07c2cc`), then Heist (#3, `1652b07`), Roulette (#5, `bfb6fec`) and Economy (#6, `448ee3b`), merged by Tyton. CI passed on `main` at `448ee3b`.
+- 2026-11-19: shared changes batch 4 (pull request #11, `d8026cf`), after CI and the preview's browser tests passed.
 
 ## Netlify
 

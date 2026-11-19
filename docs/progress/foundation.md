@@ -1,6 +1,6 @@
 # Foundation (Stage 1)
 
-Branch `foundation`, merged into `main` on 2026-11-19 (pull request #1). Last updated 2026-11-19 by the Foundation thread, which now makes the shared changes lanes ask for on branch `claude/project-thread-65plqj` (batches 1 to 3 merged; the latest is at the end of the shared changes list below).
+Branch `foundation`, merged into `main` on 2026-11-19 (pull request #1). Last updated 2026-11-19 by the Foundation thread, which now makes the shared changes lanes ask for on branch `claude/project-thread-65plqj` (batches 1 to 4 merged; the latest is at the end of the shared changes list below).
 
 ## What already exists
 
@@ -145,6 +145,12 @@ Answered on 2026-11-18:
   - Any row that still scrolls, on desktop or phone, fades the edge it has widgets beyond (`fadeMask`, 1.5rem). The widgets are wrapped in `[data-top-bar-content]` at their natural width, and the row hides while that is empty (`has-[>:empty]:hidden`), as batch 3's `empty:hidden` did.
   - The heist lane is shrinking Steals and Shield to an icon over a short value (about 2.75rem), and the economy lane is tightening its buttons. With both, the row fits beside the wallet at 1440 and without scrolling on a 375px phone, and the second line covers 1100 to 1400.
   - New browser test: "the top bar keeps every widget in view, or fades the edge it scrolls past", at 1440, 1280, 1100 and 900 on desktop, and 375 and 320 on a phone.
+  - Merged (pull request #11) on 2026-11-19 at 23:00 UTC as `d8026cf`, after CI, every browser test locally and the preview's browser tests passed. The heist, economy and blackjack lanes were told to pull.
+- **Shared changes, batch 5, 2026-11-19**, for the blackjack lane's laptop rooms:
+  - The blackjack lane measured what batch 4's second line costs: 54px of height from 1100 to 1400, which shrinks the cards to their floor at 1366x768 and 1280x800 and makes the room's column scroll. So the bar now tightens before it uses a second line: the widgets draw compact (the `top-bar` slot's `compact`), the season clock goes compact, and the sound toggle moves into the account menu, as on a phone.
+  - `useWidgetFit` picks `roomy`, `tight` or `below` (the header's `data-fit`; `data-widgets` still says `inline` or `below`). The clock draws its other size unseen (`SeasonClock measured`), so what a tight bar saves beside the wallet is known (about 71px). Compact widgets cannot be measured until drawn, so a tight bar is tried, and how far it fell short is remembered: from the second line it is tried again only once the room or the widgets have changed by that much, plus 24px. Every new fit is measured again in a layout effect before the browser paints, so one that does not fit is never seen.
+  - With the economy's #9 and the heist's smaller Steals and Shield (377px of widgets, 338px compact), the header keeps one 64px line from 900px up, tight at 1280 and 1100, even with a wallet 45px wider; only 768 uses the second line. Checked by sweeping the window down and back up, with no flapping and no console errors.
+  - The browser test also checks 1400, and that a tight bar has no sound toggle but the account menu offers sound.
 
 ## Not done
 

@@ -168,14 +168,16 @@ test('the top bar keeps every widget in view, or fades the edge it scrolls past'
   const phone = onPhone(testInfo)
 
   await page.goto('/')
-  const row = page.getByRole('banner').locator('[data-slot="top-bar"]')
+  const bar = page.getByRole('banner')
+  const row = bar.locator('[data-slot="top-bar"]')
   await expect(row.locator('[data-top-bar-content] > *').first()).toBeVisible()
   await expect(row.locator('.skeleton')).toHaveCount(0)
 
-  // On desktop the widgets sit beside the wallet while they fit there, and on a
-  // second line under it when they do not, so none is ever cut off. A phone's
-  // row may still scroll, but then it fades the edge that widgets are behind.
-  for (const width of phone ? [375, 320] : [1440, 1280, 1100, 900]) {
+  // On desktop the widgets sit beside the wallet while they fit there. Short of
+  // room, the bar tightens first and then moves them to a second line, so none
+  // is ever cut off. A phone's row may still scroll, but then it fades the edge
+  // that widgets are behind.
+  for (const width of phone ? [375, 320] : [1440, 1400, 1280, 1100, 900]) {
     await page.setViewportSize({ width, height: phone ? 812 : 900 })
     await expect
       .poll(async () => {
@@ -184,6 +186,17 @@ test('the top bar keeps every widget in view, or fades the edge it scrolls past'
       })
       .toBe(true)
     if (width === (phone ? 375 : 1280)) await snap(page, 'foundation', 'top-bar', testInfo)
+    if (phone) continue
+
+    // A tight bar moves the sound toggle into the account menu, as on a phone.
+    const tight = (await bar.getAttribute('data-fit')) === 'tight'
+    await expect(bar.getByRole('button', { name: /^Turn sound/ })).toHaveCount(tight ? 0 : 1)
+    if (tight) {
+      await bar.getByRole('button', { name: 'Your account' }).click()
+      await expect(page.getByRole('menuitem', { name: /^Sound is/ })).toBeVisible()
+      await page.keyboard.press('Escape')
+      await expect(page.getByRole('menu')).toHaveCount(0)
+    }
   }
 
   await alice.close()

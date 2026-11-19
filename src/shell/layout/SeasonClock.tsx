@@ -9,7 +9,14 @@ import { useEffect } from 'react'
 import { formatCountdown, useNow } from '../../kit/clock.ts'
 import { queryKeys, useSeason } from '../../kit/queries.ts'
 
-export function SeasonClock({ compact = false }: { compact?: boolean }) {
+export function SeasonClock({
+  compact = false,
+  measured = false,
+}: {
+  compact?: boolean
+  /** Also draw the other size, unseen, so the top bar can tell how much room the compact one saves. */
+  measured?: boolean
+}) {
   const { data } = useSeason()
   const now = useNow().getTime()
   const queryClient = useQueryClient()
@@ -57,23 +64,34 @@ export function SeasonClock({ compact = false }: { compact?: boolean }) {
     tone = 'text-muted'
   }
 
-  if (compact) {
-    return (
-      <span className={`text-right text-xs leading-tight ${tone}`} title={label}>
-        <span className="block text-[0.6rem] tracking-wide text-faint uppercase">
-          {label.length > 12 ? 'Season' : label}
-        </span>
-        <span className="font-semibold tabular-nums">{value}</span>
+  const small = (
+    <span data-clock="compact" className={`text-right text-xs leading-tight ${tone}`} title={label}>
+      <span className="block text-[0.6rem] tracking-wide text-faint uppercase">
+        {label.length > 12 ? 'Season' : label}
       </span>
-    )
-  }
-  return (
-    <span className="flex flex-col items-end leading-tight" title={`${label}: ${value}`}>
+      <span className="font-semibold tabular-nums">{value}</span>
+    </span>
+  )
+  const full = (
+    <span
+      data-clock="full"
+      className="flex flex-col items-end leading-tight"
+      title={`${label}: ${value}`}
+    >
       <span className="max-w-36 truncate text-[0.65rem] tracking-[0.08em] text-faint uppercase">
         {label}
       </span>
       <span className={`text-sm font-semibold tabular-nums ${tone}`}>
         {running ? `${value} left` : value}
+      </span>
+    </span>
+  )
+  if (!measured) return compact ? small : full
+  return (
+    <span className="relative flex">
+      {compact ? small : full}
+      <span aria-hidden="true" className="invisible absolute top-0 right-0 w-max">
+        {compact ? full : small}
       </span>
     </span>
   )
