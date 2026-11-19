@@ -6,7 +6,7 @@ Last updated: 2026-11-19 by the Economy thread.
 
 ## Status
 
-Merged to `main` in pull request #6 on 2026-11-19, with Heist and Roulette. The follow-up pull request from the same branch (#9) makes the economy's top-bar buttons fit beside Heist's, gives Crime a pair of handcuffs so it no longer looks like Heist's Steals mask, and lays the rank card across the Shop. Unit, integration and browser tests pass locally at 1440 and 375, and the browser tests pass on deploy previews too (the chat drop and the Hall of Fame's sample season need the local database, so on a preview they are skipped or check what is there).
+Merged to `main` in pull request #6 on 2026-11-19, with Heist and Roulette. The follow-up pull request from the same branch (#9) makes the economy's top-bar buttons fit beside Heist's, gives Crime a pair of handcuffs so it no longer looks like Heist's Steals mask, and lays the rank card across the Shop. With shared changes batch 4 (pull request #11) and Heist's compact Steals and Shield (pull request #10), the top bar's six buttons fit at every width: they need 377px on desktop and 338px on a phone, sit beside the wallet at 1440, move under the header from 1280 down to 768, and fit in one row at 375. Unit, integration and browser tests pass locally at 1440 and 375, and the browser tests pass on deploy previews too (the chat drop and the Hall of Fame's sample season need the local database, so on a preview they are skipped or check what is there).
 
 ## What is built
 
@@ -53,7 +53,7 @@ The server decides every outcome, every chip moves through `server/lib/wallet.ts
 
 ## Not done yet
 
-- Nothing for the economy. For the record, the top bar with Heist's Steals and Shield: since shared changes batch 4 (pull request #11) the widgets move under the header on desktop when they do not fit, and the phone's row fades at its edge. At 375 that row still scrolls a little (the widgets need about 380px of its 343px) until Heist's narrower Steals and Shield land (Heist's pull request #10).
+- Nothing.
 
 ## Open questions
 
