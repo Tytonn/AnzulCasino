@@ -14,6 +14,14 @@ if (existsSync('.env')) process.loadEnvFile('.env')
 const previewURL = process.env.E2E_BASE_URL
 const localURL = 'http://localhost:8899'
 
+/**
+ * Cloud build containers reach the internet only through HTTPS_PROXY, which
+ * Playwright's browsers and request contexts do not read on their own.
+ */
+const proxyServer = process.env.HTTPS_PROXY || process.env.https_proxy
+const proxy =
+  previewURL && proxyServer ? { server: proxyServer, bypass: 'localhost,127.0.0.1' } : undefined
+
 export default defineConfig({
   testDir: 'tests',
   testMatch: '**/e2e/**/*.spec.ts',
@@ -25,6 +33,7 @@ export default defineConfig({
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : [['list']],
   use: {
     baseURL: previewURL ?? localURL,
+    ...(proxy ? { proxy } : {}),
     trace: 'off',
     screenshot: 'only-on-failure',
   },

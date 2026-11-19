@@ -2,7 +2,7 @@
 
 Running status for the whole build. The coordinator owns this file; the Foundation thread keeps it current while Stage 1 runs.
 
-Last updated: 2026-11-19 17:55 UTC
+Last updated: 2026-11-19 19:00 UTC
 
 ## Stage
 
@@ -26,15 +26,16 @@ Last updated: 2026-11-19 17:55 UTC
 
 ## Blocked
 
-- **The Stage 1 exit check** waits on Tyton's three items below. Deploy previews build on every push to pull request #1, but the build container cannot open them yet: its network blocks `*.netlify.app`. Tyton will allow the preview's hostname and the Ably hosts when he is at a computer (deferred on 2026-11-18, he was on his phone). Everything the exit check covers passes locally on the local live relay, and the browser tests now set up a fresh preview themselves (sample players and a season, through the site's API), so the check is one command once the three items arrive. Lanes test their own previews the same way (`docs/LANE_GUIDE.md`, Testing on a preview).
+- **The Stage 1 exit check** waits on one item below: the Netlify project is Private (the default for new teams), so every page, previews included, answers with Netlify's login, and on the Personal plan only Tyton can pass it. Tyton set the Ably key and the admin code and opened the network on 2026-11-19. Everything the exit check covers passes locally on the local live relay, and the browser tests now set up a fresh preview themselves (sample players and a season, through the site's API), so the check is one command once the three items arrive. Lanes test their own previews the same way (`docs/LANE_GUIDE.md`, Testing on a preview).
 
 ## Needs from Tyton
 
-All three are needed for the exit check, the last step of Stage 1.
+Needed for the exit check, the last step of Stage 1.
 
-1. Ably: an API key in the Netlify environment variable `ABLY_API_KEY` (needed to test deliverable 7 on the preview). Steps in `docs/progress/foundation.md`.
-2. `ADMIN_BOOTSTRAP_CODE` in Netlify, with a separate Deploy Previews value that Tyton shares with the Foundation thread (needed to create the first admin on the preview).
-3. Network access for the build container: the preview hostname and the Ably hosts (an approval card from the Foundation thread).
+1. ~~Ably: `ABLY_API_KEY` in Netlify.~~ Done 2026-11-19.
+2. ~~`ADMIN_BOOTSTRAP_CODE` in Netlify, with a separate Deploy Previews value shared with the Foundation thread.~~ Done 2026-11-19.
+3. ~~Network access for the build container.~~ Done 2026-11-19: `*.netlify.app`, `main.realtime.ably.net` and `*.ably-realtime.com`.
+4. **Make the Netlify project public** (Project configuration > General > Visitor access > Project visibility). Private projects on the Personal plan open only for the Team Owner, so the test browsers cannot reach the preview, and players could not reach the live site. Netlify may want one production deploy first (15 credits); Tyton decides.
 
 ## Decisions
 

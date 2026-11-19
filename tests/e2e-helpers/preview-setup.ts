@@ -12,14 +12,19 @@
  */
 import { randomUUID } from 'node:crypto'
 
-import { type APIRequestContext, type APIResponse, request } from '@playwright/test'
+import {
+  type APIRequestContext,
+  type APIResponse,
+  type FullConfig,
+  request,
+} from '@playwright/test'
 
 import { SEED_PASSWORD, SEED_PLAYERS } from '../../scripts/db/sample-players.ts'
 import { addGameDays, gameDay, gameDayStart } from '../../shared/game-day.ts'
 
 type Sample = (typeof SEED_PLAYERS)[number]
 
-export default async function previewSetup() {
+export default async function previewSetup(config: FullConfig) {
   const baseURL = process.env.E2E_BASE_URL
   if (!baseURL) return
   const password = process.env.E2E_PASSWORD ?? ''
@@ -33,9 +38,21 @@ export default async function previewSetup() {
   const admin = SEED_PLAYERS.find((p) => p.role === 'admin')
   if (!admin) throw new Error('scripts/db/sample-players.ts has no admin.')
 
+  // The proxy a cloud build container needs, from playwright.config.ts.
+  const proxy = config.projects[0]?.use.proxy
   const done: string[] = []
-  const api = await request.newContext({ baseURL })
+  const api = await request.newContext({ baseURL, proxy })
   try {
+    // A private Netlify project answers every page with Netlify's own login.
+    const home = await api.get('/', { maxRedirects: 0 })
+    if (home.status() === 401 && (await home.text()).includes('edge-access')) {
+      throw new Error(
+        `${baseURL} asks for a Netlify login, because the project is private. Browsers ` +
+          'here cannot pass it, so ask Tyton to make the project public (Project ' +
+          'configuration > General > Visitor access > Project visibility).',
+      )
+    }
+
     if (!(await logIn(api, admin, password))) {
       const code = process.env.E2E_ADMIN_CODE
       if (!code) {
@@ -71,7 +88,7 @@ export default async function previewSetup() {
         api.post('/api/invites', { data: { kind: 'invite' } }),
         'Making an invite code',
       )
-      const newcomer = await request.newContext({ baseURL })
+      const newcomer = await request.newContext({ baseURL, proxy })
       try {
         await signUp(newcomer, player, password, code.code)
       } finally {

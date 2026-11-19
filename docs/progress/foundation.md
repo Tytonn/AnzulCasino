@@ -78,12 +78,13 @@ Netlify bills the database about 10 credits for every hour it is awake. It sleep
    2. Branch to deploy: `main`. Leave the build settings empty; `netlify.toml` sets them.
    3. Keep Deploy Previews on for pull requests (the default).
    4. The database provisions itself on the first deploy that includes `@netlify/database`. Nothing to click.
-3. **Ably key** (needed at step 7):
+3. ~~**Ably key**~~ Done 2026-11-19 (the Root key, secret, every context but local development). The steps were:
    1. Sign up at ably.com (free package), create an app named `AnzulCasino`.
    2. In the app's **API Keys** tab, copy the **Root** key.
    3. In Netlify: **Project configuration** > **Environment variables** > **Add a variable** > `ABLY_API_KEY`, paste the key, tick **Contains secret values**, scope **Functions**, same value for all deploy contexts.
-4. **Admin bootstrap code** (needed at step 3): in the same place, add `ADMIN_BOOTSTRAP_CODE`, secret, scope Functions. Choose **Different value for each deploy context**: a long private phrase for Production, and a separate throwaway phrase for Deploy Previews that you send me, so I can create the first admin on the preview.
-5. **Network access for this build container** (needed when I first open a preview): I will ask with an approval card for the Ably hosts and the preview's hostname.
+4. ~~**Admin bootstrap code**~~ Done 2026-11-19 (the preview value is in the project thread, never in the repo). The step was: in the same place, add `ADMIN_BOOTSTRAP_CODE`, secret, scope Functions. Choose **Different value for each deploy context**: a long private phrase for Production, and a separate throwaway phrase for Deploy Previews that you send me, so I can create the first admin on the preview.
+5. ~~**Network access for this build container**~~ Done 2026-11-19: the cloud environment allows `*.netlify.app`, `main.realtime.ably.net` and `*.ably-realtime.com`. The browser tests send preview traffic through the container's `HTTPS_PROXY` by themselves.
+6. **Make the project public** (needed for the exit check, and for launch): Project configuration > General > Visitor access > [Project visibility](https://app.netlify.com/projects/playanzul/configuration/general/#project-visibility) > Edit visibility > Public. The project is Private, Netlify's default for new teams, and on the Personal plan only the Team Owner can open a private project: every page, previews included, answers with Netlify's login, which test browsers and players cannot pass. The site keeps its own login and invite-only signups. Netlify may want one production deploy first (15 credits).
 
 ## Open questions
 
