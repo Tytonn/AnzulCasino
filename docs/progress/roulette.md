@@ -14,7 +14,8 @@ Branch `claude/project-thread-llyz59`: the spec names `lane/roulette`, but this 
 
 ## Not done yet
 
-- A run of the browser tests on the deploy preview.
+- Nothing in the lane. The replay view is ready, but nothing opens it until the social lane's History does (the ticker's lines do not open replays yet).
+- On the deploy preview (pull request #5) the four browser tests pass at 1440 and 375, against the preview's own functions, database and Ably (2026-11-19).
 
 ## Decisions
 
