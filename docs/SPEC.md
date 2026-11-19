@@ -422,6 +422,13 @@ _(Added by Tyton, Nov 18, 2026. Owner: race lane.)_
 - If nobody has a bet down, the race does not run. Same settlement and backup-sweep pattern as roulette.
 - Runner art comes from the theme. Start with simple animals drawn in code.
 
+### Coin flip
+
+_(Decided by Tyton, Nov 19, 2026: the reference game stays on the Floor. Owner: foundation.)_
+
+- Call heads or tails and type a bet. One request takes the bet and flips the coin, which the server draws after the stake is taken.
+- A right call pays twice the bet less a 2% house edge (1.96x). The edge is config (`coinflip_edge_pct`).
+
 ## Steal, shields and vault
 
 Stealing is the comeback tool: it pays most when a low-ranked player robs a high-ranked one, and a daily cap protects whoever is being robbed. Shields are limited extras, not a daily bill.

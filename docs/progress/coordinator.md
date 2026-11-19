@@ -2,7 +2,7 @@
 
 Running status for the whole build. The coordinator owns this file; the Foundation thread keeps it current while Stage 1 runs.
 
-Last updated: 2026-11-18 09:35 UTC
+Last updated: 2026-11-19 17:55 UTC
 
 ## Stage
 
@@ -64,6 +64,7 @@ All three are needed for the exit check, the last step of Stage 1.
 | 2026-11-18 | **Work and crime in chat:** they never post in chat and only show the result to the player who pressed. The one exception: a crime payout at the top of its range (23 chips or more at current settings) posts a short line. The threshold is config (`crime_chat_min`, default 23). | Tyton |
 | 2026-11-18 | **Race odds change every race:** each race draws six runners from a larger pool of named runners with their own strengths, so the favorite and the long shot differ every time. The house edge stays 5% whatever the field. | Tyton |
 | 2026-11-18 | **Spec addition: GIFs in chat** (Social layer > GIFs in chat). A Klipy GIF picker with search, trending and quick categories; GIFs load straight from Klipy; the key stays on the server behind one rate-limited endpoint; only Klipy URLs accepted; GIF replies to system posts. Owner: **social** lane, on a test key while building. Foundation only adds the `gif` chat kind and reserves `KLIPY_API_KEY`. | Tyton |
+| 2026-11-19 | **Coin flip stays on the Floor** with a 2% house edge, so a right call pays 1.96x (`coinflip_edge_pct` 200, no longer provisional). Written into the Games section of `docs/SPEC.md`. | Tyton (decision card) |
 
 ### What Foundation builds for the additions
 
@@ -102,7 +103,7 @@ Provisional defaults with no number in the spec (the owning lane tunes them with
 
 ## Open questions
 
-- **For Tyton:** should the coin flip stay on the Floor, and with what house edge? Asked with a decision card on 2026-11-18; the Foundation thread recommends keeping it at 2%. It runs at 2% (`coinflip_edge_pct`, provisional) until he answers.
+- ~~**For Tyton:** should the coin flip stay on the Floor, and with what house edge?~~ Resolved by Tyton, see Decisions.
 - **For the economy lane:** "unlocks day 1" most likely means the first game day of the season. The lane should confirm with Tyton before building the unlock countdown.
 - ~~**For the economy lane:** what counts as an "unusually large" work or crime amount.~~ Resolved by Tyton, see Decisions.
 - ~~**For the race lane:** whether each runner's odds are fixed or drawn fresh for every race.~~ Resolved by Tyton, see Decisions. Still provisional: the 45/20/10-second split of the 75-second cycle.

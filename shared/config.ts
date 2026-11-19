@@ -441,7 +441,7 @@ export const CONFIG = {
     'games',
     200,
     'Coin flip house edge: a win pays twice the bet, less this share.',
-    { max: 2_000, provisional: true },
+    { max: 2_000 },
   ),
   roulette_betting_seconds: number(
     'games',
