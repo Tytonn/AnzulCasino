@@ -177,6 +177,7 @@ describe('POST /api/heist/steal: outcomes', () => {
     expect(res.status).toBe(200)
     expect(res.body.steal).toMatchObject({ outcome: 'blocked', amount: 0, fine: 0 })
     expect(res.body.immuneUntil).not.toBeNull()
+    expect(res.body.attemptsUsed).toBe(1)
     expect(await fx.wallet(thief.id)).toEqual({ balance: 5_000n, vault: 0n })
     expect(await fx.wallet(target.id)).toEqual(targetAfterShield)
 
@@ -500,9 +501,10 @@ describe('live news and hidden data', () => {
         'chat chat.message',
         'feed steal.result',
         `user:${target.id} shield.blocked`,
-        `user:${thief.id} heist.changed`,
       ]),
     )
+    // The feed tells the thief's other tabs; a refresh would land mid-reveal.
+    expect(names).not.toContain(`user:${thief.id} heist.changed`)
     const post = capture.events.find((e) => e.name === 'chat.message')
     expect((post?.envelope.data as { body: string }).body).toBe(
       `${target.name}'s shield blocked a steal by ${thief.name}.`,

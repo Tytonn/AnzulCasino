@@ -282,8 +282,8 @@ export async function attemptSteal(
         post,
         liveEvent('feed', 'steal.result', { ...view, immuneUntil }, row.id),
         ...news,
+        // The thief's other tabs learn of it from the feed, like everyone else.
         forTarget,
-        liveEvent(userChannel(thiefId), 'heist.changed', { what: 'steal' }, row.id),
       ]),
     )
 
@@ -298,6 +298,7 @@ export async function attemptSteal(
         version: after.version,
       },
       immuneUntil,
+      attemptsUsed: thiefDay.stealAttemptsUsed + 1,
     }
   })
 }

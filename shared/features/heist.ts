@@ -437,6 +437,8 @@ export interface StealResponse {
   wallet: WalletAfter
   /** The target's immunity it started, after a success or a block. */
   immuneUntil: string | null
+  /** The thief's attempts used today, this one included. */
+  attemptsUsed: number
 }
 
 /** POST /api/heist/shield */
@@ -499,6 +501,6 @@ declare module '../events.ts' {
     /** Someone tried to rob you, failed and paid you the fine. Version: the steal id. */
     'steal.foiled': StealFoiledEvent
     /** Your shields, attempts or vault changed in another tab: refetch the heist state. */
-    'heist.changed': { what: 'shield' | 'extra' | 'vault' | 'steal' }
+    'heist.changed': { what: 'shield' | 'extra' | 'vault' }
   }
 }
