@@ -28,7 +28,6 @@ import {
   whyNot,
 } from '../../../shared/games/blackjack.ts'
 import { chipCount } from '../../../shared/chips.ts'
-import type { ConfigValues } from '../../../shared/config.ts'
 import { ApiError, badRequest } from '../../lib/errors.ts'
 import { createApi, route } from '../../lib/http.ts'
 import {
@@ -46,12 +45,6 @@ import { commit, deal, dealtCards, drawFor, isOver, Shoe, standAll, type Table }
 export const blackjack = defineServerGame({ id: BLACKJACK, name: 'Blackjack' })
 
 type BlackjackRound = Round<BlackjackDetail, BlackjackSecret>
-
-/** The share of the wallet over which a bet gets the slow reveal (blackjack_slow_reveal_pct). */
-function slowRevealPct(config: ConfigValues): number {
-  const value = (config as Partial<Record<string, unknown>>).blackjack_slow_reveal_pct
-  return typeof value === 'number' ? value : 5_000
-}
 
 /** The round as the engine works on it. The detail is a copy, so the round stays as it was read. */
 function tableOf(round: BlackjackRound): Table {
@@ -122,7 +115,7 @@ export const blackjackRoutes = [
           round.stake,
           wallet.balance,
           round.allIn,
-          slowRevealPct(play.config),
+          play.config.blackjack_slow_reveal_pct,
         )
         // Draw late: the cards come out of a fresh shoe after the stake is down.
         const table = deal(round.stake, new Shoe(), { slowReveal })
@@ -168,7 +161,7 @@ export const blackjackRoutes = [
             round.stake + extra,
             wallet.balance - extra,
             wallet.balance === extra,
-            slowRevealPct(play.config),
+            play.config.blackjack_slow_reveal_pct,
           )
           // The extra stake goes down before the card that answers it is drawn.
           current = await play.raise(round, {
