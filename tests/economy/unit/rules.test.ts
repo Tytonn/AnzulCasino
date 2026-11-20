@@ -363,9 +363,28 @@ describe('chat drops', () => {
   it('lands between half and one and a half times the average apart', () => {
     expect(dropDelaySeconds(90, () => 0)).toBe(2_700)
     expect(dropDelaySeconds(90, (n) => n - 1)).toBe(8_100)
+
+    // Every possible draw once, in turn, so the average is exact. An average
+    // of real random draws misses by chance now and then (about 1 run in 150
+    // for 20,000 draws held to half a minute).
+    let next = 0
+    let span = 1
+    const inTurn = (n: number) => {
+      span = n
+      return next++
+    }
     let total = 0
-    for (let i = 0; i < 20_000; i++) total += dropDelaySeconds(90, randomBelow)
-    expect(total / 20_000 / 60).toBeCloseTo(90, 0)
+    do {
+      total += dropDelaySeconds(90, inTurn)
+    } while (next < span)
+    expect(total / span / 60).toBe(90)
+
+    // Real draws stay in that range.
+    for (let i = 0; i < 1_000; i++) {
+      const delay = dropDelaySeconds(90, randomBelow)
+      expect(delay).toBeGreaterThanOrEqual(2_700)
+      expect(delay).toBeLessThanOrEqual(8_100)
+    }
   })
 
   it('reads a drop back from its chat post', () => {
