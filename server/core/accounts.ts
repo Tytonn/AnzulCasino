@@ -15,6 +15,7 @@ import type {
   ResetInput,
   SignupInput,
 } from '../../shared/accounts.ts'
+import { isTestUsername } from '../../shared/test-accounts.ts'
 import type { Role } from '../../shared/users.ts'
 import { createSession, destroyAllSessions } from '../lib/auth.ts'
 import { db, rows } from '../lib/db.ts'
@@ -26,6 +27,7 @@ import { hit, peek } from '../lib/rate-limit.ts'
 import { publish, walletEvents } from '../lib/live.ts'
 import { joinSeason, startedSeason } from '../lib/seasons.ts'
 import { normalizeCode } from '../lib/rng.ts'
+import { ensureTestAccounts, refillTestAccounts } from './test-accounts.ts'
 
 const INVALID_INVITE = 'That invite code is not valid, or it was already used.'
 const LOGIN_FAILURES = { limit: 5, windowSeconds: 15 * 60 }
@@ -116,7 +118,19 @@ export async function signup(input: SignupInput): Promise<{ user: Me; token: str
   return { user: created.user, token: created.token }
 }
 
-export async function login(input: LoginInput): Promise<{ user: Me; token: string }> {
+export interface LoginOptions {
+  /**
+   * The test accounts work on this deploy (testAccountsOn in
+   * server/core/test-accounts.ts): signing in as one of them creates it if
+   * needed and fills its wallet. Off unless the route says so.
+   */
+  testAccounts?: boolean
+}
+
+export async function login(
+  input: LoginInput,
+  options: LoginOptions = {},
+): Promise<{ user: Me; token: string }> {
   const subject = input.username.toLowerCase()
   const failures = await peek(db(), 'login_failed', subject, LOGIN_FAILURES.windowSeconds)
   if (failures.count >= LOGIN_FAILURES.limit) {
@@ -126,6 +140,9 @@ export async function login(input: LoginInput): Promise<{ user: Me; token: strin
       failures.retryAfterSeconds,
     )
   }
+
+  const testAccount = options.testAccounts === true && isTestUsername(subject)
+  if (testAccount) await ensureTestAccounts()
 
   const [user] = await db()
     .select()
@@ -137,6 +154,13 @@ export async function login(input: LoginInput): Promise<{ user: Me; token: strin
     throw new ApiError(400, 'bad_credentials', 'Wrong username or password.')
   }
   if (user.disabledAt) throw forbidden('This account is disabled. Ask the admin about it.')
+
+  if (testAccount) {
+    // Chips for trying things. A failure here must not lock the tester out.
+    await refillTestAccounts(user.id).catch((error: unknown) =>
+      console.error('[accounts] filling the test accounts failed', error),
+    )
+  }
 
   const token = await createSession(db(), user.id)
   return { user: toMe(user), token }

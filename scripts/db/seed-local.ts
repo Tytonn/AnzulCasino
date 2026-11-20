@@ -6,6 +6,7 @@
  * is not on this machine.
  */
 import { closeDb } from '../../server/lib/db.ts'
+import { TEST_ACCOUNTS, TEST_PASSWORD } from '../../shared/test-accounts.ts'
 import { assertLocalUrl, loadDotEnv, migrate } from './local.ts'
 import { SEED_PASSWORD, SEED_PLAYERS } from './sample-players.ts'
 import { seed } from './seed.ts'
@@ -33,5 +34,8 @@ console.log(
     : `"${result.season.name}" is already running.`,
 )
 console.log(
-  `Log in as ${SEED_PLAYERS.map((p) => p.username).join(', ')} with the password ${SEED_PASSWORD}.`,
+  `Log in as ${SEED_PLAYERS.map((p) => p.username).join(', ')} with the password ${SEED_PASSWORD},`,
+)
+console.log(
+  `or as ${TEST_ACCOUNTS.map((a) => a.username).join(' or ')} with the password ${TEST_PASSWORD} (made on the first sign-in).`,
 )

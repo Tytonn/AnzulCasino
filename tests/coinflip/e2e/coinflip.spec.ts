@@ -96,21 +96,29 @@ test('two players flip and watch each other live', async ({ browser }, testInfo)
       won ? `won ${formatChips(96)}` : `lost ${formatChips(100)}`,
     )
     const netWorth = formatChips(result.wallet.balance + result.wallet.vault)
-    const board = phone
-      ? await (async () => {
-          await bob.page
-            .getByRole('navigation', { name: 'Main' })
-            .getByRole('button', { name: 'Leaderboard' })
-            .click()
-          return bob.page.getByRole('dialog', { name: 'Leaderboard' })
-        })()
-      : bob.page.getByRole('region', { name: 'Leaderboard' })
-    await expect(board.getByRole('button', { name: /Alice/ }).first()).toContainText(netWorth)
-    if (phone)
+    if (phone) {
+      // The phone's leaderboard sheet has every player.
       await bob.page
-        .getByRole('dialog', { name: 'Leaderboard' })
-        .getByRole('button', { name: 'Close' })
+        .getByRole('navigation', { name: 'Main' })
+        .getByRole('button', { name: 'Leaderboard' })
         .click()
+      const sheet = bob.page.getByRole('dialog', { name: 'Leaderboard' })
+      await expect(sheet.getByRole('button', { name: /Alice/ }).first()).toContainText(netWorth)
+      await sheet.getByRole('button', { name: 'Close' }).click()
+      return
+    }
+    // The sidebar's board has five rows, and the last one is Bob's own when
+    // he is below them. A preview can hold more players than that (the test
+    // accounts, or after launch a copy of the real ones), so there Alice may
+    // be off it: her row, if it is on the board, has caught up.
+    const board = bob.page.getByRole('region', { name: 'Leaderboard' })
+    const alicesRow = board.getByRole('button', { name: /Alice/ })
+    await expect(board.getByRole('button', { name: /Bob/ })).toBeVisible()
+    if (await board.getByRole('link', { name: /^See all/ }).isVisible()) {
+      await expect(alicesRow.filter({ hasNotText: netWorth })).toHaveCount(0)
+    } else {
+      await expect(alicesRow.first()).toContainText(netWorth)
+    }
   })
 
   await test.step('Bob flips, and Alice watches his coin', async () => {

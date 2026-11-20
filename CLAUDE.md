@@ -63,3 +63,4 @@ Copied from `docs/SPEC.md`. They apply to every line of code in every lane.
 - **Theme tokens only.** Components use the token classes and variables from `src/theme/`. Tailwind's own palette is switched off, and `npm run lint` fails on raw colors outside `src/theme/`.
 - **Keep the database asleep.** Netlify bills the database for every hour it is awake. No browser polling, no scheduled function that touches the database more than once a day, and live news goes through Ably, which never wakes the database.
 - **Production deploys cost credits.** Work in deploy previews. Only Tyton merges to `main`.
+- **Test accounts.** On deploy previews and locally, `test` and `test2` sign in with the password `test`, with a running season and 1,000 chips (`docs/LANE_GUIDE.md`, Test accounts). Give Tyton these to try a preview. Production deploys never have them.
