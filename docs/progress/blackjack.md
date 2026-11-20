@@ -1,6 +1,6 @@
 # Blackjack (Stage 2)
 
-Branch `claude/project-thread-7e0vog` (this thread can only push to that branch, so not `lane/blackjack`), pull request #4. Last updated 2026-11-19 by the Blackjack thread.
+Branch `claude/project-thread-7e0vog` (this thread can only push to that branch, so not `lane/blackjack`), pull request #4. Last updated 2026-11-20 by the Blackjack thread.
 
 ## Done
 
@@ -11,7 +11,8 @@ Branch `claude/project-thread-7e0vog` (this thread can only push to that branch,
 - **Tests**: rules and payouts for every outcome (`tests/blackjack/unit/rules.test.ts`), 4 million hands of basic strategy against the expected edge (`edge.test.ts`, about 12 s), the deal order, slow-reveal steps and timings (`timeline.test.ts`), the table layout (`layout.test.ts`), the endpoints against a real database with a stacked shoe (`tests/blackjack/integration`), and two players in real browsers at 1440 and 375 (`tests/blackjack/e2e`).
 - **House edge**: 0.461% ± 0.018% over 40 million hands of basic strategy, which matches the published figure for these rules (about 0.46%). The test checks 4 million hands within 4.5 standard errors.
 - **Deploy preview**: the browser tests passed against https://deploy-preview-4--playanzul.netlify.app (alice and bob, at 1440 and 375), after the preview setup signed up the sample players and started a season.
-- **Merged with `main`** after shared changes batch 3 and the Heist, Roulette and Economy lanes (2026-11-19): typecheck, lint, 541 unit and integration tests and all 33 browser tests pass locally, CI passes, and the browser tests pass again on the deploy preview (30 passed; 4 skip there by design: they need the local database or only run once).
+- **Merged with `main`** after shared changes batches 3 to 5 and the Heist, Roulette and Economy lanes with their follow-ups (#9, #10, #13), on 2026-11-19: typecheck, lint and 553 unit and integration tests pass, the browser suite passes locally (35 passed, 1 skipped by design), CI passes, and the browser tests pass on the deploy preview (30 passed; 6 skip there by design: the chat drop needs the local database, the live test runs only on the dev server, and the steal test skips once an earlier run that day has used the attempts).
+- **Laptop fit after batch 5**: the top bar keeps one 64px line again, so the room needs no scrolling and the cards are back to their full size: 52px at 1366×768, 63px at 1280×800 (the bar's tight fit) and 88px at 1440×900. Under batch 4 alone, they had shrunk to 44px at the first two sizes.
 
 ## Not done
 
@@ -28,6 +29,7 @@ Branch `claude/project-thread-7e0vog` (this thread can only push to that branch,
 - The dealer check under an ace or a ten takes the same time whatever is under it, so the pause gives nothing away.
 - Other seats wait for `revealMs(round)` before they show a result, so nobody sees it before the player does; a deal adds the sweep time to stay on the safe side.
 - No migrations: everything lives in `game_rounds.detail` and `secret`.
+- The move keys (H, S, D, P) stay registered between hands, and `act()` ignores them while no hand is open. Registered only once a hand was dealt, the listener arrived a moment after the buttons showed, so a key pressed in that moment was lost. A browser test caught it once under load; pressing S the instant Stand appears reproduced it every time, and the fix passed every time.
 - The integration tests replace the shoe with a stacked one (`vi.mock` of the rules module) to deal exact cards; everything else runs for real.
 
 ## Open questions
