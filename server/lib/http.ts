@@ -44,6 +44,12 @@ export interface RouteContext<I, A extends Auth> {
   idempotencyKey: string | null
   ip: string
   /**
+   * Which deploy is answering: Netlify's context, such as `production`,
+   * `deploy-preview` or `dev`, and whether it is the published one. Null
+   * where the caller gives none, such as some tests.
+   */
+  deploy: { context: string; id: string; published: boolean } | null
+  /**
    * The database's clock when the session was checked (spec rule 8). On
    * public routes, the server's clock. Compare deadlines in SQL with now().
    */
@@ -240,6 +246,7 @@ export function createApi(routes: AnyRoute[]) {
         action: bucket,
         idempotencyKey,
         ip,
+        deploy: context.deploy ?? null,
         now,
         waitUntil: (promise) => context.waitUntil(promise.catch((e) => console.error(e))),
         setCookie: (value) => headers.append('set-cookie', value),

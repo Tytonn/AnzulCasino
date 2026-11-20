@@ -38,6 +38,7 @@ import { login, redeemReset, signup, updateProfile } from './accounts.ts'
 import { chatPage, deleteChat, sendChat } from './chat.ts'
 import { createCode, listCodes } from './invites.ts'
 import { listPlayers, tickerItems } from './players.ts'
+import { testAccountsOn } from './test-accounts.ts'
 
 /** Seasons as the API sends them, with their phase at `now` (database time). */
 async function seasonViews(now: Date) {
@@ -71,8 +72,8 @@ export const coreRoutes = [
     auth: 'public',
     input: LoginInput,
     limit: { limit: 30, windowSeconds: FIFTEEN_MINUTES },
-    async run({ input, setCookie }) {
-      const { user, token } = await login(input)
+    async run({ input, deploy, setCookie }) {
+      const { user, token } = await login(input, { testAccounts: testAccountsOn(deploy) })
       setCookie(sessionCookie(token))
       return { user }
     },

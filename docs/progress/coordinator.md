@@ -76,6 +76,7 @@ All done on 2026-11-19.
 | 2026-11-18 | **Race odds change every race:** each race draws six runners from a larger pool of named runners with their own strengths, so the favorite and the long shot differ every time. The house edge stays 5% whatever the field. | Tyton |
 | 2026-11-18 | **Spec addition: GIFs in chat** (Social layer > GIFs in chat). A Klipy GIF picker with search, trending and quick categories; GIFs load straight from Klipy; the key stays on the server behind one rate-limited endpoint; only Klipy URLs accepted; GIF replies to system posts. Owner: **social** lane, on a test key while building. Foundation only adds the `gif` chat kind and reserves `KLIPY_API_KEY`. | Tyton |
 | 2026-11-19 | **Coin flip stays on the Floor** with a 2% house edge, so a right call pays 1.96x (`coinflip_edge_pct` 200, no longer provisional). Written into the Games section of `docs/SPEC.md`. | Tyton (decision card) |
+| 2026-11-20 | **Test accounts** for trying previews: `test` and `test2`, password `test`, on deploy previews, branch deploys and locally, never on a production deploy. Signing in fills the wallet back up to 1,000 chips and starts a test season if none is running (`docs/LANE_GUIDE.md`, Test accounts). Threads give Tyton these instead of the sample players' preview password. | Tyton (asked for an easy test login) |
 
 ### What Foundation builds for the additions
 

@@ -119,13 +119,18 @@ test('a steal plays out for the thief, and the target sees it as it lands', asyn
     await snap(page, LANE, 'panel-defend', testInfo)
     await panel.getByRole('tab', { name: /^Rob/ }).click()
 
-    // The first player this thief can rob right now, once the list is in.
+    // The first sample player this thief can rob right now, once the list is
+    // in. A preview can hold other players too, such as the test accounts.
     await expect(panel.getByRole('button', { name: /^Rob / }).first()).toBeVisible()
     const robbable = panel.getByRole('button', { name: /^Rob / }).and(page.locator(':enabled'))
     const { me } = await heistState(page)
-    if (me.attemptsUsed >= me.attemptsAllowed || (await robbable.count()) === 0) return null
-    const label = (await robbable.first().getAttribute('aria-label')) ?? ''
-    return label.replace(/^Rob /, '')
+    if (me.attemptsUsed >= me.attemptsAllowed) return null
+    const names = (
+      await robbable.evaluateAll((buttons) =>
+        buttons.map((b) => b.getAttribute('aria-label') ?? ''),
+      )
+    ).map((label) => label.replace(/^Rob /, ''))
+    return names.find((name) => SEED_PLAYERS.some((p) => p.displayName === name)) ?? null
   })
   test.skip(
     targetName === null,
