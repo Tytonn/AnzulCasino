@@ -26,6 +26,7 @@ Last updated: 2026-11-19 23:50 UTC
 - 2026-11-19: shared changes batch 2 (pull request #7, `f04f2ce`), merged by Tyton. CI passed on `main`, and the four open lanes were told to pull it.
 - 2026-11-19: shared changes batch 3 (pull request #8, `b07c2cc`), then Heist (#3, `1652b07`), Roulette (#5, `bfb6fec`) and Economy (#6, `448ee3b`), merged by Tyton. CI passed on `main` at `448ee3b`.
 - 2026-11-19: shared changes batch 4 (pull request #11, `d8026cf`), after CI and the preview's browser tests passed.
+- 2026-11-20: test accounts for trying previews (pull request #15), merged by its thread after CI and the preview's browser tests passed. The coin flip browser test no longer expects Alice in a crowded sidebar board.
 
 ## Netlify
 
