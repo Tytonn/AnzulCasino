@@ -7,7 +7,10 @@
  * production when it is first built) and local development. Production
  * deploys, published or not, use the live database, so there they are off
  * and those usernames are ordinary ones: signing in as `test` there needs
- * that account's own password, like any other, and creates nothing.
+ * that account's own password, like any other, and creates nothing. On a
+ * production deploy opened by its own link (a build of `main` before it is
+ * published), a failed sign-in as one of them says the test accounts only
+ * work on deploy previews; the live site only says the password is wrong.
  *
  * Where they are on, signing in as either one:
  * - creates both if they are missing, with the test password;
@@ -25,6 +28,7 @@ import { seasonPhase } from '../../shared/seasons.ts'
 import { TEST_ACCOUNTS, TEST_BALANCE, TEST_PASSWORD } from '../../shared/test-accounts.ts'
 import { loadConfig } from '../lib/config.ts'
 import { db, dbNow, type Tx } from '../lib/db.ts'
+import type { DeployInfo } from '../lib/deploy.ts'
 import { type Outgoing, publish, walletEvents } from '../lib/live.ts'
 import { hashPassword } from '../lib/passwords.ts'
 import {
@@ -36,13 +40,6 @@ import {
   startedSeason,
 } from '../lib/seasons.ts'
 import { credit, lockWallet } from '../lib/wallet.ts'
-
-/** Netlify's `context.deploy`: which deploy is answering the request. */
-export interface DeployInfo {
-  context: string
-  id: string
-  published: boolean
-}
 
 /** Deploy contexts whose database is a copy, never the live one. */
 const COPY_CONTEXTS = new Set(['deploy-preview', 'branch-deploy', 'dev'])

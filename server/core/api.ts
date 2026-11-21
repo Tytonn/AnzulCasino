@@ -20,6 +20,7 @@ import { ChatListInput, ChatSendInput } from '../../shared/chat.ts'
 import { CreateSeasonInput, type SeasonView } from '../../shared/seasons.ts'
 import { loadConfig } from '../lib/config.ts'
 import { db } from '../lib/db.ts'
+import { isUnpublishedProduction } from '../lib/deploy.ts'
 import { badRequest } from '../lib/errors.ts'
 import { createApi, route } from '../lib/http.ts'
 import { chipTransaction } from '../lib/idempotency.ts'
@@ -73,7 +74,10 @@ export const coreRoutes = [
     input: LoginInput,
     limit: { limit: 30, windowSeconds: FIFTEEN_MINUTES },
     async run({ input, deploy, setCookie }) {
-      const { user, token } = await login(input, { testAccounts: testAccountsOn(deploy) })
+      const { user, token } = await login(input, {
+        testAccounts: testAccountsOn(deploy),
+        testAccountsHint: isUnpublishedProduction(deploy),
+      })
       setCookie(sessionCookie(token))
       return { user }
     },

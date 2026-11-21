@@ -21,11 +21,13 @@ import {
   type SessionUser,
   sessionCookie,
 } from './auth.ts'
-import { db } from './db.ts'
+import { db, NoDatabaseError } from './db.ts'
+import { type DeployInfo, isUnpublishedProduction } from './deploy.ts'
 import { ApiError, badRequest, forbidden, unauthorized } from './errors.ts'
 import { IDEMPOTENCY_HEADER, IDEMPOTENCY_KEY_PATTERN, sweepOldKeys } from './idempotency.ts'
 import { toJson } from './json.ts'
 import { setDeployContext } from './live.ts'
+import { isMissingSchema } from './pg-errors.ts'
 import { enforce, type Limit, sweepOldWindows } from './rate-limit.ts'
 
 export type Method = 'GET' | 'POST' | 'PATCH' | 'DELETE'
@@ -48,7 +50,7 @@ export interface RouteContext<I, A extends Auth> {
    * `deploy-preview` or `dev`, and whether it is the published one. Null
    * where the caller gives none, such as some tests.
    */
-  deploy: { context: string; id: string; published: boolean } | null
+  deploy: DeployInfo | null
   /**
    * The database's clock when the session was checked (spec rule 8). On
    * public routes, the server's clock. Compare deadlines in SQL with now().
@@ -87,6 +89,20 @@ export function route<I = undefined, A extends Auth = Auth>(definition: Route<I,
 const DEFAULT_USER_LIMIT: Limit = { limit: 120, windowSeconds: 60 }
 const DEFAULT_PUBLIC_LIMIT: Limit = { limit: 30, windowSeconds: 60 }
 const MAX_BODY_BYTES = 32 * 1024
+
+/**
+ * What a production deploy opened by its own link says when the live
+ * database lacks what its code needs (server/lib/deploy.ts): Netlify applies
+ * its migrations only when it is published. Anywhere else a missing table is
+ * a bug, and the player sees the usual server error.
+ */
+const NOT_PUBLISHED_MESSAGE =
+  'This deploy is not published, and its database is set up only when it is. To try the site, open a deploy preview.'
+
+/** The database has not caught up with this deploy: none is set up, or a migration is missing. */
+function databaseNotReady(error: unknown): boolean {
+  return error instanceof NoDatabaseError || isMissingSchema(error)
+}
 
 function match(pattern: string, pathname: string): Record<string, string> | null {
   const a = pattern.split('/')
@@ -259,6 +275,12 @@ export function createApi(routes: AnyRoute[]) {
     } catch (error) {
       if (error instanceof ApiError) return errorResponse(error, headers)
       console.error(`[api] ${bucket} failed`, error)
+      if (isUnpublishedProduction(context.deploy) && databaseNotReady(error)) {
+        return errorResponse(
+          new ApiError(503, 'deploy_not_published', NOT_PUBLISHED_MESSAGE),
+          headers,
+        )
+      }
       return errorResponse(
         new ApiError(
           500,
