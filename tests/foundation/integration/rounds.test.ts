@@ -291,8 +291,8 @@ describe('starting a round', () => {
     const small = await client.post('/api/testdice/instant', { bet: '0.025k', times: 100 }, key())
     expect(small.body.round.stake).toBe(25)
     // Chips are whole, so a typed point rounds down.
-    const point = await client.post('/api/testdice/instant', { bet: '2.9', times: 100 }, key())
-    expect(point.body.round.stake).toBe(2)
+    const point = await client.post('/api/testdice/instant', { bet: '12.9', times: 100 }, key())
+    expect(point.body.round.stake).toBe(12)
     const all = await client.post('/api/testdice/instant', { bet: 'all', times: 0 }, key())
     expect(all.body.round).toMatchObject({ stake: 50, allIn: true, bigBet: true })
     expect((await wallet(id)).balance).toBe(0n)
@@ -302,9 +302,10 @@ describe('starting a round', () => {
     const { id, client } = await player(100n)
     const tries: [string, string][] = [
       ['lots', '"lots" is not an amount. Try 50, 2.5k, half or all.'],
-      ['0.5', 'The smallest bet is 1.'],
+      ['0.5', 'The smallest bet is 10.'],
+      ['9.9', 'The smallest bet is 10.'],
       ['101', 'You only have 100 chips.'],
-      ['0', 'The smallest bet is 1.'],
+      ['0', 'The smallest bet is 10.'],
     ]
     for (const [bet, message] of tries) {
       const res = await client.post('/api/testdice/start', { bet }, key())
@@ -642,9 +643,9 @@ describe('the room', () => {
   it("shows each player's latest round, open or just finished, and no secrets", async () => {
     const a = await player(100n)
     const b = await player(100n)
-    await a.client.post('/api/testdice/instant', { bet: '5', times: 200 }, key())
-    const latest = await a.client.post('/api/testdice/start', { bet: '7' }, key())
-    const done = await b.client.post('/api/testdice/instant', { bet: '3', times: 0 }, key())
+    await a.client.post('/api/testdice/instant', { bet: '50', times: 200 }, key())
+    const latest = await a.client.post('/api/testdice/start', { bet: '70' }, key())
+    const done = await b.client.post('/api/testdice/instant', { bet: '30', times: 0 }, key())
     const room = await a.client.get('/api/testdice/room')
     expect(room.status).toBe(200)
     const mine = room.body.rounds.filter((r: { userId: string }) => [a.id, b.id].includes(r.userId))

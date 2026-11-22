@@ -79,7 +79,7 @@ describe('creating seasons', () => {
     expect(res.status, JSON.stringify(res.body)).toBe(200)
     expect(res.body.season).toMatchObject({
       name: 'Season 2',
-      startingBalance: 100,
+      startingBalance: 1_000,
       status: 'scheduled',
       phase: 'upcoming',
     })
@@ -147,7 +147,7 @@ describe('starting a season', () => {
 
     for (const id of [adminId, alice, bob]) {
       expect(await readWallet(db(), season.id, id)).toMatchObject({
-        balance: chips(100),
+        balance: chips(1_000),
         vault: 0n,
       })
     }
@@ -175,7 +175,7 @@ describe('starting a season', () => {
     })
     expect(signup.status).toBe(200)
     expect(await readWallet(db(), runningId, signup.body.user.id)).toMatchObject({
-      balance: chips(100),
+      balance: chips(1_000),
     })
   })
 
@@ -187,7 +187,7 @@ describe('starting a season', () => {
     expect(res.body).toMatchObject({
       current: { id: runningId, name: 'Season 1', status: 'active', phase: 'open' },
       next: { name: 'Season 2', phase: 'upcoming' },
-      wallet: { balance: 100, vault: 0, tier: 'base' },
+      wallet: { balance: 1_000, vault: 0, tier: 'base' },
     })
     // Loading again changes nothing.
     await client.get('/api/season')
@@ -265,28 +265,28 @@ describe('the leaderboard', () => {
     // Keep the ledger honest after moving chips by hand.
     await testDb.query(
       `insert into ledger (season_id, user_id, account, delta, balance_after, reason)
-       values ($1, $2, 'wallet', -20, 85, 'vault_deposit'), ($1, $2, 'vault', 20, 20, 'vault_deposit')`,
+       values ($1, $2, 'wallet', -20, 985, 'vault_deposit'), ($1, $2, 'vault', 20, 20, 'vault_deposit')`,
       [runningId, id('alice')],
     )
 
     const board = await standings(db(), runningId)
-    // Bob and Alice both have 105; Bob reached it first. The vault counts.
+    // Bob and Alice both have 1,005; Bob reached it first. The vault counts.
     expect(board.slice(0, 2).map((s) => [s.rank, s.username, s.netWorth])).toEqual([
-      [1, 'bob', 105n],
-      [2, 'alice', 105n],
+      [1, 'bob', 1_005n],
+      [2, 'alice', 1_005n],
     ])
     expect(board.find((s) => s.username === 'alice')).toMatchObject({
-      balance: 85n,
+      balance: 985n,
       vault: 20n,
     })
-    // Everyone else is level on 100, and the ones who started together share a rank.
+    // Everyone else is level on 1,000, and the ones who started together share a rank.
     expect(board.find((s) => s.username === 'Tyton')?.rank).toBe(3)
     expect(board.some((s) => s.username === 'gone')).toBe(false)
 
     const client = await loggedIn(coreApi, adminId)
     const res = await client.get('/api/leaderboard')
     expect(res.body.seasonId).toBe(runningId)
-    expect(res.body.standings[0]).toMatchObject({ rank: 1, username: 'bob', netWorth: 105 })
+    expect(res.body.standings[0]).toMatchObject({ rank: 1, username: 'bob', netWorth: 1_005 })
     expect(await ledgerMismatches(db(), runningId)).toEqual([])
   })
 })

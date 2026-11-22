@@ -336,7 +336,7 @@ describe('POST /api/heist/steal: who can be robbed', () => {
   it('refuses yourself, unknown players, players under the floor and immune players, using no attempt', async () => {
     await fx.setConfig('steal_success_pct', ALWAYS)
     const thief = await fx.player(5_000)
-    const poor = await fx.player(24)
+    const poor = await fx.player(249)
     const rich = await fx.player(50_000)
     const other = await fx.player(6_000)
 
@@ -354,7 +354,7 @@ describe('POST /api/heist/steal: who can be robbed', () => {
     const floor = await steal(thief, poor)
     expect(floor.status).toBe(409)
     expect(floor.body.error.code).toBe('steal_floor')
-    expect(floor.body.error.message).toMatch(/under 25 chips net worth/)
+    expect(floor.body.error.message).toMatch(/under 250 chips net worth/)
 
     expect((await steal(other, rich)).status).toBe(200)
     const immune = await steal(thief, rich)
@@ -367,7 +367,9 @@ describe('POST /api/heist/steal: who can be robbed', () => {
 
   it('refuses a steal that would take less than a whole chip, using no attempt', async () => {
     await fx.setConfig('steal_success_pct', ALWAYS)
-    // Ranked above the thief, so the 0.5% down rate: under a chip of 150.
+    // Under a floor lowered to 100 and ranked below the thief, so the 0.5% down
+    // rate: under a chip of 150.
+    await fx.setConfig('steal_floor', 100)
     const thief = await fx.player(5_000)
     const small = await fx.player(150)
     const res = await steal(thief, small)

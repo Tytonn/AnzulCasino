@@ -39,18 +39,20 @@ describe('config defaults', () => {
     }
   })
 
-  it('use the spec values after the 1/100 rebalance', () => {
-    expect(defaults.starting_balance).toBe(chips(100))
-    expect(defaults.min_bet).toBe(chips(1))
-    expect(defaults.streak_step).toBe(chips(1))
-    expect(defaults.streak_max).toBe(chips(10))
+  it('use the spec values at the 1,000-chip scale', () => {
+    expect(defaults.starting_balance).toBe(chips(1_000))
+    expect(defaults.min_bet).toBe(chips(10))
+    expect(defaults.streak_step).toBe(chips(10))
+    expect(defaults.streak_max).toBe(chips(100))
     expect([defaults.challenge_reward_min, defaults.challenge_reward_max]).toEqual([
-      chips(2),
-      chips(4),
+      chips(20),
+      chips(40),
     ])
-    expect(defaults.steal_floor).toBe(chips(25))
-    expect(defaults.shield_price_min).toBe(chips(3))
-    expect(defaults.tier_base_income).toBe(chips(5))
+    expect(defaults.steal_floor).toBe(chips(250))
+    expect(defaults.shield_price_min).toBe(chips(30))
+    expect(defaults.extra_steal_price_min).toBe(chips(30))
+    expect(defaults.chat_drop_pot).toBe(chips(100))
+    expect(defaults.tier_base_income).toBe(chips(50))
   })
 
   it('keep the spec percentages, in basis points', () => {
@@ -75,17 +77,17 @@ describe('config defaults', () => {
 
   it("use Tyton's final work, third command and crime values, with no rebuy", () => {
     expect(defaults.work_cooldown_minutes).toBe(5)
-    expect([defaults.work_pay_min, defaults.work_pay_max]).toEqual([chips(2), chips(6)])
+    expect([defaults.work_pay_min, defaults.work_pay_max]).toEqual([chips(20), chips(60)])
     expect(defaults.hustle_cooldown_minutes).toBe(60)
     expect(defaults.hustle_success_pct).toBe(6_500)
-    expect([defaults.hustle_pay_min, defaults.hustle_pay_max]).toEqual([chips(20), chips(50)])
-    expect([defaults.hustle_fine_min, defaults.hustle_fine_max]).toEqual([chips(5), chips(15)])
+    expect([defaults.hustle_pay_min, defaults.hustle_pay_max]).toEqual([chips(200), chips(500)])
+    expect([defaults.hustle_fine_min, defaults.hustle_fine_max]).toEqual([chips(50), chips(150)])
     expect(defaults.hustle_name).toBe('Slut')
     expect(defaults.crime_cooldown_minutes).toBe(120)
     expect(defaults.crime_success_pct).toBe(4_500)
-    expect([defaults.crime_pay_min, defaults.crime_pay_max]).toEqual([chips(60), chips(150)])
-    expect([defaults.crime_fine_min, defaults.crime_fine_max]).toEqual([chips(10), chips(30)])
-    expect(defaults.crime_chat_min, 'the top of the crime range').toBe(chips(140))
+    expect([defaults.crime_pay_min, defaults.crime_pay_max]).toEqual([chips(600), chips(1_500)])
+    expect([defaults.crime_fine_min, defaults.crime_fine_max]).toEqual([chips(100), chips(300)])
+    expect(defaults.crime_chat_min, 'the top of the crime range').toBe(chips(1_400))
     expect(CONFIG_KEYS.filter((key) => key.includes('rebuy'))).toEqual([])
   })
 
@@ -138,20 +140,20 @@ describe('config defaults', () => {
   })
 
   it('give every rank its price, income and unlock day', () => {
-    expect(tierSettings(defaults, 'base')).toEqual({ price: 0n, income: chips(5), unlockDay: 0 })
+    expect(tierSettings(defaults, 'base')).toEqual({ price: 0n, income: chips(50), unlockDay: 0 })
     expect(tierSettings(defaults, 'bronze')).toEqual({
-      price: chips(150),
-      income: chips(15),
+      price: chips(1_500),
+      income: chips(150),
       unlockDay: 1,
     })
     expect(tierSettings(defaults, 'silver')).toEqual({
-      price: chips(1_000),
-      income: chips(100),
+      price: chips(10_000),
+      income: chips(1_000),
       unlockDay: 3,
     })
     expect(tierSettings(defaults, 'crown')).toEqual({
-      price: chips(10_000_000),
-      income: chips(1_000_000),
+      price: chips(100_000_000),
+      income: chips(10_000_000),
       unlockDay: 18,
     })
   })

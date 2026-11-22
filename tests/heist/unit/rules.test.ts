@@ -125,19 +125,19 @@ describe('the daily loss cap and the take', () => {
 })
 
 describe('prices', () => {
-  it('charges 2% of the wallet for a shield charge, at least 3 chips', () => {
-    expect(shieldPrice(chips(1_000), cfg)).toBe(chips(20))
-    expect(shieldPrice(chips(150), cfg)).toBe(chips(3))
-    expect(shieldPrice(chips(100), cfg)).toBe(chips(3))
-    expect(shieldPrice(0n, cfg)).toBe(chips(3))
-    // 2% of 199 is 3.98, rounded down to the 3 minimum; 2% of 12,345 is 246.9.
-    expect(shieldPrice(chips(199), cfg)).toBe(chips(3))
+  it('charges 2% of the wallet for a shield charge, at least 30 chips', () => {
+    expect(shieldPrice(chips(10_000), cfg)).toBe(chips(200))
+    expect(shieldPrice(chips(1_500), cfg)).toBe(chips(30))
+    expect(shieldPrice(chips(1_000), cfg)).toBe(chips(30))
+    expect(shieldPrice(0n, cfg)).toBe(chips(30))
+    // 2% of 1,549 is 30.98, rounded down to the 30 minimum; 2% of 12,345 is 246.9.
+    expect(shieldPrice(chips(1_549), cfg)).toBe(chips(30))
     expect(shieldPrice(chips(12_345), cfg)).toBe(chips(246))
   })
 
   it('prices the extra steal attempt the same way from its own settings', () => {
-    expect(extraAttemptPrice(chips(1_000), cfg)).toBe(chips(20))
-    expect(extraAttemptPrice(chips(10), cfg)).toBe(chips(3))
+    expect(extraAttemptPrice(chips(10_000), cfg)).toBe(chips(200))
+    expect(extraAttemptPrice(chips(100), cfg)).toBe(chips(30))
     expect(
       extraAttemptPrice(chips(1_000), {
         extra_steal_price_pct: 500,
@@ -248,7 +248,7 @@ describe('who can be robbed', () => {
       [{ attemptsLeft: 0 }, 'no_attempts'],
       [{ triedToday: true }, 'tried'],
       [{ immuneUntil: now + 60_000 }, 'immune'],
-      [{ target: { id: 'target', rank: 1, balance: chips(24), netWorth: chips(24) } }, 'floor'],
+      [{ target: { id: 'target', rank: 1, balance: chips(249), netWorth: chips(249) } }, 'floor'],
       [{ capLeft: 0n }, 'cap'],
       [{ target: { id: 'target', rank: 1, balance: 0n, netWorth: chips(500) } }, 'empty'],
     ]
@@ -263,13 +263,13 @@ describe('who can be robbed', () => {
   })
 
   it('counts the floor on net worth, so chips in the vault keep a player robbable', () => {
-    // 20 in the wallet is under the floor of 25, but 30 in all is not. At 10%
-    // (the default rates take under a chip of 20) a success takes 2.
-    const vaulted = { id: 'target', rank: 1, balance: chips(20), netWorth: chips(30) }
+    // 200 in the wallet is under the floor of 250, but 300 in all is not. At 10%
+    // a success takes 20.
+    const vaulted = { id: 'target', rank: 1, balance: chips(200), netWorth: chips(300) }
     const rates = { ...cfg, steal_base_rate: 1_000, steal_per_rank: 0, steal_max_rate: 1_000 }
     expect(checkTarget(facts({ target: vaulted, cfg: rates }))).toMatchObject({
       ok: true,
-      amount: chips(2),
+      amount: chips(20),
     })
   })
 

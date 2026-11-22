@@ -40,25 +40,25 @@ Branch `claude/project-thread-gh6sj0`. Spec: Steal, shields and vault, Shop, and
 
 ## Season simulation (1,000 seasons, seed 1, config defaults)
 
-_Rerun on 2026-11-22 with whole chips (first run 2026-11-19 in hundredths). Little moved. Payouts round down to a whole chip, so small bets pay a little less (a 10-chip coin flip win pays 19, not 19.6) and a little less is won at the tables; rank income now carries the part of a chip still building, like the site._
+_Rerun on 2026-11-22 at Tyton's 1,000-chip scale (every chip amount ten times the 100-chip values, percentages unchanged). Earlier runs: 2026-11-19 in hundredths, and 2026-11-22 in whole chips at the 100 start. The ratios held: amounts are about ten times larger and the shares moved by a point or two, mostly because bets and payouts lose less to rounding at the larger scale._
 
 Ten bots: two steady grinders (small bets, vault, shields while top three), two all-in gamblers (15% of games all in), two constant thieves (every attempt plus the extra), a leader who stops logging in (gone once first on day 7 or later, or on day 12), a casual player, and two identical steady players of whom one buys every rank as early as possible and one never buys. About 2,000 games each a season (78 a day online), the three income buttons pressed whenever ready while online.
 
 | Question | Result |
 | --- | --- |
-| The leader on day 20 wins the season | 52.4% |
-| A week's leader loses to steals that week | average 8.9%, 95th percentile 19.0%, worst 24.9% (robbed to the cap every day is 24.9%) |
-| A successful steal for a bottom-half player | median 54% of their net worth (middle half 16% to 210%: they are often nearly broke after an all-in) |
-| Steals against the tables | 5,359 chips moved by steals a season against 1.18M won and lost at the tables: 0.5%. Gambling stays far bigger |
-| Chip supply (median, end of day) | day 1: 1.7K, day 7: 3.7K, day 14: 6.1K, day 21: 7.9K, day 28: 9.7K, day 30: 10.3K |
-| Bonuses against winnings in week four | 39.3K paid in (rank income 21.4K, buttons 16.7K, streak and challenges 0.8K, drops 0.4K) against 170K won at the tables: 23%. Bonuses do not swamp winnings |
-| Where chips come from | work, slut and crime 58%, rank income 38%, streak and challenges 2.4%, chat drops 1.4%, starting balances 0.8% |
-| Early rank buyer against the same player who never buys | ahead in 62% of seasons; median finish 218 against 121 |
-| The leader who stops logging in | left in first place 14% of the time; then kept 56% of their net worth by the end (median, worst 45%) and still won 16% of those seasons |
+| The leader on day 20 wins the season | 49.3% (52.4% at the 100 start) |
+| A week's leader loses to steals that week | average 9.3%, 95th percentile 19.4%, worst 24.9% (robbed to the cap every day is 24.9%) |
+| A successful steal for a bottom-half player | median 56.5% of their net worth (middle half 17% to 212%: they are often nearly broke after an all-in) |
+| Steals against the tables | 57,798 chips moved by steals a season against 13.6M won and lost at the tables: 0.5%. Gambling stays far bigger |
+| Chip supply (median, end of day) | day 1: 17.2K, day 7: 37K, day 14: 59.1K, day 21: 80.3K, day 28: 100.7K, day 30: 102.3K |
+| Bonuses against winnings in week four | 409K paid in (rank income 230K, buttons 167K, streak and challenges 7.8K, drops 4.5K) against 2.08M won at the tables: 19.6%. Bonuses do not swamp winnings |
+| Where chips come from | work, slut and crime 56%, rank income 39%, streak and challenges 2.4%, chat drops 1.4%, starting balances 0.7% |
+| Early rank buyer against the same player who never buys | ahead in 64% of seasons; median finish 2.6K against 1.29K |
+| The leader who stops logging in | left in first place 14% of the time; then kept 54% of their net worth by the end (median, worst 42%) and still won 13% of those seasons |
 
-Ranks: Bronze and Silver are bought on their unlock days (1 and 3) in every season, Gold in 93% (first on day 12, median), Platinum in 13% (day 22), Diamond in 0.5%, Crown never. At the end an average season has 6.3 Silver, 2.0 Gold and 0.1 Platinum holders. **Flag: Crown is bought by nobody in 1,000 seasons**, and Diamond almost never.
+Ranks: Bronze and Silver are bought on their unlock days (1 and 3) in every season, Gold in 90% (first on day 13, median), Platinum in 12% (day 21), Diamond in 1%, Crown never. At the end an average season has 6.3 Silver, 2.0 Gold and 0.1 Platinum holders. **Flag: Crown is bought by nobody in 1,000 seasons**, and Diamond almost never.
 
-Work, slut and crime against rank income: the buttons pay about 104 chips for an hour online a day, 171 for two hours and 342 for four (measured: 297 a day for a player online that day). Bronze's 15 a day is 0.14x an hour of buttons, Silver's 100 is about 1x, Gold's 1,000 is about 10x.
+Work, slut and crime against rank income: the buttons pay about 1,035 chips for an hour online a day, 1,708 for two hours and 3,415 for four (measured: 2,978 a day for a player online that day). Bronze's 150 a day is 0.14x an hour of buttons, Silver's 1,000 is about 1x, Gold's 10,000 is about 10x.
 
 What it suggests for the tuning session with Tyton (no config changed):
 

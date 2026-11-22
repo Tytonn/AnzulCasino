@@ -125,13 +125,13 @@ describe('rank income', () => {
     expect(
       ladder.map((t) => [t.tier, Number(t.price / CHIP), Number(t.perDay / CHIP), t.unlockDay]),
     ).toEqual([
-      ['base', 0, 5, 0],
-      ['bronze', 150, 15, 1],
-      ['silver', 1_000, 100, 3],
-      ['gold', 10_000, 1_000, 6],
-      ['platinum', 100_000, 10_000, 10],
-      ['diamond', 1_000_000, 100_000, 14],
-      ['crown', 10_000_000, 1_000_000, 18],
+      ['base', 0, 50, 0],
+      ['bronze', 1_500, 150, 1],
+      ['silver', 10_000, 1_000, 3],
+      ['gold', 100_000, 10_000, 6],
+      ['platinum', 1_000_000, 100_000, 10],
+      ['diamond', 10_000_000, 1_000_000, 14],
+      ['crown', 100_000_000, 10_000_000, 18],
     ])
     expect(nextTier('base')).toBe('bronze')
     expect(nextTier('diamond')).toBe('crown')
@@ -154,14 +154,14 @@ describe('rank income', () => {
 })
 
 describe('the streak bonus', () => {
-  it('grows a chip a day up to 10, and starts over after a missed day', () => {
+  it('grows 10 chips a day up to 100, and starts over after a missed day', () => {
     const step = config.streak_step
     const max = config.streak_max
     expect(streakDays(null)).toBe(1)
     expect(streakDays({ bonusClaimed: true, streak: 4 })).toBe(5)
     expect(streakDays({ bonusClaimed: false, streak: 4 })).toBe(1)
     expect([1, 2, 9, 10, 11, 40].map((d) => Number(streakBonus(d, step, max)))).toEqual([
-      1, 2, 9, 10, 10, 10,
+      10, 20, 90, 100, 100, 100,
     ])
     expect(streakMaxDay(step, max)).toBe(10)
     expect([9, 10, 11, 19, 20, 30].map((d) => streakMilestone(d, step, max))).toEqual([
@@ -190,10 +190,10 @@ describe('work, slut and crime', () => {
 
   it('pays from the top of the range or fines from the bottom, and a fine stops at the wallet', () => {
     const crime = commandSettings(config, 'crime')
-    expect(drawPress(crime, 0n, always)).toEqual({ paid: true, drawn: 150n, amount: 150n })
-    expect(drawPress(crime, 50n, never)).toEqual({ paid: false, drawn: 10n, amount: 10n })
-    expect(drawPress(crime, 4n, never)).toEqual({ paid: false, drawn: 10n, amount: 4n })
-    expect(drawPress(crime, 0n, never)).toEqual({ paid: false, drawn: 10n, amount: 0n })
+    expect(drawPress(crime, 0n, always)).toEqual({ paid: true, drawn: 1_500n, amount: 1_500n })
+    expect(drawPress(crime, 500n, never)).toEqual({ paid: false, drawn: 100n, amount: 100n })
+    expect(drawPress(crime, 40n, never)).toEqual({ paid: false, drawn: 100n, amount: 40n })
+    expect(drawPress(crime, 0n, never)).toEqual({ paid: false, drawn: 100n, amount: 0n })
     // Work cannot fail.
     const work = commandSettings(config, 'work')
     expect(work.successPct).toBe(10_000)
@@ -208,13 +208,13 @@ describe('work, slut and crime', () => {
       ReturnType<typeof commandSettings>,
       ReturnType<typeof commandSettings>,
     ]
-    // 4, 19.25 and 36.25 chips a press.
-    expect(expectedPerPress(work)).toBe(4)
-    expect(expectedPerPress(hustle)).toBeCloseTo(19.25)
-    expect(expectedPerPress(crime)).toBeCloseTo(36.25)
-    expect(expectedPerHour(work)).toBe(48)
-    expect(expectedPerHour(hustle)).toBeCloseTo(19.25)
-    expect(expectedPerHour(crime)).toBeCloseTo(18.125)
+    // 40, 192.5 and 362.5 chips a press.
+    expect(expectedPerPress(work)).toBe(40)
+    expect(expectedPerPress(hustle)).toBeCloseTo(192.5)
+    expect(expectedPerPress(crime)).toBeCloseTo(362.5)
+    expect(expectedPerHour(work)).toBe(480)
+    expect(expectedPerHour(hustle)).toBeCloseTo(192.5)
+    expect(expectedPerHour(crime)).toBeCloseTo(181.25)
     expect(expectedPerHour(work)).toBeGreaterThan(expectedPerHour(hustle))
     expect(expectedPerPress(crime)).toBeGreaterThan(expectedPerPress(hustle))
     expect(expectedPerPress(hustle)).toBeGreaterThan(expectedPerPress(work))
@@ -346,7 +346,7 @@ describe('challenges', () => {
 
   it('pays more for harder ones', () => {
     const [min, max] = [config.challenge_reward_min, config.challenge_reward_max]
-    expect([1, 2, 3].map((l) => challengeReward(l as 1 | 2 | 3, min, max))).toEqual([2n, 3n, 4n])
+    expect([1, 2, 3].map((l) => challengeReward(l as 1 | 2 | 3, min, max))).toEqual([20n, 30n, 40n])
     expect(challengeReward(2, 150n, 400n)).toBe(275n)
     // 3.5 rounds down to a whole chip.
     expect(challengeReward(2, 2n, 5n)).toBe(3n)

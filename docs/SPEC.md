@@ -111,7 +111,7 @@ These rules apply to every line of code in every lane. The foundation thread cop
 
 1. **The server decides everything.** The browser sends intents: bet 500, hit, cash out. It never sends an outcome, a balance, a multiplier or a card.
 2. **Chips are whole numbers.** Store them as `bigint`. No floats in chip math. Payouts round down to a whole chip.
-   _(Changed by Tyton, Nov 18, 2026, to hundredths of a chip with cents shown; changed back by Tyton, Nov 22, 2026.)_ Chips are whole numbers again, and a season still starts with 100. Every amount is a `bigint` count of whole chips, and nothing shows decimals. Payouts, steals, fines, income and giveaway shares round down to a whole chip, so small ones can come to 0 or 1: a right call on a 1-chip coin flip pays back just the 1 chip.
+   _(Changed by Tyton, Nov 18, 2026, to hundredths of a chip with cents shown; changed back by Tyton, Nov 22, 2026, and the same day rescaled so a season starts with 1,000.)_ Chips are whole numbers, and a season starts with 1,000. Every amount is a `bigint` count of whole chips, and nothing shows decimals. Payouts, steals, fines, income and giveaway shares round down to a whole chip: a right call on a 10-chip coin flip pays 19, not 19.6.
 3. **Every balance change is one ledger row**, written in the same database transaction as the thing that caused it. A wallet's balance must always equal the sum of its ledger rows. A test checks this.
 4. **Lock before you spend.** Every transaction that moves chips locks the wallet row first (`SELECT ... FOR UPDATE`), then checks the balance. Two fast clicks must never spend the same chips twice.
 5. **Every chip-moving request is idempotent.** The browser sends a unique key with it. A repeated key returns the first result and changes nothing.
@@ -228,16 +228,16 @@ _(Updated Nov 18, 2026.)_ The rebuy is removed. Work, slut and crime replace it:
 
 The house edge slowly drains everyone, so the daily inflows are what keep a month-long season alive and give a broke player a way back.
 
-_(Rebalanced by Tyton, Nov 18, 2026.)_ The season starts with 100 chips, so every absolute chip amount below is the original value divided by 100. The original value is in brackets. Percentages are unchanged.
+_(Rebalanced by Tyton, Nov 18, 2026, and rescaled by Tyton, Nov 22, 2026.)_ The season starts with 1,000 chips. Every absolute chip amount below is ten times the Nov 18 value (which was the original divided by 100), so every ratio between them stays the same. The original value is in brackets. Percentages, chances, cooldowns and day counts are unchanged.
 
 | Setting | Start value | What it does |
 | --- | --- | --- |
-| `starting_balance` | 100 (10,000) | Chips each player gets at season start |
-| `daily_bonus` | Replaced by Ranks (500) | _(Nov 18, 2026: ranks replace the flat daily bonus. Base rank income is 5 a day. The streak bonus stays.)_ |
-| `streak_step` / `streak_max` | +1 / 10 (+100 / 1,000) | Bonus grows by 1 per day in a row, up to 10. A missed day resets it |
-| `challenges_per_day` | 3 | Small goals, each worth 2 to 4 chips (150 to 400) |
+| `starting_balance` | 1,000 (10,000) | Chips each player gets at season start |
+| `daily_bonus` | Replaced by Ranks (500) | _(Nov 18, 2026: ranks replace the flat daily bonus. Base rank income is 50 a day. The streak bonus stays.)_ |
+| `streak_step` / `streak_max` | +10 / 100 (+100 / 1,000) | Bonus grows by 10 per day in a row, up to 100. A missed day resets it |
+| `challenges_per_day` | 3 | Small goals, each worth 20 to 40 chips (150 to 400) |
 | `work_*` / `hustle_*` / `crime_*` | See Work and crime | _(Nov 18, 2026: the rebuy is removed. Work replaces it, see Work and crime.)_ |
-| `min_bet` | 1 (10) | Smallest bet in any game |
+| `min_bet` | 10 (10) | Smallest bet in any game |
 | `max_bet_pct` | 100 | Largest bet as a share of the wallet. 100 means all-in is allowed |
 | `big_bet_pct` | 50 | A bet at or above this share of net worth is flagged as a big bet in the stream |
 
@@ -260,14 +260,14 @@ _(Added by Tyton, Nov 18, 2026. Owner: economy lane.)_
 
 - Ranks replace the flat daily bonus. Every player has a rank that pays income. The streak bonus stays.
 - Income accrues continuously at the rank's daily rate and is claimed with Collect (`.collect`, or its button in You). Uncollected income caps at 24 hours' worth. Compute it from saved timestamps against database time.
-- Tiers (all config, for a starting balance of 100):
-  - Base: free, income 5 per day
-  - Bronze: unlocks day 1, costs 150, income 15 per day
-  - Silver: unlocks day 3, costs 1,000, income 100 per day
-  - Gold: unlocks day 6, costs 10,000, income 1,000 per day
-  - Platinum: unlocks day 10, costs 100,000, income 10,000 per day
-  - Diamond: unlocks day 14, costs 1,000,000, income 100,000 per day
-  - Crown: unlocks day 18, costs 10,000,000, income 1,000,000 per day
+- Tiers (all config, for a starting balance of 1,000):
+  - Base: free, income 50 per day
+  - Bronze: unlocks day 1, costs 1,500, income 150 per day
+  - Silver: unlocks day 3, costs 10,000, income 1,000 per day
+  - Gold: unlocks day 6, costs 100,000, income 10,000 per day
+  - Platinum: unlocks day 10, costs 1,000,000, income 100,000 per day
+  - Diamond: unlocks day 14, costs 10,000,000, income 1,000,000 per day
+  - Crown: unlocks day 18, costs 100,000,000, income 10,000,000 per day
 - A rank cannot be bought before its unlock day. A player can buy only the next rank up, and at most one per game day. The price is removed from the game and does not count toward net worth.
 - Ranks cannot be bought in the final 24 hours and cannot be stolen or sold.
 - Each rank gives a badge and name color shown in chat, the leaderboard, the online list and the player's cards.
@@ -289,9 +289,10 @@ _(Added by Tyton, Nov 18, 2026, then changed by Tyton twice the same day: a thir
 
 Three income buttons: work, slut and crime. The final values, which replace the earlier ones (all config):
 
-- Work: 5-minute cooldown, always pays 2 to 6 chips. Unchanged.
-- Slut: 1-hour cooldown, 65% success paying 20 to 50 chips, otherwise a fine of 5 to 15.
-- Crime: 2-hour cooldown, 45% success paying 60 to 150 chips, otherwise a fine of 10 to 30.
+- Work: 5-minute cooldown, always pays 20 to 60 chips. Unchanged.
+- Slut: 1-hour cooldown, 65% success paying 200 to 500 chips, otherwise a fine of 50 to 150.
+- Crime: 2-hour cooldown, 45% success paying 600 to 1,500 chips, otherwise a fine of 100 to 300.
+- _(Nov 22, 2026: ten times the Nov 18 values, with the rest of the economy, for the 1,000-chip start.)_
 - Fines cannot take the wallet below zero. The three cooldowns are separate.
 - The design intent: the longer the cooldown, the bigger and riskier the single payout. Work earns the most per hour, the other two earn the most per press.
 - In the season simulation, model players pressing all three whenever they are ready during play hours, and report the combined income against rank income at each tier.
@@ -302,7 +303,7 @@ Still in force from the earlier versions:
 - Do not scale these with rank. They are a lifeline for broke players, not a main income.
 - Put the buttons where they are reachable from every room without leaving the game, with the cooldown shown on the button. _(Nov 22, 2026: they are the commands `.work`, `.slut` and `.crime`, and buttons in You with their timers.)_
 - Each shows a short random flavor line with the result. The lines are editable in the admin panel.
-- _(Changed by Tyton, Nov 22, 2026: work, slut and crime results are public. Each posts as a compact one-line item in the stream with the player's name, the flavor line and the amount, such as "tyton worked as a mildly successful content creator and earned 59". They show under Everything and Games only, not under Chat only, and players can react to them. The rest of this bullet is replaced.)_ Work and crime never post in chat. They only show a result to the player who pressed the button. The one exception: a crime payout at the top of its range (23 chips or more at current settings) posts a short line. _(Answered by Tyton, Nov 18, 2026. With the final values the top of the range is 140 chips or more: the config value `crime_chat_min`.)_
+- _(Changed by Tyton, Nov 22, 2026: work, slut and crime results are public. Each posts as a compact one-line item in the stream with the player's name, the flavor line and the amount, such as "tyton worked as a mildly successful content creator and earned 59". They show under Everything and Games only, not under Chat only, and players can react to them. The rest of this bullet is replaced.)_ Work and crime never post in chat. They only show a result to the player who pressed the button. The one exception: a crime payout at the top of its range (23 chips or more at current settings) posts a short line. _(Answered by Tyton, Nov 18, 2026. With the final values the top of the range is 140 chips or more: the config value `crime_chat_min`. Nov 22, 2026: 1,400 at the 1,000-chip start.)_
 - Cooldowns are saved times checked against database time, shown as exact countdowns.
 - All amounts are config.
 
@@ -522,7 +523,7 @@ The whole steal runs in one transaction that locks both wallets, lower player id
 | `daily_loss_cap_pct` | 4% | Most of your net worth you can lose to steals in a game day |
 | `steal_fine_pct` | 5% | Share of the thief's wallet paid to the target on a failed steal |
 | `immunity_hours` | 3 | Immunity after being robbed or after a shield block |
-| `steal_floor` | 25 (2,500; rebalanced Nov 18, 2026) | Players under this net worth cannot be robbed |
+| `steal_floor` | 250 (2,500; rebalanced Nov 18, 2026, rescaled Nov 22, 2026) | Players under this net worth cannot be robbed |
 | `final_freeze_hours` | 24 | No steals this close to the season end |
 
 **Worked example.** You are 10th with 4,000 chips. The leader has 60,000 in the wallet and nothing in the vault. The gap is 9, so the rate is the 4% maximum. A success moves 2,400 chips: you gain 60%, the leader loses 4%, gets 3 hours of immunity and has hit the daily cap. A failure costs you 200 chips, paid to the leader.
@@ -531,7 +532,7 @@ The whole steal runs in one transaction that locks both wallets, lower player id
 
 - A shield is a **charge**, not a timer. One charge blocks one steal and then starts the immunity window.
 - Hold at most `shield_max_charges` (2). Buy at most `shield_weekly_limit` (3) per season week.
-- Price is 2% of the buyer's wallet, with a minimum of 300 chips. The chips are removed from the game. _(Rebalanced Nov 18, 2026: the minimum is 3 chips.)_
+- Price is 2% of the buyer's wallet, with a minimum of 300 chips. The chips are removed from the game. _(Rebalanced Nov 18, 2026: the minimum is 3 chips. Rescaled Nov 22, 2026: 30 chips.)_
 - You shows charges as pips and immunity as an exact countdown.
 - Shields cannot be bought in the final 24 hours.
 

@@ -56,11 +56,13 @@ let capture: { events: Outgoing[]; stop(): void }
 
 beforeAll(async () => {
   seasonId = await createSeason(testDb)
-  // Five minutes of betting, so no test races the close.
+  // Five minutes of betting, so no test races the close. The bets here count
+  // single chips, so the smallest bet is 1 instead of the default 10.
   for (const [key, value] of [
     ['roulette_betting_seconds', BETTING],
     ['roulette_spin_seconds', SPIN],
     ['roulette_result_seconds', RESULT],
+    ['min_bet', 1],
   ] as const) {
     await testDb.query(
       `insert into config (key, value, effective_at) values ($1, $2::jsonb, now() - interval '1 hour')`,
@@ -337,7 +339,8 @@ describe('taking bets off', () => {
       expect(crumbs.status).toBe(400)
       expect(crumbs.body.error.message).toBe('Leave at least 2 on Red, or take it all off.')
     } finally {
-      await testDb.query(`delete from config where key = 'min_bet'`)
+      // Back to the 1-chip minimum these tests set.
+      await testDb.query(`delete from config where key = 'min_bet' and value = '2'::jsonb`)
     }
 
     // A whole spot.

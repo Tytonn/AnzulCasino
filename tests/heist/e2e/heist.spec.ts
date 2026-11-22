@@ -10,9 +10,9 @@
  * state first and tests what the page should say instead.
  *
  * Steals round down to a whole chip, so a sample player ranked below the
- * thief with about 100 chips is worth nothing to rob ("Small wallet"). The
- * steal falls back to the test accounts, which hold 1,000 chips or more, and
- * which the foundation's test-account spec has signed in by then.
+ * thief with under 200 chips in the wallet is worth nothing to rob ("Small
+ * wallet"). The steal falls back to the test accounts, which hold 10,000 chips
+ * or more, and which the foundation's test-account spec has signed in by then.
  */
 import { expect, type Locator, type Page, test } from '@playwright/test'
 

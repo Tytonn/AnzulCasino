@@ -102,7 +102,7 @@ function priceFrom(wallet: bigint, pct: number, min: bigint): bigint {
   return share > min ? share : min
 }
 
-/** The price of one shield charge: 2% of the buyer's wallet, at least 3 chips (spec: Shields). */
+/** The price of one shield charge: 2% of the buyer's wallet, at least 30 chips (spec: Shields). */
 export function shieldPrice(
   wallet: bigint,
   cfg: Pick<ConfigValues, 'shield_price_pct' | 'shield_price_min'>,

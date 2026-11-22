@@ -5,7 +5,7 @@
  * server reads the result through loadConfig() in server/lib/config.ts.
  *
  * Units:
- * - `chips`: whole chips, bigint in code. `min_bet` 1n is 1 chip.
+ * - `chips`: whole chips, bigint in code. `min_bet` 10n is 10 chips.
  * - `share`: basis points, where 100 is 1% and 10,000 is 100%. Every `_pct`
  *   and `_rate` key is a share. Use basisPoints() and formatShare() from
  *   shared/chips.ts.
@@ -29,9 +29,10 @@
  * A `_min` and `_max` pair is listed in CONFIG_PAIRS, and a change that
  * would put the minimum above the maximum is refused.
  *
- * Absolute chip amounts are the spec's values after Tyton's 1/100 rebalance
- * (starting balance 100). Values marked provisional have no number in the
- * spec yet; the owning lane tunes them with the season simulation.
+ * Absolute chip amounts are the spec's values at Tyton's scale of Nov 22, 2026
+ * (starting balance 1,000): ten times the 1/100 rebalance of Nov 18. Values
+ * marked provisional have no number in the spec yet; the owning lane tunes
+ * them with the season simulation.
  */
 import { CHIP, chipCount, formatShare } from './chips.ts'
 import {
@@ -257,7 +258,7 @@ export const CONFIG = {
   // Seasons
   starting_balance: chips(
     'seasons',
-    100,
+    1_000,
     'Chips each player gets when a season starts, or when they join late. Each new season copies it.',
     { min: 1 },
   ),
@@ -272,15 +273,15 @@ export const CONFIG = {
   // Economy
   streak_step: chips(
     'economy',
-    1,
+    10,
     'Streak bonus added for each game day in a row a player collects. A missed day resets it.',
   ),
-  streak_max: chips('economy', 10, 'Most the streak bonus can grow to.'),
+  streak_max: chips('economy', 100, 'Most the streak bonus can grow to.'),
   challenges_per_day: number('economy', 'count', 3, 'Challenges each player gets per game day.', {
     max: 10,
   }),
-  challenge_reward_min: chips('economy', 2, 'Smallest reward for finishing a challenge.'),
-  challenge_reward_max: chips('economy', 4, 'Largest reward for finishing a challenge.'),
+  challenge_reward_min: chips('economy', 20, 'Smallest reward for finishing a challenge.'),
+  challenge_reward_max: chips('economy', 40, 'Largest reward for finishing a challenge.'),
 
   // Work, the third command and crime (spec: Economy > Work and crime), at
   // Tyton's final values. They replace the rebuy. The longer the cooldown,
@@ -292,24 +293,24 @@ export const CONFIG = {
     'Minutes between presses of the work button.',
     { min: 1, max: 1_440 },
   ),
-  work_pay_min: chips('economy', 2, 'Least a press of the work button pays.'),
-  work_pay_max: chips('economy', 6, 'Most a press of the work button pays.'),
+  work_pay_min: chips('economy', 20, 'Least a press of the work button pays.'),
+  work_pay_max: chips('economy', 60, 'Most a press of the work button pays.'),
   crime_cooldown_minutes: number('economy', 'minutes', 120, 'Minutes between crimes.', {
     min: 1,
     max: 1_440,
   }),
   crime_success_pct: share('economy', 4_500, 'Chance a crime pays instead of ending in a fine.'),
-  crime_pay_min: chips('economy', 60, 'Least a crime that works pays.'),
-  crime_pay_max: chips('economy', 150, 'Most a crime that works pays.'),
+  crime_pay_min: chips('economy', 600, 'Least a crime that works pays.'),
+  crime_pay_max: chips('economy', 1_500, 'Most a crime that works pays.'),
   crime_fine_min: chips(
     'economy',
-    10,
+    100,
     'Smallest fine for a failed crime. A fine never takes the wallet below zero.',
   ),
-  crime_fine_max: chips('economy', 30, 'Largest fine for a failed crime.'),
+  crime_fine_max: chips('economy', 300, 'Largest fine for a failed crime.'),
   crime_chat_min: chips(
     'economy',
-    140,
+    1_400,
     'A crime payout of at least this posts a short line in chat. No other work or crime result does.',
   ),
   // The third command, after UnbelievaBoat's .slut: `hustle` in code, and its
@@ -326,14 +327,14 @@ export const CONFIG = {
     6_500,
     'Chance the third income button pays instead of ending in a fine.',
   ),
-  hustle_pay_min: chips('economy', 20, 'Least the third income button pays when it works.'),
-  hustle_pay_max: chips('economy', 50, 'Most the third income button pays when it works.'),
+  hustle_pay_min: chips('economy', 200, 'Least the third income button pays when it works.'),
+  hustle_pay_max: chips('economy', 500, 'Most the third income button pays when it works.'),
   hustle_fine_min: chips(
     'economy',
-    5,
+    50,
     'Smallest fine from the third income button. A fine never takes the wallet below zero.',
   ),
-  hustle_fine_max: chips('economy', 15, 'Largest fine from the third income button.'),
+  hustle_fine_max: chips('economy', 150, 'Largest fine from the third income button.'),
 
   // Ranks (tiers in code). Unlock days count from 1, the season's first game day.
   tier_income_cap_hours: number(
@@ -343,9 +344,9 @@ export const CONFIG = {
     'Uncollected rank income stops growing after this many hours.',
     { min: 1, max: 720 },
   ),
-  tier_base_income: chips('ranks', 5, 'Base rank: income per day.'),
-  tier_bronze_price: chips('ranks', 150, 'Bronze rank: price.'),
-  tier_bronze_income: chips('ranks', 15, 'Bronze rank: income per day.'),
+  tier_base_income: chips('ranks', 50, 'Base rank: income per day.'),
+  tier_bronze_price: chips('ranks', 1_500, 'Bronze rank: price.'),
+  tier_bronze_income: chips('ranks', 150, 'Bronze rank: income per day.'),
   tier_bronze_unlock_day: number(
     'ranks',
     'days',
@@ -353,8 +354,8 @@ export const CONFIG = {
     'Bronze rank: first season day it can be bought.',
     { min: 1, max: 60 },
   ),
-  tier_silver_price: chips('ranks', 1_000, 'Silver rank: price.'),
-  tier_silver_income: chips('ranks', 100, 'Silver rank: income per day.'),
+  tier_silver_price: chips('ranks', 10_000, 'Silver rank: price.'),
+  tier_silver_income: chips('ranks', 1_000, 'Silver rank: income per day.'),
   tier_silver_unlock_day: number(
     'ranks',
     'days',
@@ -362,8 +363,8 @@ export const CONFIG = {
     'Silver rank: first season day it can be bought.',
     { min: 1, max: 60 },
   ),
-  tier_gold_price: chips('ranks', 10_000, 'Gold rank: price.'),
-  tier_gold_income: chips('ranks', 1_000, 'Gold rank: income per day.'),
+  tier_gold_price: chips('ranks', 100_000, 'Gold rank: price.'),
+  tier_gold_income: chips('ranks', 10_000, 'Gold rank: income per day.'),
   tier_gold_unlock_day: number(
     'ranks',
     'days',
@@ -371,8 +372,8 @@ export const CONFIG = {
     'Gold rank: first season day it can be bought.',
     { min: 1, max: 60 },
   ),
-  tier_platinum_price: chips('ranks', 100_000, 'Platinum rank: price.'),
-  tier_platinum_income: chips('ranks', 10_000, 'Platinum rank: income per day.'),
+  tier_platinum_price: chips('ranks', 1_000_000, 'Platinum rank: price.'),
+  tier_platinum_income: chips('ranks', 100_000, 'Platinum rank: income per day.'),
   tier_platinum_unlock_day: number(
     'ranks',
     'days',
@@ -380,8 +381,8 @@ export const CONFIG = {
     'Platinum rank: first season day it can be bought.',
     { min: 1, max: 60 },
   ),
-  tier_diamond_price: chips('ranks', 1_000_000, 'Diamond rank: price.'),
-  tier_diamond_income: chips('ranks', 100_000, 'Diamond rank: income per day.'),
+  tier_diamond_price: chips('ranks', 10_000_000, 'Diamond rank: price.'),
+  tier_diamond_income: chips('ranks', 1_000_000, 'Diamond rank: income per day.'),
   tier_diamond_unlock_day: number(
     'ranks',
     'days',
@@ -389,8 +390,8 @@ export const CONFIG = {
     'Diamond rank: first season day it can be bought.',
     { min: 1, max: 60 },
   ),
-  tier_crown_price: chips('ranks', 10_000_000, 'Crown rank: price.'),
-  tier_crown_income: chips('ranks', 1_000_000, 'Crown rank: income per day.'),
+  tier_crown_price: chips('ranks', 100_000_000, 'Crown rank: price.'),
+  tier_crown_income: chips('ranks', 10_000_000, 'Crown rank: income per day.'),
   tier_crown_unlock_day: number(
     'ranks',
     'days',
@@ -407,7 +408,7 @@ export const CONFIG = {
     'Average time between chat drops while players are online.',
     { min: 1, provisional: true },
   ),
-  chat_drop_pot: chips('giveaways', 10, 'Chips in each chat drop, split between its winners.', {
+  chat_drop_pot: chips('giveaways', 100, 'Chips in each chat drop, split between its winners.', {
     provisional: true,
   }),
   chat_drop_winners: number('giveaways', 'count', 3, 'Players who can claim each chat drop.', {
@@ -454,14 +455,14 @@ export const CONFIG = {
     'Immunity after being robbed or after a shield blocks a steal.',
     { max: 72 },
   ),
-  steal_floor: chips('steals', 25, 'Players with less net worth than this cannot be robbed.'),
+  steal_floor: chips('steals', 250, 'Players with less net worth than this cannot be robbed.'),
   extra_steal_price_pct: share(
     'steals',
     200,
     "Price of the one extra steal attempt per game day, as a share of the buyer's wallet.",
     { provisional: true },
   ),
-  extra_steal_price_min: chips('steals', 3, 'Lowest price of the extra steal attempt.', {
+  extra_steal_price_min: chips('steals', 30, 'Lowest price of the extra steal attempt.', {
     provisional: true,
   }),
 
@@ -481,7 +482,7 @@ export const CONFIG = {
     200,
     "Price of a shield charge, as a share of the buyer's wallet.",
   ),
-  shield_price_min: chips('shields', 3, 'Lowest price of a shield charge.'),
+  shield_price_min: chips('shields', 30, 'Lowest price of a shield charge.'),
 
   // Vault
   vault_cap_pct: share(
@@ -491,7 +492,7 @@ export const CONFIG = {
   ),
 
   // Games
-  min_bet: chips('games', 1, 'Smallest bet in any game.', { min: 0 }),
+  min_bet: chips('games', 10, 'Smallest bet in any game.', { min: 0 }),
   max_bet_pct: share('games', 10_000, 'Largest bet as a share of the wallet. 100% allows all-in.', {
     min: 1,
   }),

@@ -2,7 +2,7 @@
  * The test account at 1440 and 375 (shared/test-accounts.ts): `test` with
  * the password `test` signs in from the login page, locally and on a deploy
  * preview, and lands in the stream with a season to play in and at least
- * 1,000 chips. The integration tests check that production deploys never
+ * 10,000 chips. The integration tests check that production deploys never
  * have it.
  */
 import { expect, test } from '@playwright/test'

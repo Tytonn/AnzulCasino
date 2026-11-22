@@ -185,7 +185,7 @@ describe('cards', () => {
 
   it('keeps one card per round and a game on every card, in the database', async () => {
     const { id, client } = await player(100n)
-    const res = await client.post('/api/streamdice/instant', { bet: '5', times: 0 }, key())
+    const res = await client.post('/api/streamdice/instant', { bet: '50', times: 0 }, key())
     const meta = JSON.stringify({ game: 'streamdice', roundId: res.body.round.id })
     await expect(
       testDb.query(
@@ -240,8 +240,8 @@ describe('GET /api/stream', () => {
     await client.post('/api/chat', { body: 'hello' }, key())
     await insertChatMessage(db(), { userId: id, kind: 'gif', body: 'a dancing cat', meta: {} })
     // A small loss: its card only. A 10x win: its card, and a big result post the card covers.
-    await client.post('/api/streamdice/instant', { bet: '1', times: 0 }, key())
-    await client.post('/api/streamdice/instant', { bet: '5', times: 1_000 }, key())
+    await client.post('/api/streamdice/instant', { bet: '10', times: 0 }, key())
+    await client.post('/api/streamdice/instant', { bet: '50', times: 1_000 }, key())
     // A work line and a shared round's big result: games. An announcement: news.
     await systemPost(db(), 'filter_player · Work: You parked cars. +59', {
       tone: 'win',
@@ -283,7 +283,7 @@ describe('GET /api/stream', () => {
     const { id, client } = await player(100n)
     const other = await player(100n)
     const open = await client.post('/api/streamdice/start', { bet: '10' }, key())
-    await client.post('/api/streamdice/instant', { bet: '1', times: 0 }, key())
+    await client.post('/api/streamdice/instant', { bet: '10', times: 0 }, key())
     await other.client.post('/api/streamdice/start', { bet: '10' }, key())
 
     const chatOnly = await client.get('/api/stream?filter=chat')
@@ -308,10 +308,10 @@ describe('GET /api/stream', () => {
 describe('GET /api/chat', () => {
   it('leaves the cards out of the classic chat and keeps the big result posts', async () => {
     const { client } = await player(100n)
-    await client.post('/api/streamdice/instant', { bet: '5', times: 1_000 }, key())
+    await client.post('/api/streamdice/instant', { bet: '50', times: 1_000 }, key())
     const page = await client.get('/api/chat')
     expect(page.body.messages.map((m: ChatMessage) => m.kind)).toEqual(['system'])
-    expect(page.body.messages[0].body).toMatch(/won 45 on Stream dice, 10x the bet$/)
+    expect(page.body.messages[0].body).toMatch(/won 450 on Stream dice, 10x the bet$/)
   })
 })
 

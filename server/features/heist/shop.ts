@@ -4,7 +4,7 @@
  * player's wallet first, checks the limits by the database clock, and moves
  * chips only through server/lib/wallet.ts:
  *
- * - A shield charge: 2% of the wallet, at least 3 chips, removed from the
+ * - A shield charge: 2% of the wallet, at least 30 chips, removed from the
  *   game. At most `shield_max_charges` held and `shield_weekly_limit` bought
  *   per season week.
  * - The extra steal attempt: one per game day, at its config price.

@@ -88,6 +88,15 @@ Plan, approved by Tyton on 2026-11-22: https://claude.ai/artifact/Sj3mrj6zpw6mgh
   and by then the 3-second result had given way to the next spin's betting. It passed
   on a rerun. A 50-chip hand tried by hand read +50 on the card, the fold, the wallet
   and the board.
+- Rescaled the economy from a 100-chip start to 1,000 at Tyton's request (2026-11-22),
+  on this branch because the blackjack preview is where Tyton tries it. Every chip
+  setting in `shared/config.ts` is ten times its old default (34 keys, `min_bet` now 10),
+  the test accounts fill to 10,000, and percentages, chances, cooldowns and day counts
+  are unchanged. The spec, `CLAUDE.md`, the lane guide, the lanes' tests and the season
+  simulation (`docs/progress/heist.md`) match. Tests that count single chips at the
+  roulette table set `min_bet` to 1 themselves; the others bet 10 or more. Two tests had
+  passed only because every bet in them was refused (the coin flip room, and one stream
+  test); they now check that their bets went down.
 
 ## Not done yet
 

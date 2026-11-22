@@ -211,7 +211,7 @@ describe('POST /api/blackjack/deal', () => {
   it('tells the room the bet, the cards and the result', async () => {
     const { client } = await player(100n)
     stack('Ts', '9h', '7d')
-    const dealt = await deal(client, '5')
+    const dealt = await deal(client, '50')
     stack('Tc')
     ok(await move(client, dealt.body.round, 'stand'))
     await client.settle()
@@ -226,7 +226,7 @@ describe('POST /api/blackjack/deal', () => {
     const ticker = capture.events.find(
       (e) => e.name === 'round.settled' && !e.channel.includes('room:'),
     )
-    expect(ticker?.envelope.data).toMatchObject({ game: 'blackjack', stake: 5, payout: 0 })
+    expect(ticker?.envelope.data).toMatchObject({ game: 'blackjack', stake: 50, payout: 0 })
   })
 
   it('needs a session, an idempotency key and an amount', async () => {
@@ -248,12 +248,12 @@ describe('POST /api/blackjack/deal', () => {
   })
 
   it('never deals two hands at once, or spends a chip twice', async () => {
-    const { id, client } = await player(10n)
+    const { id, client } = await player(100n)
     // A hand that stays open (14 against a 7), so every other deal meets it. Random cards
     // could settle it at the deal, on a dealer blackjack, and free the table for a second
     // hand, after which the rest are refused for the chips left instead.
     stack('9s', '7h', '5d')
-    const responses = await Promise.all(Array.from({ length: 8 }, () => deal(client, '4')))
+    const responses = await Promise.all(Array.from({ length: 8 }, () => deal(client, '40')))
     for (const res of responses.filter((r) => r.status !== 200)) {
       expect(res.status, JSON.stringify(res.body)).toBe(409)
       expect(res.body.error.code).toBe('round_open')
@@ -379,9 +379,9 @@ describe('POST /api/blackjack/move', () => {
   })
 
   it('refuses a double or a split the wallet cannot cover, and leaves the hand as it was', async () => {
-    const { id, client } = await player(10n)
+    const { id, client } = await player(100n)
     stack('8s', '6h', '8d')
-    const dealt = await deal(client, '6')
+    const dealt = await deal(client, '60')
     for (const [which, word] of [
       ['double', 'Doubling'],
       ['split', 'Splitting'],
@@ -390,11 +390,11 @@ describe('POST /api/blackjack/move', () => {
       expect(res.status, JSON.stringify(res.body)).toBe(400)
       expect(res.body.error).toMatchObject({
         code: 'insufficient_funds',
-        message: `${word} takes another 6 chips, and you have 4 chips.`,
+        message: `${word} takes another 60 chips, and you have 40 chips.`,
       })
     }
-    expect(await balance(id)).toBe(4n * CHIP)
-    expect(await rounds(id)).toMatchObject([{ status: 'open', stake: '6' }])
+    expect(await balance(id)).toBe(40n * CHIP)
+    expect(await rounds(id)).toMatchObject([{ status: 'open', stake: '60' }])
     // The hand plays on.
     stack('Kc')
     ok(await move(client, dealt.body.round, 'stand'))
@@ -545,12 +545,12 @@ describe('the slow reveal', () => {
 
 describe('GET /api/blackjack/room', () => {
   it("shows each player's hand and nothing hidden", async () => {
-    const alice = await player(50n)
-    const bob = await player(50n)
+    const alice = await player(500n)
+    const bob = await player(500n)
     stack('9s', 'Kh', '5d', '7c')
-    const alices = await deal(alice.client, '2')
+    const alices = await deal(alice.client, '20')
     stack('Ts', '8h', 'Td')
-    const bobs = await deal(bob.client, '3')
+    const bobs = await deal(bob.client, '30')
     const room = await bob.client.get<RoomState<BlackjackDetail>>('/api/blackjack/room')
     expect(room.status).toBe(200)
     const byPlayer = new Map(room.body.rounds.map((r) => [r.userId, r]))
@@ -583,10 +583,10 @@ describe('GET /api/blackjack/room', () => {
 
 describe('a session of real hands', () => {
   it('plays 40 random hands, and every chip adds up', async () => {
-    const { id, client } = await player(1_000n)
-    let expected = 1_000n * CHIP
+    const { id, client } = await player(10_000n)
+    let expected = 10_000n * CHIP
     for (let i = 0; i < 40; i++) {
-      let res = await deal(client, '5')
+      let res = await deal(client, '50')
       ok(res)
       while (res.body.round.status === 'open') {
         res = await move(client, res.body.round, simpleMove(res.body.round.detail))

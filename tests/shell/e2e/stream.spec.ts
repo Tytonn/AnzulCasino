@@ -68,10 +68,10 @@ async function enter(page: Page, text: string) {
   await box(page).press('Enter')
 }
 
-/** Deals a 1-chip hand from the message box and returns the server's answer. */
+/** Deals a 10-chip hand from the message box and returns the server's answer. */
 async function deal(page: Page): Promise<Hand> {
   const answer = page.waitForResponse((r) => r.url().endsWith('/api/blackjack/deal'))
-  await enter(page, '.bj 1')
+  await enter(page, '.bj 10')
   const res = await answer
   await expectOk(res)
   return (await res.json()) as Hand
@@ -123,7 +123,7 @@ async function playOut(page: Page, hand: Hand, phone: boolean): Promise<Hand> {
   return result
 }
 
-/** How a finished card says its result: "+1", "−1" or "±0". */
+/** How a finished card says its result: "+10", "−10" or "±0". */
 function signed(hand: Hand): string {
   const net = (hand.round.payout ?? 0) - hand.round.stake
   if (net > 0) return `+${formatChips(net)}`
@@ -188,12 +188,12 @@ test('a hand dealt from the message box plays live for everyone, then folds', as
     await expect(list.getByRole('option').filter({ hasText: '.bj' })).toBeVisible()
     await snap(alice.page, LANE, 'stream-commands', testInfo)
 
-    await enter(alice.page, '.bjj 1')
+    await enter(alice.page, '.bjj 10')
     const hint = alice.page.locator('[data-hint]')
     await expect(hint).toContainText('There is no .bjj. Did you mean .bj?')
-    await expect(box(alice.page)).toHaveValue('.bjj 1')
+    await expect(box(alice.page)).toHaveValue('.bjj 10')
     await hint.getByRole('button', { name: 'Use .bj' }).click()
-    await expect(box(alice.page)).toHaveValue('.bj 1')
+    await expect(box(alice.page)).toHaveValue('.bj 10')
     await expect(hint).toBeHidden()
     // Nothing of it reached the stream.
     await expect(stream(bob.page).getByText('.bjj')).toHaveCount(0)
@@ -201,15 +201,15 @@ test('a hand dealt from the message box plays live for everyone, then folds', as
   })
 
   const first =
-    await test.step('Alice types .bj 1: her card is pinned above the box with the keys', async () => {
+    await test.step('Alice types .bj 10: her card is pinned above the box with the keys', async () => {
       const dealt = await deal(alice.page)
-      expect(dealt.round).toMatchObject({ game: 'blackjack', stake: 1 })
+      expect(dealt.round).toMatchObject({ game: 'blackjack', stake: 10 })
       expect(dealt.card?.meta).toMatchObject({ game: 'blackjack', roundId: dealt.round.id })
       // The dealer's hole card stays on the server.
       expect(JSON.stringify(dealt)).not.toContain('secret')
       // The command itself is never posted.
       await expect(box(alice.page)).toHaveValue('')
-      await expect(stream(bob.page).getByText('.bj 1', { exact: true })).toHaveCount(0)
+      await expect(stream(bob.page).getByText('.bj 10', { exact: true })).toHaveCount(0)
 
       const card = pinned(alice.page).locator(`[data-round="${dealt.round.id}"]`)
       await expect(card).toBeVisible()
@@ -245,7 +245,7 @@ test('a hand dealt from the message box plays live for everyone, then folds', as
       const result = await playOut(alice.page, first, phone)
       const card = pinned(alice.page).locator(`[data-round="${first.round.id}"]`)
       await expect(card).toContainText(signed(result))
-      const again = card.getByRole('button', { name: /^Deal again · 1/ })
+      const again = card.getByRole('button', { name: /^Deal again · 10\b/ })
       await expect(again).toBeVisible()
       await snap(alice.page, LANE, 'stream-result', testInfo)
 
@@ -255,7 +255,7 @@ test('a hand dealt from the message box plays live for everyone, then folds', as
       const res = await answer
       await expectOk(res)
       const dealt = (await res.json()) as Hand
-      expect(dealt.round.stake).toBe(1)
+      expect(dealt.round.stake).toBe(10)
       // The new hand takes the pin at once; the finished one goes back to the stream.
       await expect(pinned(alice.page).locator(`[data-round="${dealt.round.id}"]`)).toBeVisible()
       await expect(pinned(alice.page).locator(`[data-round="${first.round.id}"]`)).toHaveCount(0)
