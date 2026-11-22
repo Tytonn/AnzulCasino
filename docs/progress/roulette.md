@@ -12,7 +12,7 @@ Roulette is a card in the stream (spec: Games > Roulette, changed by Tyton on No
 - **Tests:**
   - unit: payouts, the 36/37 return, a million draws, typed bets and the command's messages, and the result order;
   - integration, against Postgres: open, join, extend, the 60-second cap, early and parallel settles, one transaction, a bet after the close, parallel first bets, the sweep, replays, overspending, no secret or early number, and the stream's `sharedRound` and `mine`;
-  - browser, at 1440 and 375 (`tests/roulette/e2e/card.spec.ts`): two players, the countdown restarting, the same number on both screens, results winners first, the wallets, and the folded line.
+  - browser, at 1440 and 375 (`tests/roulette/e2e/card.spec.ts`): two players, the countdown restarting, a third player who opens the stream mid-round, the same number on all three screens, results winners first, the wallets, and the folded line.
 
 ## Not done yet
 

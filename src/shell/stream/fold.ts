@@ -26,7 +26,7 @@ export const SHARED_FOLD_AFTER_MS = 8_000
  * A shared card this tab saw open that never says it has shown its result
  * folds this long after the draw: past the longest spin the settings allow.
  */
-const SHARED_SHOW_LIMIT_MS = 75_000
+export const SHARED_SHOW_LIMIT_MS = 75_000
 /** One that was already drawn when it first came: long enough to land a spin under way. */
 const SHARED_LATE_LIMIT_MS = 15_000
 

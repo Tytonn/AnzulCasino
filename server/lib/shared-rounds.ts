@@ -5,9 +5,9 @@
  * stake on one is a round of theirs made with `play.start({ sharedRoundId })`.
  * This file shows a shared round in the stream, on one card for everyone:
  *
- *   const view = await sharedRoundView(tx, id)               // every player's round on it
- *   const card = await postSharedCard(rt, game, id, 'Roulette · Round 12', view)
- *   rt.emit(sharedRoundEvent(view))                           // shared.updated, after the commit
+ *   const view = await sharedRoundView(tx, id)                      // every player's round on it
+ *   const card = await postSharedCard(rt, game, view, 'Roulette · Round 12') // once, when it opens
+ *   rt.emit(sharedRoundEvent(view))                                  // later changes: shared.updated
  *
  * The view never holds the shared round's secret, and its version grows with
  * every bet and with the result (sharedRoundVersion in shared/rounds.ts).

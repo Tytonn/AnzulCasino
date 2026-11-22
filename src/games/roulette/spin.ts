@@ -293,6 +293,12 @@ export function useSpin(table: RouletteTable, options: SpinOptions): SpinState {
   })
   const [landed, setLanded] = useState(spin.landed)
 
+  // The spin reads the round from the store, and a card from the stream's
+  // page, or fetched again after a gap, may be newer than what is there.
+  useEffect(() => {
+    putSharedRound(table)
+  }, [table])
+
   useEffect(() => {
     if (spin.landed) {
       // Over before this tab saw it, or landed while its card was away: it shows as it landed.

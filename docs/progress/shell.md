@@ -140,8 +140,10 @@ Plan, approved by Tyton on 2026-11-22: https://claude.ai/artifact/Sj3mrj6zpw6mgh
   The shell learned shared cards: `sharedCard` and `sharedReplay` in `GameManifest`
   (`SharedCardProps`), a store of shared rounds in `src/kit/cards.ts`, `shared.updated`
   on `room:<game>`, shared cards in `GET /api/stream` and in `mine` for their bettors,
-  pins for bettors with no keys, folding 8 seconds after the result, never in a run. The
-  server pieces are `server/lib/shared-rounds.ts`. Commands learned `picks` (red, black,
+  pins for bettors with no keys, folding 8 seconds after the result, never in a run. A
+  shared card's pin that never says it has shown waits out the longest spin (75 seconds)
+  before it lets go, and a card from the stream's page puts its round in the store, so a
+  spin opened mid-round lands too. The server pieces are `server/lib/shared-rounds.ts`. Commands learned `picks` (red, black,
   odd, even beside the amounts) and `check`. The roulette room, its remove and clear
   endpoints and its clock are gone; the spec's roulette section and the lane guide's
   sections 8, 19 and 20 say how it works now (`docs/progress/roulette.md`). Tests:

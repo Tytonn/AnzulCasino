@@ -4,9 +4,10 @@
  * and asks for what is missing; Alice's .roulette 25 red opens a round whose
  * card both players see, with her name on her bet; Bob's .roulette 25 17
  * joins it and starts the countdown again; at the close the wheel lands on
- * the same number on both screens, the card shows it large and lists both
- * players winners first, the wallets match, and the card folds to a line
- * that opens to the result. Screenshots land in tests/roulette/screenshots.
+ * the same number on every screen (Carol's too, who opens the stream
+ * mid-round), the card shows it large and lists both players winners first,
+ * the wallets match, and the card folds to a line that opens to the result.
+ * Screenshots land in tests/roulette/screenshots.
  *
  * A round closes 15 seconds after its latest bet and spins for 7 by
  * default, so a run takes about half a minute. On a deploy preview the
@@ -80,6 +81,8 @@ test('two players bet on one round, watch it land, and see everyone’s result',
   const phone = onPhone(testInfo)
   const alice = await openAs(browser, 'alice')
   const bob = await openAs(browser, 'bob')
+  // Carol signs in now and opens the stream only once the round is under way.
+  const carol = await openAs(browser, 'carol')
 
   await test.step('both open the stream with the wheel free', async () => {
     await alice.page.goto('/')
@@ -161,20 +164,30 @@ test('two players bet on one round, watch it land, and see everyone’s result',
       return bet
     })
 
+  await test.step('Carol opens the stream mid-round and finds the same card', async () => {
+    await carol.page.goto('/')
+    const watching = stream(carol.page).locator(`[data-shared="${id}"]`)
+    await expect(watching).toBeVisible()
+    await expect(watching).toContainText('Alice')
+    await expect(watching).toContainText('Bob')
+  })
+
+  const watchers = [alice.page, bob.page, carol.page]
+
   const number =
-    await test.step('the wheel lands on the same number for both, shown large', async () => {
+    await test.step('the wheel lands on the same number for everyone, shown large', async () => {
       const left = Date.parse(joined.table.closesAt) - Date.now()
       const landed = { timeout: Math.max(0, left) + 30_000 }
       const results: number[] = []
-      for (const page of [alice.page, bob.page]) {
+      for (const page of watchers) {
         const result = card(page, id).locator('[data-result]')
         await expect(result).toBeVisible(landed)
         results.push(Number(await result.getAttribute('data-result')))
       }
-      expect(results[0]).toBe(results[1])
+      expect(new Set(results).size).toBe(1)
       const n = results[0] ?? -1
       expect(n).toBeGreaterThanOrEqual(0)
-      for (const page of [alice.page, bob.page]) {
+      for (const page of watchers) {
         await expect(card(page, id).locator('[data-result]')).toContainText(words(n))
         await expect(card(page, id)).toHaveAttribute('data-status', 'settled')
       }
@@ -190,7 +203,7 @@ test('two players bet on one round, watch it land, and see everyone’s result',
       { name: 'Bob', net: net('17', 25), joined: 1 },
     ].sort((a, b) => b.net - a.net || a.joined - b.joined)
 
-    for (const page of [alice.page, bob.page]) {
+    for (const page of watchers) {
       const rows = card(page, id).getByRole('list', { name: 'Results' }).getByRole('listitem')
       await expect(rows).toHaveCount(2)
       for (const [i, p] of players.entries()) {
@@ -232,4 +245,5 @@ test('two players bet on one round, watch it land, and see everyone’s result',
 
   await alice.close()
   await bob.close()
+  await carol.close()
 })
