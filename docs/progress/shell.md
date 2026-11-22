@@ -78,6 +78,12 @@ Plan, approved by Tyton on 2026-11-22: https://claude.ai/artifact/Sj3mrj6zpw6mgh
   player first. Tried by hand with `test` at 1440 and `test2` at 375. The phone strip's
   status now shows whole or not at all, instead of "Work read" at 375.
 
+- Merged `main` with whole chips (PR #20) on 2026-11-22, held back from the pull request
+  until Tyton has tried the preview: the preview's database holds hundredths, so pushing
+  makes its saved amounts read 100 times too large until its season is restarted. The
+  shell's tests count whole chips now, and the stream test stands on any hand of Alice's
+  that a failed test leaves open, which held up the blackjack lane's test in one run.
+
 ## Not done yet
 
 - Tyton tries the preview with `test` and `test2` (link sent 2026-11-22); nothing merges
