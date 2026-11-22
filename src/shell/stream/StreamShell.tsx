@@ -213,22 +213,23 @@ function PhoneStrip() {
         <Link to="/" aria-label="Anzul Casino, the stream" className="shrink-0 text-text">
           <LogoMark className="size-7" />
         </Link>
-        <div className="flex min-w-0 flex-1 items-center gap-2">
+        {/* One line: a status that does not fit beside the wallet wraps out of sight, so it
+            shows whole or not at all. */}
+        <div className="flex h-7 min-w-0 flex-1 flex-wrap content-start items-center gap-x-2.5 overflow-hidden">
           <StripWallet />
           {status.length > 0 && (
-            <span className="flex min-w-0 items-center gap-2 overflow-hidden">
-              <span className="text-faint">·</span>
+            <span className="flex h-7 shrink-0 items-center">
               <Slot name="stream-status" props={{}} />
             </span>
           )}
         </div>
         <HeaderButton onClick={() => openPanel('board')} label="Leaderboard and who is online">
           <TrophyIcon className="size-3.5" />
-          <span className="max-[26rem]:sr-only">Board</span>
+          <span className="max-[30rem]:sr-only">Board</span>
         </HeaderButton>
         <HeaderButton onClick={() => openPanel('you')} label="You: your wallet, timers and pages">
           <PersonIcon className="size-3.5" />
-          <span className="max-[26rem]:sr-only">You</span>
+          <span className="max-[30rem]:sr-only">You</span>
         </HeaderButton>
         <FilterSelect />
       </div>
