@@ -34,7 +34,7 @@ export interface Season {
   name: string
   startsAt: Date
   endsAt: Date
-  /** Hundredths. */
+  /** Chips. */
   startingBalance: bigint
   status: SeasonStatus
 }
@@ -72,7 +72,7 @@ export interface NewSeason {
   name: string
   startsAt: Date
   endsAt: Date
-  /** Hundredths. Defaults to the starting_balance setting. */
+  /** Chips. Defaults to the starting_balance setting. */
   startingBalance?: bigint
   actorId: string
 }

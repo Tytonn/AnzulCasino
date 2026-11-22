@@ -26,7 +26,10 @@ import {
   expectedPerHour,
   expectedPerPress,
   flavorLines,
+  carryAtRate,
+  incomeCarryMs,
   incomeFullInMs,
+  nextChipInMs,
   nextTier,
   parseChallengeId,
   pickChallenges,
@@ -49,22 +52,69 @@ const config = configDefaults()
 const HOUR = 3_600_000n
 
 describe('rank income', () => {
-  it('builds at the daily rate, rounded down to a hundredth, and stops at 24 hours', () => {
+  it('builds at the daily rate, rounded down to a whole chip, and stops at 24 hours', () => {
     const base = 5n * CHIP
-    expect(accruedIncome(base, 24n * HOUR, 24)).toBe(500n)
-    expect(accruedIncome(base, 12n * HOUR, 24)).toBe(250n)
-    // 5 chips a day is a hundredth every 172.8 seconds.
-    expect(accruedIncome(base, 172_799n, 24)).toBe(0n)
-    expect(accruedIncome(base, 172_800n, 24)).toBe(1n)
-    expect(accruedIncome(base, 72n * HOUR, 24)).toBe(500n)
+    expect(accruedIncome(base, 24n * HOUR, 24)).toBe(5n)
+    // 2.5 chips so far: 2 are paid.
+    expect(accruedIncome(base, 12n * HOUR, 24)).toBe(2n)
+    // 5 chips a day is a chip every 4.8 hours.
+    expect(accruedIncome(base, 17_279_999n, 24)).toBe(0n)
+    expect(accruedIncome(base, 17_280_000n, 24)).toBe(1n)
+    expect(accruedIncome(base, 72n * HOUR, 24)).toBe(5n)
     expect(accruedIncome(1_000_000n * CHIP, 30n * HOUR, 24)).toBe(1_000_000n * CHIP)
     expect(accruedIncome(base, -5n, 24)).toBe(0n)
     expect(accruedIncome(0n, 5n * HOUR, 24)).toBe(0n)
   })
 
+  it('carries the part of a chip still building over to the next collect', () => {
+    const base = 5n * CHIP
+    // 12 hours paid 2 chips, which took 9.6 hours: 2.4 hours (half a chip) carry over.
+    expect(incomeCarryMs(base, 12n * HOUR, 24, 2n)).toBe(8_640_000n)
+    // Nothing paid yet: all of it carries.
+    expect(incomeCarryMs(base, 17_279_999n, 24, 0n)).toBe(17_279_999n)
+    // Time past the cap is lost, as the cap says.
+    expect(incomeCarryMs(base, 72n * HOUR, 24, 5n)).toBe(0n)
+    expect(incomeCarryMs(0n, 5n * HOUR, 24, 0n)).toBe(0n)
+    // A chip at 7 a day takes 12,342,857.14... ms: the carry rounds the used time
+    // up, so it never pays the same part of a chip twice.
+    expect(incomeCarryMs(7n, 12_342_858n, 24, accruedIncome(7n, 12_342_858n, 24))).toBe(0n)
+
+    // Four collects 3 hours apart pay what one collect after 12 hours would.
+    let carry = 0n
+    let paid = 0n
+    for (let i = 0; i < 4; i++) {
+      const elapsed = carry + 3n * HOUR
+      const income = accruedIncome(base, elapsed, 24)
+      carry = incomeCarryMs(base, elapsed, 24, income)
+      paid += income
+    }
+    expect(paid).toBe(accruedIncome(base, 12n * HOUR, 24))
+    expect(carry).toBe(8_640_000n)
+  })
+
+  it('keeps what was building when a rank is bought, at the new rate', () => {
+    // Half a chip at 5 a day (2.4 hours) is half a chip at 15 a day (48 minutes).
+    expect(carryAtRate(8_640_000n, 5n, 15n)).toBe(2_880_000n)
+    expect(accruedIncome(15n, 2_880_000n, 24)).toBe(0n)
+    expect(carryAtRate(0n, 5n, 15n)).toBe(0n)
+    expect(carryAtRate(8_640_000n, 5n, 0n)).toBe(0n)
+  })
+
+  it('says when the next whole chip comes, until the cap stops it', () => {
+    expect(nextChipInMs(5, 0, 24)).toBe(17_280_000)
+    expect(nextChipInMs(5, 17_280_000, 24)).toBe(17_280_000)
+    expect(nextChipInMs(5, 20 * 3_600_000, 24)).toBe(4 * 3_600_000)
+    expect(nextChipInMs(5, 24 * 3_600_000, 24)).toBeNull()
+    expect(nextChipInMs(0, 0, 24)).toBeNull()
+  })
+
   it('ticks the same in the browser as the server pays', () => {
-    for (const ms of [0, 1, 172_800, 3_600_000, 43_210_987, 86_400_000, 90_000_000]) {
-      expect(accruedIncomeShown(1_500, ms, 24)).toBe(Number(accruedIncome(1_500n, BigInt(ms), 24)))
+    for (const perDay of [5, 15, 1_500]) {
+      for (const ms of [0, 1, 17_279_999, 17_280_000, 43_210_987, 86_400_000, 90_000_000]) {
+        expect(accruedIncomeShown(perDay, ms, 24)).toBe(
+          Number(accruedIncome(BigInt(perDay), BigInt(ms), 24)),
+        )
+      }
     }
     expect(incomeFullInMs(20 * 3_600_000, 24)).toBe(4 * 3_600_000)
     expect(incomeFullInMs(30 * 3_600_000, 24)).toBe(0)
@@ -111,7 +161,7 @@ describe('the streak bonus', () => {
     expect(streakDays({ bonusClaimed: true, streak: 4 })).toBe(5)
     expect(streakDays({ bonusClaimed: false, streak: 4 })).toBe(1)
     expect([1, 2, 9, 10, 11, 40].map((d) => Number(streakBonus(d, step, max)))).toEqual([
-      100, 200, 900, 1_000, 1_000, 1_000,
+      1, 2, 9, 10, 10, 10,
     ])
     expect(streakMaxDay(step, max)).toBe(10)
     expect([9, 10, 11, 19, 20, 30].map((d) => streakMilestone(d, step, max))).toEqual([
@@ -130,20 +180,20 @@ describe('work, slut and crime', () => {
   const always = { chance: () => true, below: (n: number) => n - 1 }
   const never = { chance: () => false, below: () => 0 }
 
-  it('draws whole chips when both ends of a range are whole', () => {
-    expect(rangeCount(200n, 600n)).toBe(5n)
-    expect([0n, 1n, 4n].map((i) => rangeValue(200n, 600n, i))).toEqual([200n, 300n, 600n])
+  it('draws a whole number of chips from a range', () => {
+    expect(rangeCount(2n, 6n)).toBe(5n)
+    expect([0n, 1n, 4n, 9n].map((i) => rangeValue(2n, 6n, i))).toEqual([2n, 3n, 6n, 6n])
     expect(rangeCount(150n, 250n)).toBe(101n)
     expect(rangeValue(150n, 250n, 7n)).toBe(157n)
-    expect(rangeCount(500n, 500n)).toBe(1n)
+    expect(rangeCount(5n, 5n)).toBe(1n)
   })
 
   it('pays from the top of the range or fines from the bottom, and a fine stops at the wallet', () => {
     const crime = commandSettings(config, 'crime')
-    expect(drawPress(crime, 0n, always)).toEqual({ paid: true, drawn: 15_000n, amount: 15_000n })
-    expect(drawPress(crime, 5_000n, never)).toEqual({ paid: false, drawn: 1_000n, amount: 1_000n })
-    expect(drawPress(crime, 400n, never)).toEqual({ paid: false, drawn: 1_000n, amount: 400n })
-    expect(drawPress(crime, 0n, never)).toEqual({ paid: false, drawn: 1_000n, amount: 0n })
+    expect(drawPress(crime, 0n, always)).toEqual({ paid: true, drawn: 150n, amount: 150n })
+    expect(drawPress(crime, 50n, never)).toEqual({ paid: false, drawn: 10n, amount: 10n })
+    expect(drawPress(crime, 4n, never)).toEqual({ paid: false, drawn: 10n, amount: 4n })
+    expect(drawPress(crime, 0n, never)).toEqual({ paid: false, drawn: 10n, amount: 0n })
     // Work cannot fail.
     const work = commandSettings(config, 'work')
     expect(work.successPct).toBe(10_000)
@@ -158,13 +208,13 @@ describe('work, slut and crime', () => {
       ReturnType<typeof commandSettings>,
       ReturnType<typeof commandSettings>,
     ]
-    // In hundredths: 4, 19.25 and 36.25 chips a press.
-    expect(expectedPerPress(work)).toBe(400)
-    expect(expectedPerPress(hustle)).toBeCloseTo(1_925)
-    expect(expectedPerPress(crime)).toBeCloseTo(3_625)
-    expect(expectedPerHour(work)).toBe(4_800)
-    expect(expectedPerHour(hustle)).toBeCloseTo(1_925)
-    expect(expectedPerHour(crime)).toBeCloseTo(1_812.5)
+    // 4, 19.25 and 36.25 chips a press.
+    expect(expectedPerPress(work)).toBe(4)
+    expect(expectedPerPress(hustle)).toBeCloseTo(19.25)
+    expect(expectedPerPress(crime)).toBeCloseTo(36.25)
+    expect(expectedPerHour(work)).toBe(48)
+    expect(expectedPerHour(hustle)).toBeCloseTo(19.25)
+    expect(expectedPerHour(crime)).toBeCloseTo(18.125)
     expect(expectedPerHour(work)).toBeGreaterThan(expectedPerHour(hustle))
     expect(expectedPerPress(crime)).toBeGreaterThan(expectedPerPress(hustle))
     expect(expectedPerPress(hustle)).toBeGreaterThan(expectedPerPress(work))
@@ -184,13 +234,12 @@ describe('work, slut and crime', () => {
         if (press.paid) {
           expect(press.amount).toBeGreaterThanOrEqual(settings.payMin)
           expect(press.amount).toBeLessThanOrEqual(settings.payMax)
-          expect(press.amount % CHIP).toBe(0n)
         }
       }
       expect(paid / presses).toBeCloseTo(settings.successPct / 10_000, 1)
       const mean = total / presses
       const expected = expectedPerPress(settings)
-      expect(Math.abs(mean - expected)).toBeLessThan(Math.max(40, Math.abs(expected) * 0.05))
+      expect(Math.abs(mean - expected)).toBeLessThan(Math.max(0.4, Math.abs(expected) * 0.05))
     }
   })
 
@@ -297,13 +346,10 @@ describe('challenges', () => {
 
   it('pays more for harder ones', () => {
     const [min, max] = [config.challenge_reward_min, config.challenge_reward_max]
-    expect([1, 2, 3].map((l) => challengeReward(l as 1 | 2 | 3, min, max))).toEqual([
-      200n,
-      300n,
-      400n,
-    ])
+    expect([1, 2, 3].map((l) => challengeReward(l as 1 | 2 | 3, min, max))).toEqual([2n, 3n, 4n])
     expect(challengeReward(2, 150n, 400n)).toBe(275n)
-    expect(challengeReward(2, 200n, 500n)).toBe(300n)
+    // 3.5 rounds down to a whole chip.
+    expect(challengeReward(2, 2n, 5n)).toBe(3n)
   })
 
   it("measures each kind from the day's settled rounds", () => {
@@ -353,10 +399,10 @@ describe('challenges', () => {
 })
 
 describe('chat drops', () => {
-  it('splits the pot evenly, rounded down to a hundredth', () => {
-    expect(dropShare(1_000n, 3)).toBe(333n)
-    expect(dropShare(1_000n, 1)).toBe(1_000n)
-    expect(dropShare(1_000n, 0)).toBe(0n)
+  it('splits the pot evenly, rounded down to a whole chip', () => {
+    expect(dropShare(10n, 3)).toBe(3n)
+    expect(dropShare(10n, 1)).toBe(10n)
+    expect(dropShare(10n, 0)).toBe(0n)
     expect(dropShare(0n, 3)).toBe(0n)
   })
 
@@ -388,13 +434,11 @@ describe('chat drops', () => {
   })
 
   it('reads a drop back from its chat post', () => {
-    expect(
-      dropFromMeta({ tone: 'win', drop: { id: 4, pot: 1_000, winners: 3, share: 333 } }),
-    ).toEqual({
+    expect(dropFromMeta({ tone: 'win', drop: { id: 4, pot: 10, winners: 3, share: 3 } })).toEqual({
       id: 4,
-      pot: 1_000,
+      pot: 10,
       winners: 3,
-      share: 333,
+      share: 3,
     })
     expect(dropFromMeta({ tone: 'win' })).toBeNull()
     expect(dropFromMeta(null)).toBeNull()
@@ -413,12 +457,10 @@ describe('the end of a season', () => {
     expect(medal(4)).toBeNull()
     expect(
       podiumText('December', [
-        { rank: 1, userId: 'a', displayName: 'Ava', netWorth: 1_234_500n },
-        { rank: 2, userId: 'b', displayName: 'Ben', netWorth: 99_950n },
+        { rank: 1, userId: 'a', displayName: 'Ava', netWorth: 12_345n },
+        { rank: 2, userId: 'b', displayName: 'Ben', netWorth: 999n },
       ]),
-    ).toBe(
-      '🏁 December is over! 🥇 Ava 12,345 · 🥈 Ben 999.50. Every place is in the Hall of Fame.',
-    )
+    ).toBe('🏁 December is over! 🥇 Ava 12,345 · 🥈 Ben 999. Every place is in the Hall of Fame.')
     expect(podiumText('Empty', [])).toBe('🏁 Empty is over.')
   })
 

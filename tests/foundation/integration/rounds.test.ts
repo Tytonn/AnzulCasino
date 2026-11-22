@@ -252,7 +252,7 @@ describe('starting a round', () => {
       game: 'testdice',
       userId: id,
       status: 'open',
-      stake: 2500,
+      stake: 25,
       payout: null,
       multiplier: null,
       detail: { step: 0 },
@@ -262,12 +262,12 @@ describe('starting a round', () => {
       steps: 0,
       settledAt: null,
     })
-    expect(res.body.wallet).toMatchObject({ seasonId, balance: 7500, vault: 0 })
+    expect(res.body.wallet).toMatchObject({ seasonId, balance: 75, vault: 0 })
     expect(JSON.stringify(res.body)).not.toContain(SECRET)
 
-    expect((await wallet(id)).balance).toBe(7500n)
+    expect((await wallet(id)).balance).toBe(75n)
     expect(await ledgerFor(id)).toEqual([
-      { delta: '-2500', reason: 'bet', ref_type: 'game_round', ref_id: String(res.body.round.id) },
+      { delta: '-25', reason: 'bet', ref_type: 'game_round', ref_id: String(res.body.round.id) },
     ])
     expect((await roundRow(res.body.round.id))?.secret).toEqual({ hidden: SECRET })
 
@@ -279,7 +279,7 @@ describe('starting a round', () => {
     expect(events('wallet.updated')[0]?.channel).toBe(`user:${id}`)
     expect(events('standing.changed')[0]?.envelope.data).toMatchObject({
       userId: id,
-      netWorth: 7500,
+      netWorth: 75,
     })
     expect(JSON.stringify(capture.events)).not.toContain(SECRET)
   })
@@ -287,11 +287,14 @@ describe('starting a round', () => {
   it('reads typed amounts against the wallet at that moment', async () => {
     const { id, client } = await player(100n)
     const half = await client.post('/api/testdice/instant', { bet: 'half', times: 0 }, key())
-    expect(half.body.round.stake).toBe(5000)
+    expect(half.body.round.stake).toBe(50)
     const small = await client.post('/api/testdice/instant', { bet: '0.025k', times: 100 }, key())
-    expect(small.body.round.stake).toBe(2500)
+    expect(small.body.round.stake).toBe(25)
+    // Chips are whole, so a typed point rounds down.
+    const point = await client.post('/api/testdice/instant', { bet: '2.9', times: 100 }, key())
+    expect(point.body.round.stake).toBe(2)
     const all = await client.post('/api/testdice/instant', { bet: 'all', times: 0 }, key())
-    expect(all.body.round).toMatchObject({ stake: 5000, allIn: true, bigBet: true })
+    expect(all.body.round).toMatchObject({ stake: 50, allIn: true, bigBet: true })
     expect((await wallet(id)).balance).toBe(0n)
   })
 
@@ -301,7 +304,7 @@ describe('starting a round', () => {
       ['lots', '"lots" is not an amount. Try 50, 2.5k, half or all.'],
       ['0.5', 'The smallest bet is 1.'],
       ['101', 'You only have 100 chips.'],
-      ['0', 'Bet more than zero.'],
+      ['0', 'The smallest bet is 1.'],
     ]
     for (const [bet, message] of tries) {
       const res = await client.post('/api/testdice/start', { bet }, key())
@@ -339,7 +342,7 @@ describe('starting a round', () => {
     // 50 of 100 is exactly big_bet_pct (50%).
     const big = await client.post('/api/testdice/instant', { bet: '50', times: 100 }, key())
     expect(big.body.round).toMatchObject({ bigBet: true, allIn: false })
-    const small = await client.post('/api/testdice/instant', { bet: '49.99', times: 100 }, key())
+    const small = await client.post('/api/testdice/instant', { bet: '49', times: 100 }, key())
     expect(small.body.round).toMatchObject({ bigBet: false, allIn: false })
   })
 
@@ -362,9 +365,9 @@ describe('starting a round', () => {
       const refused = await client.post('/api/testother/start', { bet: '10' }, key())
       expect(refused.status).toBe(409)
       expect(refused.body.error.code).toBe('season_over')
-      const settled = await client.post('/api/testdice/settle', { payout: 2000 }, key())
+      const settled = await client.post('/api/testdice/settle', { payout: 20 }, key())
       expect(settled.status).toBe(200)
-      expect(settled.body.wallet).toMatchObject({ seasonId: ending, balance: 11_000 })
+      expect(settled.body.wallet).toMatchObject({ seasonId: ending, balance: 110 })
     } finally {
       await testDb.query(
         `update seasons set status = 'active', starts_at = now() - interval '1 day',
@@ -407,16 +410,16 @@ describe('moves', () => {
   it('raises the stake from the wallet, and marks an all-in when it empties it', async () => {
     const { id, client } = await player(100n)
     const start = await client.post('/api/testdice/start', { bet: '30' }, key())
-    const raised = await client.post('/api/testdice/raise', { amount: 3000 }, key())
-    expect(raised.body.round).toMatchObject({ stake: 6000, allIn: false, bigBet: true })
-    expect(raised.body.wallet.balance).toBe(4000)
-    const broke = await client.post('/api/testdice/raise', { amount: 5000 }, key())
+    const raised = await client.post('/api/testdice/raise', { amount: 30 }, key())
+    expect(raised.body.round).toMatchObject({ stake: 60, allIn: false, bigBet: true })
+    expect(raised.body.wallet.balance).toBe(40)
+    const broke = await client.post('/api/testdice/raise', { amount: 50 }, key())
     expect(broke.status).toBe(400)
     expect(broke.body.error.code).toBe('insufficient_funds')
-    const all = await client.post('/api/testdice/raise', { amount: 4000 }, key())
-    expect(all.body.round).toMatchObject({ stake: 10_000, allIn: true })
+    const all = await client.post('/api/testdice/raise', { amount: 40 }, key())
+    expect(all.body.round).toMatchObject({ stake: 100, allIn: true })
     expect(await ledgerFor(id)).toEqual(
-      ['-3000', '-3000', '-4000'].map((delta) => ({
+      ['-30', '-30', '-40'].map((delta) => ({
         delta,
         reason: 'bet',
         ref_type: 'game_round',
@@ -430,65 +433,65 @@ describe('lowering the stake', () => {
   it('hands part of the stake back and keeps the round open', async () => {
     const { id, client } = await player(100n)
     const start = await client.post('/api/testdice/start', { bet: '30' }, key())
-    const all = await client.post('/api/testdice/raise', { amount: 7000 }, key())
-    expect(all.body.round).toMatchObject({ stake: 10_000, allIn: true, bigBet: true })
+    const all = await client.post('/api/testdice/raise', { amount: 70 }, key())
+    expect(all.body.round).toMatchObject({ stake: 100, allIn: true, bigBet: true })
     capture.events.length = 0
 
-    const res = await client.post('/api/testdice/lower', { amount: 6000 }, key())
+    const res = await client.post('/api/testdice/lower', { amount: 60 }, key())
     expect(res.status).toBe(200)
     // 40 of the 100 the player held is under big_bet_pct (50%), and chips are back home.
     expect(res.body.round).toMatchObject({
       status: 'open',
-      stake: 4000,
+      stake: 40,
       allIn: false,
       bigBet: false,
       steps: 2,
       detail: { step: 2, note: 'one bet off' },
     })
     expect(res.body.round).not.toHaveProperty('secret')
-    expect(res.body.wallet.balance).toBe(6000)
+    expect(res.body.wallet.balance).toBe(60)
     expect((await roundRow(start.body.round.id))?.secret).toEqual({ hidden: SECRET })
 
     const roundId = String(start.body.round.id)
     expect(await ledgerFor(id)).toEqual([
-      { delta: '-3000', reason: 'bet', ref_type: 'game_round', ref_id: roundId },
-      { delta: '-7000', reason: 'bet', ref_type: 'game_round', ref_id: roundId },
-      { delta: '6000', reason: 'refund', ref_type: 'game_round', ref_id: roundId },
+      { delta: '-30', reason: 'bet', ref_type: 'game_round', ref_id: roundId },
+      { delta: '-70', reason: 'bet', ref_type: 'game_round', ref_id: roundId },
+      { delta: '60', reason: 'refund', ref_type: 'game_round', ref_id: roundId },
     ])
     expect(await ledgerMismatches(db(), seasonId)).toEqual([])
 
     await client.settle()
     expect(events('round.action').map((e) => e.channel)).toEqual(['room:testdice'])
-    expect(events('round.action')[0]?.envelope.data).toMatchObject({ stake: 4000 })
+    expect(events('round.action')[0]?.envelope.data).toMatchObject({ stake: 40 })
     expect(events('wallet.updated')).toHaveLength(1)
 
     // What is left plays on: a 2x payout is on the 40 still in the round.
-    const settled = await client.post('/api/testdice/settle', { payout: 8000 }, key())
-    expect(settled.body.round).toMatchObject({ status: 'settled', stake: 4000, payout: 8000 })
+    const settled = await client.post('/api/testdice/settle', { payout: 80 }, key())
+    expect(settled.body.round).toMatchObject({ status: 'settled', stake: 40, payout: 80 })
     expect(settled.body.round.multiplier).toBe(200)
-    expect((await wallet(id)).balance).toBe(14_000n)
+    expect((await wallet(id)).balance).toBe(140n)
   })
 
   it('keeps a big bet big while what is left is still big', async () => {
     const { client } = await player(100n)
     await client.post('/api/testdice/start', { bet: '80' }, key())
-    const res = await client.post('/api/testdice/lower', { amount: 2000 }, key())
-    expect(res.body.round).toMatchObject({ stake: 6000, bigBet: true, allIn: false })
+    const res = await client.post('/api/testdice/lower', { amount: 20 }, key())
+    expect(res.body.round).toMatchObject({ stake: 60, bigBet: true, allIn: false })
   })
 
   it('refuses to hand back nothing, or the whole stake, and changes nothing', async () => {
     const { id, client } = await player(100n)
     await client.post('/api/testdice/start', { bet: '40' }, key())
-    for (const amount of [0, -100, 4000, 5000]) {
+    for (const amount of [0, -1, 40, 50]) {
       const res = await client.post('/api/testdice/lower', { amount }, key())
       expect(res.status, String(amount)).toBe(400)
       expect(res.body.error.code).toBe('bad_bet')
     }
-    expect((await ledgerFor(id)).map((r) => [r.delta, r.reason])).toEqual([['-4000', 'bet']])
-    expect((await wallet(id)).balance).toBe(6000n)
+    expect((await ledgerFor(id)).map((r) => [r.delta, r.reason])).toEqual([['-40', 'bet']])
+    expect((await wallet(id)).balance).toBe(60n)
 
     await client.post('/api/testdice/refund', {}, key())
-    const none = await client.post('/api/testdice/lower', { amount: 1000 }, key())
+    const none = await client.post('/api/testdice/lower', { amount: 10 }, key())
     expect(none.status).toBe(409)
     expect(none.body.error.code).toBe('no_round')
   })
@@ -497,23 +500,23 @@ describe('lowering the stake', () => {
 describe('settling', () => {
   it('pays out, closes the round, clears the secret and tells the room and the ticker', async () => {
     const { id, client } = await player(100n)
-    const start = await client.post('/api/testdice/start', { bet: '20' }, key())
-    const res = await client.post('/api/testdice/settle', { payout: 3920 }, key())
+    const start = await client.post('/api/testdice/start', { bet: '25' }, key())
+    const res = await client.post('/api/testdice/settle', { payout: 49 }, key())
     expect(res.body.round).toMatchObject({
       status: 'settled',
-      stake: 2000,
-      payout: 3920,
+      stake: 25,
+      payout: 49,
       multiplier: 196,
       summary: 'Six',
       detail: { step: 1, note: 'over' },
       steps: 1,
     })
-    expect(res.body.wallet.balance).toBe(10_000 - 2000 + 3920)
+    expect(res.body.wallet.balance).toBe(100 - 25 + 49)
     const row = await roundRow(start.body.round.id)
     expect(row).toMatchObject({ status: 'settled', secret: null, multiplier: '1.9600' })
     expect((await ledgerFor(id)).map((r) => [r.delta, r.reason])).toEqual([
-      ['-2000', 'bet'],
-      ['3920', 'payout'],
+      ['-25', 'bet'],
+      ['49', 'payout'],
     ])
 
     await client.settle()
@@ -527,15 +530,15 @@ describe('settling', () => {
         roundId: start.body.round.id,
         game: 'testdice',
         userId: id,
-        stake: 2000,
-        payout: 3920,
-        net: 1920,
+        stake: 25,
+        payout: 49,
+        net: 24,
         multiplier: 196,
         summary: 'Six',
         bigBet: false,
       },
     })
-    const again = await client.post('/api/testdice/settle', { payout: 3920 }, key())
+    const again = await client.post('/api/testdice/settle', { payout: 49 }, key())
     expect(again.body.error.code).toBe('no_round')
   })
 
@@ -552,10 +555,10 @@ describe('settling', () => {
     await client.settle()
     const wallets = events('wallet.updated')
     expect(wallets).toHaveLength(1)
-    expect(wallets[0]?.envelope.data).toMatchObject({ balance: 12_000 })
+    expect(wallets[0]?.envelope.data).toMatchObject({ balance: 120 })
     expect(events('standing.changed')).toHaveLength(1)
     expect(res.body.wallet).toMatchObject({
-      balance: 12_000,
+      balance: 120,
       version: wallets[0]?.envelope.version,
     })
     expect(events('round.started')).toHaveLength(1)
@@ -587,7 +590,7 @@ describe('settling', () => {
     await client.post('/api/testdice/instant', { bet: '10', times: 999 }, key())
     await client.post('/api/testdice/instant', { bet: '10', times: 0 }, key())
     // A lost big bet, then a won all-in, then a lost all-in.
-    const balance = Number((await wallet(id)).balance) / 100
+    const balance = Number((await wallet(id)).balance)
     await client.post(
       '/api/testdice/instant',
       { bet: String(Math.ceil(balance / 2)), times: 0 },
@@ -624,11 +627,11 @@ describe('refunds', () => {
     const { id, client } = await player(100n)
     await client.post('/api/testdice/start', { bet: '40' }, key())
     const res = await client.post('/api/testdice/refund', {}, key())
-    expect(res.body.round).toMatchObject({ status: 'void', payout: 4000, summary: 'Called off' })
-    expect(res.body.wallet.balance).toBe(10_000)
+    expect(res.body.round).toMatchObject({ status: 'void', payout: 40, summary: 'Called off' })
+    expect(res.body.wallet.balance).toBe(100)
     expect((await ledgerFor(id)).map((r) => [r.delta, r.reason])).toEqual([
-      ['-4000', 'bet'],
-      ['4000', 'refund'],
+      ['-40', 'bet'],
+      ['40', 'refund'],
     ])
     await client.settle()
     expect(events('round.settled').map((e) => e.channel)).toEqual(['room:testdice'])
@@ -663,7 +666,7 @@ describe('the room', () => {
     const seen = new Map(room.body.rounds.map((r: { id: number }) => [r.id, r]))
     expect(seen.get(stale.body.round.id)).toMatchObject({
       status: 'settled',
-      payout: 2000,
+      payout: 20,
       summary: 'Stood',
       detail: { note: 'finished for them' },
     })

@@ -25,7 +25,7 @@ export type Part = string | { person: AuditPerson | null } | { strong: string }
 
 export interface Described {
   parts: Part[]
-  /** Smaller lines under the sentence, such as "Wallet: 100 → 110.50". */
+  /** Smaller lines under the sentence, such as "Wallet: 100 → 110". */
   details: string[]
 }
 

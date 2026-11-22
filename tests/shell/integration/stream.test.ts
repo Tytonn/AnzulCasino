@@ -221,7 +221,7 @@ describe('GET /api/stream', () => {
       ['player', 'again'],
     ])
     // The open round's card has its round; nothing in the page holds the secret.
-    expect(newest.body.items[1].round).toMatchObject({ status: 'open', stake: 1000 })
+    expect(newest.body.items[1].round).toMatchObject({ status: 'open', stake: 10 })
     expect(JSON.stringify(newest.body)).not.toContain(SECRET)
 
     const older = await client.get(`/api/stream?limit=3&before=${newest.body.items[0].id}`)
@@ -354,10 +354,10 @@ describe('POST /api/stream/lookup', () => {
       tone: 'info',
       userId: asker.id,
       category: 'game',
-      lookup: { kind: 'balance', userId: asker.id, balance: 10_000, vault: 0, tier: 'base' },
+      lookup: { kind: 'balance', userId: asker.id, balance: 100, vault: 0, tier: 'base' },
     })
     expect(posts[1]?.body).toMatch(/^lookup_asker checked lookup_other: 250 in the wallet, /)
-    expect(posts[1]?.meta).toMatchObject({ lookup: { userId: other.id, balance: 25_000 } })
+    expect(posts[1]?.meta).toMatchObject({ lookup: { userId: other.id, balance: 250 } })
 
     await asker.client.settle()
     expect(chatEvents().map((e) => e.data.body)).toEqual(posts.map((p) => p.body))

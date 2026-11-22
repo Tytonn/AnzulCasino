@@ -71,7 +71,7 @@ export interface Heist {
   now: number
   meId: string
   myStanding: StandingView | undefined
-  /** Hundredths, from the top bar's wallet. */
+  /** Chips, from the top bar's wallet. */
   balance: number
   vault: number
   attemptsLeft: number

@@ -22,7 +22,7 @@ import { Button } from '../../kit/Button.tsx'
 import { Avatar } from '../../kit/PlayerName.tsx'
 import { useMe, useSeason } from '../../kit/queries.ts'
 import { toast } from '../../kit/toast.tsx'
-import { parseHundredths } from './config-edit.ts'
+import { chipsProblem, parseChips } from './config-edit.ts'
 import { useAdminPlayers } from './data.ts'
 import {
   Card,
@@ -63,10 +63,10 @@ export default function GiveawayTab() {
     [players.data],
   )
   const recipients = who === 'everyone' ? active : active.filter((p) => picked.has(p.id))
-  const parsed = amountText.trim() ? parseHundredths(amountText) : null
+  const parsed = amountText.trim() ? parseChips(amountText) : null
   const amountError =
     amountText.trim() && (parsed === null || parsed === 0)
-      ? 'Type a number of chips above zero, such as 5 or 2.50.'
+      ? chipsProblem(amountText, 'Type a number of chips above zero, such as 5 or 250.')
       : parsed !== null && parsed > MAX_ADMIN_AMOUNT
         ? 'That is more than a billion chips.'
         : null
@@ -231,11 +231,11 @@ export default function GiveawayTab() {
             label={mode === 'split' ? 'The pot' : 'Chips each'}
             error={
               amountError ??
-              (tooSmall ? 'Too little to split: each share needs at least 0.01.' : null)
+              (tooSmall ? 'Too little to split: each share needs at least 1 chip.' : null)
             }
             hint={
               mode === 'split'
-                ? 'Split evenly. Each share rounds down to a hundredth, so the pot is never overpaid.'
+                ? 'Split evenly. Each share rounds down to a whole chip, so the pot is never overpaid.'
                 : 'Every player gets this much.'
             }
           >
@@ -244,7 +244,7 @@ export default function GiveawayTab() {
                 id={id}
                 aria-describedby={describedBy}
                 aria-invalid={amountError || tooSmall ? true : undefined}
-                inputMode="decimal"
+                inputMode="numeric"
                 autoComplete="off"
                 placeholder={mode === 'split' ? '50' : '5'}
                 suffix="chips"

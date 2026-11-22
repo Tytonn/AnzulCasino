@@ -90,7 +90,7 @@ describe('news from the foundation', () => {
     // A season whose start time is already behind it, not started yet.
     const [row] = await testDb.query<{ id: number }>(
       `insert into seasons (name, starts_at, ends_at, starting_balance, status, created_by)
-       values ('Live season', now() - interval '1 minute', now() + interval '30 days', 10000, 'scheduled', $1)
+       values ('Live season', now() - interval '1 minute', now() + interval '30 days', 100, 'scheduled', $1)
        returning id`,
       [admin?.id],
     )
@@ -126,11 +126,11 @@ describe('news from the foundation', () => {
     )
     expect(wallet).toMatchObject({
       name: 'wallet.updated',
-      envelope: { version, data: { seasonId: season.id, balance: 10_000, vault: 0 } },
+      envelope: { version, data: { seasonId: season.id, balance: 100, vault: 0 } },
     })
     expect(standing).toMatchObject({
       channel: 'feed',
-      envelope: { version, data: { netWorth: 10_000, tier: 'base' } },
+      envelope: { version, data: { netWorth: 100, tier: 'base' } },
     })
   })
 

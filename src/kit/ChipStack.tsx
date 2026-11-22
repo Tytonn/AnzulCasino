@@ -7,15 +7,12 @@
  */
 import { AnimatePresence, motion } from 'motion/react'
 
-import { CHIP } from '../../shared/chips.ts'
-
 const COLORS = ['var(--accent)', 'var(--gold)', 'var(--avatar-cyan)', 'var(--avatar-pink)']
 
 /** 1 chip for a small bet up to 6 for a huge one: the stack grows with each 10x. */
 export function chipsFor(amount: number): number {
   if (amount <= 0) return 0
-  const whole = amount / Number(CHIP)
-  return Math.max(1, Math.min(6, Math.floor(Math.log10(Math.max(1, whole))) + 1))
+  return Math.max(1, Math.min(6, Math.floor(Math.log10(Math.max(1, amount))) + 1))
 }
 
 export function ChipStack({
@@ -23,7 +20,7 @@ export function ChipStack({
   size = 'md',
   className = '',
 }: {
-  /** Hundredths. Zero or less draws nothing. */
+  /** Chips. Zero or less draws nothing. */
   amount: number
   size?: 'sm' | 'md' | 'lg'
   className?: string

@@ -199,14 +199,14 @@ export type HandResult = (typeof HAND_RESULTS)[number]
 export interface BlackjackHand {
   /** In the order they were dealt. */
   cards: Card[]
-  /** Hundredths riding on this hand: the bet, or twice it once doubled. */
+  /** Chips riding on this hand: the bet, or twice it once doubled. */
   stake: number
   doubled: boolean
   /** Play on this hand is over: it stood, bust, doubled, reached 21, or is a split ace with its card. */
   done: boolean
   /** How the hand ended, once the round settles. */
   result: HandResult | null
-  /** Everything the hand paid back, stake included, once the round settles. Hundredths. */
+  /** Everything the hand paid back, stake included, once the round settles. Chips. */
   payout: number | null
 }
 
@@ -218,7 +218,7 @@ export interface BlackjackMove {
 
 /** A blackjack round's public detail: enough to draw the table and to replay the hand. */
 export interface BlackjackDetail {
-  /** Hundredths bet on the first hand: what a double or a split adds. 0 only before the deal. */
+  /** Chips bet on the first hand: what a double or a split adds. 0 only before the deal. */
   bet: number
   /** One hand, or two after a split. Empty only between the bet and the deal. */
   hands: BlackjackHand[]
@@ -299,7 +299,7 @@ export function legalMoves(detail: BlackjackDetail): Move[] {
   return moves
 }
 
-/** Hundredths a move takes from the wallet: a double or a split adds the bet again. */
+/** Chips a move takes from the wallet: a double or a split adds the bet again. */
 export function extraStake(detail: BlackjackDetail, move: Move): number {
   return move === 'double' || move === 'split' ? detail.bet : 0
 }
@@ -346,7 +346,7 @@ export function isSlowRevealBet(
 
 // ---------------------------------------------------------------- payouts
 
-/** Everything a settled hand pays back, stake included, rounded down to a hundredth. */
+/** Everything a settled hand pays back, stake included, rounded down to a whole chip. */
 export function handPayout(stake: bigint, result: HandResult): bigint {
   switch (result) {
     case 'blackjack':

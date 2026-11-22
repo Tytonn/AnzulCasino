@@ -118,7 +118,8 @@ export function BetBox({
         ? parsed.error
         : checkBetAmount(parsed.amount, balance, limits)
   const showProblem = problem !== null && (tried || !stillTyping(typed))
-  const shorthand = parsed?.ok && (parsed.keyword !== null || /[kmb]/i.test(typed))
+  // Words, k/m/b and a point all show what they come to: "2.5" bets 2 whole chips.
+  const shorthand = parsed?.ok && (parsed.keyword !== null || /[kmb.]/i.test(typed))
 
   function focusBox(select: boolean) {
     if (touch) return
@@ -232,7 +233,7 @@ export function BetBox({
             aria-invalid={showProblem || undefined}
             aria-describedby={`${game}-bet-note`}
             placeholder={touch ? 'Amount' : '50, 2.5k, half, all'}
-            inputMode={touch ? 'decimal' : 'text'}
+            inputMode={touch ? 'numeric' : 'text'}
             enterKeyHint="go"
             autoComplete="off"
             autoCorrect="off"

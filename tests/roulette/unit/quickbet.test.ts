@@ -145,7 +145,7 @@ describe('the bet endpoint input', () => {
 })
 
 describe('resolving typed bets against the wallet', () => {
-  const limits = { minBet: 100n, maxBetPct: 10_000 }
+  const limits = { minBet: 1n, maxBetPct: 10_000 }
 
   it('resolves each bet against what is left once the ones before it are down', () => {
     const resolved = resolveBets(
@@ -153,30 +153,30 @@ describe('resolving typed bets against the wallet', () => {
         { spot: 'black', bet: '10' },
         { spot: 'red', bet: 'all' },
       ],
-      100_00n,
+      100n,
       limits,
     )
     expect(resolved).toEqual({
       ok: true,
       bets: [
-        { spot: 'black', amount: 10_00n },
-        { spot: 'red', amount: 90_00n },
+        { spot: 'black', amount: 10n },
+        { spot: 'red', amount: 90n },
       ],
-      total: 100_00n,
+      total: 100n,
     })
     const halves = resolveBets(
       [
         { spot: 'odd', bet: 'half' },
         { spot: 'even', bet: 'half' },
       ],
-      100_00n,
+      100n,
       limits,
     )
-    expect(halves.ok && halves.bets.map((b) => b.amount)).toEqual([50_00n, 25_00n])
+    expect(halves.ok && halves.bets.map((b) => b.amount)).toEqual([50n, 25n])
   })
 
   it('holds every bet to the limits, naming the place when there are several', () => {
-    expect(resolveBets([{ spot: 'red', bet: '0.5' }], 100_00n, limits)).toEqual({
+    expect(resolveBets([{ spot: 'red', bet: '0.5' }], 100n, limits)).toEqual({
       ok: false,
       error: 'The smallest bet is 1.',
     })
@@ -186,12 +186,12 @@ describe('resolving typed bets against the wallet', () => {
           { spot: 'red', bet: '60' },
           { spot: '17', bet: '60' },
         ],
-        100_00n,
+        100n,
         limits,
       ),
     ).toEqual({ ok: false, error: '17: You only have 40 chips.' })
-    const capped = resolveBets([{ spot: 'red', bet: '60' }], 100_00n, {
-      minBet: 100n,
+    const capped = resolveBets([{ spot: 'red', bet: '60' }], 100n, {
+      minBet: 1n,
       maxBetPct: 5_000,
     })
     expect(capped.ok).toBe(false)

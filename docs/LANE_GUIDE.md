@@ -162,7 +162,7 @@ The rules in `CLAUDE.md` apply to every line. Most of them are built into the to
 | Rule | What does it for you | What you still do |
 | --- | --- | --- |
 | 1. The server decides | Zod input schemas, `z.strictObject` | Accept intents only (a bet, a call, hit). Never an outcome, a balance, a multiplier or a card |
-| 2. Whole hundredths | `shared/chips.ts`: `CHIP`, `chips()`, `mulDiv()`, `basisPoints()`, `formatChips()` | Keep chip math in `bigint`. Round payouts down with `mulDiv`. Chips cross the wire as plain numbers of hundredths |
+| 2. Whole chips | `shared/chips.ts`: `CHIP`, `chips()`, `mulDiv()`, `basisPoints()`, `formatChips()` | Keep chip math in `bigint`. Round payouts, steals and fines down to a whole chip with `mulDiv` or `basisPoints`, and expect small ones to come to 0. Chips cross the wire as plain whole numbers |
 | 3. One ledger row per change | `server/lib/wallet.ts`: `debit`, `credit`, `transfer`, `moveBetweenAccounts` write the row | Never update `wallets.balance` or `vault` yourself |
 | 4. Lock before you spend | `debit` and `transfer` lock the wallet and check the balance; the round helper does it for rounds | Call `lockWallet` first when your check reads the wallet row (a cooldown, a balance) |
 | 5. Idempotent | `idempotent: true` on the route, then `playTransaction` or `chipTransaction`; `usePlay` and `requestKey()` in the browser | One key per intent. A retry reuses the key |
@@ -533,7 +533,7 @@ Big bets, all-ins, the ticker line and the chat post for a big result are automa
 
 ### Config: `config.ts` and `shared/config.ts`
 
-Read values with `play.config` in a round, or `await loadConfig(tx)` elsewhere. The values are typed: `chips` keys are `bigint` hundredths, `share` keys are basis points (100 is 1%), and the rest are numbers, text or lists of lines. Changes in the economy, ranks, giveaways, steals, shields and vault groups take effect at the next daily reset; the rest at once. Every key the spec names is already in `shared/config.ts`, including your game's edge and timings. Ask for anything else as a shared change.
+Read values with `play.config` in a round, or `await loadConfig(tx)` elsewhere. The values are typed: `chips` keys are `bigint` whole chips, `share` keys are basis points (100 is 1%), and the rest are numbers, text or lists of lines. Changes in the economy, ranks, giveaways, steals, shields and vault groups take effect at the next daily reset; the rest at once. Every key the spec names is already in `shared/config.ts`, including your game's edge and timings. Ask for anything else as a shared change.
 
 ### Seasons, time and game days
 

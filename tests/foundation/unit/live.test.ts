@@ -102,14 +102,14 @@ describe('events', () => {
     expect(wallet).toMatchObject({
       channel: 'user:alice',
       name: 'wallet.updated',
-      envelope: { version: 41, data: { seasonId: '7', balance: 9_000, vault: 1_000 } },
+      envelope: { version: 41, data: { seasonId: '7', balance: 90, vault: 10 } },
     })
     expect(standing).toMatchObject({
       channel: 'feed',
       name: 'standing.changed',
       envelope: {
         version: 41,
-        data: { userId: 'alice', balance: 9_000, vault: 1_000, netWorth: 10_000, tier: 'bronze' },
+        data: { userId: 'alice', balance: 90, vault: 10, netWorth: 100, tier: 'bronze' },
       },
     })
   })

@@ -18,7 +18,7 @@ import {
   setting,
 } from '../../../shared/config.ts'
 
-/** A setting's value as it travels: a number (chips in hundredths, shares in basis points), text, or a list. */
+/** A setting's value as it travels: a number (chips, or shares in basis points), text, or a list. */
 export type WireValue = number | string | string[]
 
 /** What an input holds while the admin types: text for numbers, names and lines; a list for a command's words. */
@@ -142,7 +142,36 @@ export function unitSuffix(key: ConfigKey): string {
   }
 }
 
-/** Hundredths as typed: 250 is "2.5", 200 is "2", 1234 is "12.34". */
+/** Whole chips as typed, grouped so 10,000,000 reads at a glance: 10000 is "10,000". */
+export function chipsText(value: number): string {
+  return Math.trunc(value).toLocaleString('en-US')
+}
+
+/**
+ * "1,000" as a whole number of chips, or null when it is not one. Chips are
+ * whole, so "2.5" is refused rather than rounded: an admin's amount is exact.
+ */
+export function parseChips(text: string): number | null {
+  const clean = text.trim().replace(/,/g, '')
+  if (!/^\d+$/.test(clean)) return null
+  const value = Number(clean)
+  return Number.isSafeInteger(value) ? value : null
+}
+
+/**
+ * Why typed text is not a whole number of chips, for the field under it: a
+ * decimal point gets its own answer, anything else the field's `fallback`.
+ */
+export function chipsProblem(
+  text: string,
+  fallback = 'Type a number of chips, such as 5 or 250.',
+): string {
+  return /^\s*[\d,]*\.\d*\s*$/.test(text)
+    ? 'Chips are whole numbers. Type an amount without a decimal point.'
+    : fallback
+}
+
+/** A share's hundredths of a percent as typed: 250 is "2.5", 200 is "2", 1234 is "12.34". */
 export function hundredthsText(value: number): string {
   const sign = value < 0 ? '-' : ''
   const abs = Math.abs(Math.trunc(value))
@@ -154,7 +183,7 @@ export function hundredthsText(value: number): string {
   return `${sign}${grouped}.${String(rest).padStart(2, '0').replace(/0$/, '')}`
 }
 
-/** "2.5" or "1,000.25" as hundredths, or null when it is not a plain amount. */
+/** "2.5" or "1,000.25" as hundredths (a share's basis points), or null when it is not a plain number. */
 export function parseHundredths(text: string): number | null {
   const clean = text.trim().replace(/,/g, '')
   const match = /^(\d+)(?:\.(\d{1,2}))?$/.exec(clean)
@@ -172,7 +201,8 @@ export function toDraft(key: ConfigKey, wire: unknown): Draft {
   if (unit === 'lines') return Array.isArray(wire) ? wire.map(String).join('\n') : ''
   if (unit === 'text' || unit === 'choice') return typeof wire === 'string' ? wire : ''
   if (typeof wire !== 'number') return ''
-  if (unit === 'chips' || unit === 'share') return hundredthsText(wire)
+  if (unit === 'chips') return chipsText(wire)
+  if (unit === 'share') return hundredthsText(wire)
   return String(wire)
 }
 
@@ -220,17 +250,13 @@ export function fromDraft(key: ConfigKey, draft: Draft, hustle?: string): Checke
   } else {
     const text = typeof draft === 'string' ? draft : ''
     if (!text.trim()) return { ok: false, error: 'Type a value.' }
-    if (s.unit === 'chips' || s.unit === 'share') {
+    if (s.unit === 'chips') {
+      const parsed = parseChips(text)
+      if (parsed === null) return { ok: false, error: chipsProblem(text) }
+      value = parsed
+    } else if (s.unit === 'share') {
       const parsed = parseHundredths(text)
-      if (parsed === null) {
-        return {
-          ok: false,
-          error:
-            s.unit === 'chips'
-              ? 'Type a number of chips, such as 5 or 2.50.'
-              : 'Type a percentage, such as 45 or 1.5.',
-        }
-      }
+      if (parsed === null) return { ok: false, error: 'Type a percentage, such as 45 or 1.5.' }
       value = parsed
     } else {
       const clean = text.trim().replace(/,/g, '')
@@ -262,7 +288,7 @@ export function fromWire(key: ConfigKey, wire: unknown): ConfigValue {
   return wire as ConfigValue
 }
 
-/** A wire value for people: "2.50 chips", "45%", "bj, blackjack", a choice's label. */
+/** A wire value for people: "250 chips", "45%", "bj, blackjack", a choice's label. */
 export function formatWire(key: ConfigKey, wire: unknown): string {
   return formatConfigValue(key, fromWire(key, wire))
 }

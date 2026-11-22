@@ -1,6 +1,6 @@
 /**
  * The shape a server value has once it is sent as JSON: chip amounts
- * (bigint on the server) arrive as numbers of hundredths, and dates as ISO
+ * (bigint on the server) arrive as plain numbers of chips, and dates as ISO
  * strings. The browser types API responses and live events with it.
  *
  *   type RoundView = Wire<SettledRound>

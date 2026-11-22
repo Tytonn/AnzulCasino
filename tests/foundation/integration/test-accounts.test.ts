@@ -304,7 +304,7 @@ describe('on a deploy preview', () => {
     const [scheduled] = await testDb.query<{ starts_at: Date }>(
       `insert into seasons (name, starts_at, ends_at, starting_balance, status)
        values ('Season 2', date_trunc('second', now()) + interval '3 days',
-               date_trunc('second', now()) + interval '33 days', 10000, 'scheduled')
+               date_trunc('second', now()) + interval '33 days', 100, 'scheduled')
        returning starts_at`,
     )
     expect((await signIn(PREVIEW)).status).toBe(200)

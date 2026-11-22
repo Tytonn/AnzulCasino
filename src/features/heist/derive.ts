@@ -17,7 +17,7 @@ import { gameDay, nextReset } from '../../../shared/game-day.ts'
 import type { SeasonPhase, StandingView } from '../../../shared/seasons.ts'
 import type { Wire } from '../../../shared/wire.ts'
 
-/** The config heist reads, with chip amounts back as bigint hundredths. */
+/** The config heist reads, with chip amounts back as bigint chips. */
 export type HeistConfig = Pick<
   ConfigValues,
   | 'steal_attempts_per_day'

@@ -116,6 +116,9 @@ function CollectCard({ state }: { state: EconomyState }) {
             <span>
               {TIER_LABELS[state.income.tier]} rank pays {perDayText(state.income.perDay)}
             </span>
+            {waiting.nextChipInMs !== null && (
+              <span className="tabular-nums">· next chip in {longWait(waiting.nextChipInMs)}</span>
+            )}
             {waiting.bonus > 0 && (
               <span className="text-(--economy-flame)">
                 + {formatChips(waiting.bonus)} streak bonus

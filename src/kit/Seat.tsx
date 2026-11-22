@@ -25,7 +25,7 @@ export type SeatOutcome =
   | { kind: 'push'; stake: number }
   | { kind: 'void'; stake: number }
 
-/** Where a seat's latest round stands, for its bet line. Amounts in hundredths. */
+/** Where a seat's latest round stands, for its bet line. Amounts in chips. */
 export function seatOutcome(round: RoundView<unknown> | null): SeatOutcome {
   if (!round) return { kind: 'none' }
   const { stake } = round

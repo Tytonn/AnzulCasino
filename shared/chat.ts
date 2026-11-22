@@ -88,7 +88,7 @@ export interface SystemMeta {
   game?: string
   /**
    * A chat drop (the economy lane's): its id, the pot, how many players
-   * claimed a share and each share, in hundredths.
+   * claimed a share and each share, in chips.
    */
   drop?: { id: number; pot: number; winners: number; share: number }
   /**
@@ -109,7 +109,7 @@ export interface SystemMeta {
 export interface IncomeLine {
   command: 'work' | 'hustle' | 'crime'
   outcome: 'paid' | 'fined'
-  /** Hundredths won or lost. */
+  /** Chips won or lost. */
   amount: number
   /** The flavor line shown with it. */
   line: string
@@ -117,7 +117,7 @@ export interface IncomeLine {
   big: boolean
 }
 
-/** What .bal or .lb showed, as it stood when posted. Chip amounts in hundredths. */
+/** What .bal or .lb showed, as it stood when posted, in whole chips. */
 export type LookupSnapshot =
   | {
       kind: 'balance'

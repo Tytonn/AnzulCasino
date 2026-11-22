@@ -111,7 +111,7 @@ These rules apply to every line of code in every lane. The foundation thread cop
 
 1. **The server decides everything.** The browser sends intents: bet 500, hit, cash out. It never sends an outcome, a balance, a multiplier or a card.
 2. **Chips are whole numbers.** Store them as `bigint`. No floats in chip math. Payouts round down to a whole chip.
-   _(Changed by Tyton, Nov 18, 2026.)_ Chips are tracked in whole hundredths of a chip: every amount is a `bigint` count of hundredths, so there are still no floats. Payouts, steals and fines round down to a whole hundredth. Show cents only when an amount is not a whole number (`107.50`, but `107`).
+   _(Changed by Tyton, Nov 18, 2026, to hundredths of a chip with cents shown; changed back by Tyton, Nov 22, 2026.)_ Chips are whole numbers again, and a season still starts with 100. Every amount is a `bigint` count of whole chips, and nothing shows decimals. Payouts, steals, fines, income and giveaway shares round down to a whole chip, so small ones can come to 0 or 1: a right call on a 1-chip coin flip pays back just the 1 chip.
 3. **Every balance change is one ledger row**, written in the same database transaction as the thing that caused it. A wallet's balance must always equal the sum of its ledger rows. A test checks this.
 4. **Lock before you spend.** Every transaction that moves chips locks the wallet row first (`SELECT ... FOR UPDATE`), then checks the balance. Two fast clicks must never spend the same chips twice.
 5. **Every chip-moving request is idempotent.** The browser sends a unique key with it. A repeated key returns the first result and changes nothing.
@@ -495,6 +495,7 @@ Stealing is the comeback tool: it pays most when a low-ranked player robs a high
 
 1. Each player gets `steal_attempts_per_day` attempts per game day.
 2. A target is chosen from the leaderboard or a profile. These targets are not selectable, and the reason is shown: yourself, a player under `steal_floor` net worth, a player with immunity, a player whose daily loss cap is used up, a player you already tried today, anyone during the final 24 hours.
+   _(Added Nov 22, 2026, with whole chips.)_ Nor is a player whose wallet is too small for the rate to take a whole chip ("Small wallet"). The attempt is not used.
 3. **Shield check.** If the target holds a shield charge, the steal is blocked. One charge is used, the attempt is used, no fine is paid, and the target gets immunity.
 4. **Roll.** Otherwise the steal succeeds with probability `steal_success_pct`.
 5. **Success.** Chips move from the target's wallet to the thief's wallet. The vault is never touched. The target gets immunity.

@@ -16,7 +16,7 @@ import { playSound } from './sfx.ts'
 
 interface Celebration {
   id: number
-  /** What the player won, payout minus stake, in hundredths. */
+  /** What the player won, payout minus stake, in chips. */
   net: number
   /** A line under the amount, such as "All in". */
   note?: string

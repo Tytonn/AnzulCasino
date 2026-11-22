@@ -123,7 +123,7 @@ async function playOut(page: Page, hand: Hand, phone: boolean): Promise<Hand> {
   return result
 }
 
-/** How a finished card says its result: "+1", "+1.50", "−1" or "±0". */
+/** How a finished card says its result: "+1", "−1" or "±0". */
 function signed(hand: Hand): string {
   const net = (hand.round.payout ?? 0) - hand.round.stake
   if (net > 0) return `+${formatChips(net)}`
@@ -194,7 +194,7 @@ test('a hand dealt from the message box plays live for everyone, then folds', as
   const first =
     await test.step('Alice types .bj 1: her card is pinned above the box with the keys', async () => {
       const dealt = await deal(alice.page)
-      expect(dealt.round).toMatchObject({ game: 'blackjack', stake: 100 })
+      expect(dealt.round).toMatchObject({ game: 'blackjack', stake: 1 })
       expect(dealt.card?.meta).toMatchObject({ game: 'blackjack', roundId: dealt.round.id })
       // The dealer's hole card stays on the server.
       expect(JSON.stringify(dealt)).not.toContain('secret')

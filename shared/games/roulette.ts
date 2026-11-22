@@ -186,7 +186,7 @@ export function paysTo(spot: Spot): number {
 
 /**
  * Everything a bet returns once `number` is drawn, stake included, in
- * hundredths: the stake times 36 over the numbers it covers, or nothing. 36
+ * chips: the stake times 36 over the numbers it covers, or nothing. 36
  * divides evenly by every spot's count, so nothing is ever rounded.
  */
 export function spotReturn(spot: Spot, amount: bigint, number: number): bigint {
@@ -196,7 +196,7 @@ export function spotReturn(spot: Spot, amount: bigint, number: number): bigint {
 
 // ---------------------------------------------------------------- a round
 
-/** One bet in a round: a spot and the chips on it, in hundredths. */
+/** One bet in a round: a spot and the chips on it. */
 export interface RouletteBet {
   spot: string
   amount: number
@@ -217,7 +217,7 @@ export interface RouletteDetail {
   wins: string[]
 }
 
-/** The stake of a list of bets, in hundredths. */
+/** The stake of a list of bets, in chips. */
 export function betsTotal(bets: readonly RouletteBet[]): bigint {
   return bets.reduce((sum, bet) => sum + BigInt(bet.amount), 0n)
 }
@@ -385,10 +385,10 @@ export type RouletteBetInput = z.infer<typeof RouletteBetInput>
 export const RouletteRemoveInput = z.strictObject({
   spin: SpinNo,
   spot: SpotId,
-  /** Hundredths. */
+  /** Chips. */
   amount: z
     .number()
-    .int('Take off a whole number of hundredths.')
+    .int('Take off a whole number of chips.')
     .positive('Take off more than zero.')
     .max(Number.MAX_SAFE_INTEGER)
     .optional(),

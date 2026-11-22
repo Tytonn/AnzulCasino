@@ -14,10 +14,10 @@ it('reads and writes through Drizzle with chips as bigint', async () => {
       name: 'Season 2',
       startsAt: new Date('2026-12-01T10:00:00Z'),
       endsAt: new Date('2026-12-31T10:00:00Z'),
-      startingBalance: 10_000n,
+      startingBalance: 100n,
     })
     .returning()
-  expect(created?.startingBalance).toBe(10_000n)
+  expect(created?.startingBalance).toBe(100n)
   expect(created?.startsAt).toEqual(new Date('2026-12-01T10:00:00Z'))
 
   const [found] = await db().select().from(seasons).where(eq(seasons.id, created!.id))

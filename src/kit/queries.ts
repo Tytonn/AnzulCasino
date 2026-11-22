@@ -5,7 +5,7 @@
  * database asleep).
  *
  *   const me = useMe()
- *   const wallet = useWallet()          // balance and vault in hundredths, or null
+ *   const wallet = useWallet()          // balance and vault in chips, or null
  *   const alice = usePlayer(userId)     // name, avatar and tier, for <PlayerName>
  */
 import { type QueryClient, replaceEqualDeep, useQuery } from '@tanstack/react-query'
@@ -80,7 +80,7 @@ export function useSeason() {
   return useQuery(seasonQuery)
 }
 
-/** The player's chips this season, or null outside a season. Hundredths. */
+/** The player's chips this season, or null outside a season. */
 export function useWallet(): SeasonState['wallet'] {
   return useSeason().data?.wallet ?? null
 }
@@ -114,7 +114,7 @@ export function useTicker() {
   })
 }
 
-/** Every tunable value (shared/config.ts), chip amounts in hundredths. */
+/** Every tunable value (shared/config.ts), chip amounts in whole chips. */
 export function useConfig() {
   return useQuery({
     queryKey: queryKeys.config,

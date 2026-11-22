@@ -56,7 +56,7 @@ function stack(...cards: Card[]): CardSource & { left(): number } {
   }
 }
 
-const BET = 1_000n // 10 chips
+const BET = 10n // 10 chips
 
 function hand(table: Table, i = 0) {
   const found = table.detail.hands[i]
@@ -124,7 +124,7 @@ describe('the deal', () => {
   it('deals the player, the dealer, the player, and leaves the hole card undrawn with 2 to 9 up', () => {
     const table = run(['9s', '7h', '5d'])
     expect(hand(table).cards).toEqual(['9s', '5d'])
-    expect(table.detail).toMatchObject({ dealer: ['7h'], peeked: false, active: 0, bet: 1_000 })
+    expect(table.detail).toMatchObject({ dealer: ['7h'], peeked: false, active: 0, bet: 10 })
     expect(table.hole).toBeNull()
     expect(isOver(table)).toBe(false)
     expect(legalMoves(table.detail)).toEqual(['hit', 'stand', 'double'])
@@ -151,7 +151,7 @@ describe('the deal', () => {
 
   it('pushes a blackjack against a dealer blackjack', () => {
     const table = run(['As', 'Ah', 'Kd', 'Tc'])
-    expect(hand(table)).toMatchObject({ result: 'push', payout: 1_000 })
+    expect(hand(table)).toMatchObject({ result: 'push', payout: 10 })
     expect(summarize(table.detail)).toBe('Push, both blackjack')
   })
 
@@ -159,14 +159,14 @@ describe('the deal', () => {
     const table = run(['As', '6h', 'Kd', 'Tc'])
     expect(isOver(table)).toBe(true)
     expect(table.detail.dealer).toEqual(['6h', 'Tc'])
-    expect(hand(table)).toMatchObject({ result: 'blackjack', payout: 2_500 })
+    expect(hand(table)).toMatchObject({ result: 'blackjack', payout: 25 })
     expect(summarize(table.detail)).toBe('Blackjack')
   })
 
   it('pays a blackjack 3 to 2 after the dealer peeks and has none', () => {
     const table = run(['Ks', 'Ah', 'Ad', '7c'])
     expect(table.detail.dealer).toEqual(['Ah', '7c'])
-    expect(hand(table)).toMatchObject({ result: 'blackjack', payout: 2_500 })
+    expect(hand(table)).toMatchObject({ result: 'blackjack', payout: 25 })
   })
 })
 
@@ -186,7 +186,7 @@ describe('hit and stand', () => {
   it('stands the dealer on a soft 17', () => {
     const table = run(['Ts', '6h', '8d', 'Ac'], ['stand'])
     expect(table.detail.dealer).toEqual(['6h', 'Ac'])
-    expect(hand(table)).toMatchObject({ result: 'win', payout: 2_000 })
+    expect(hand(table)).toMatchObject({ result: 'win', payout: 20 })
     expect(summarize(table.detail)).toBe('18 beats 17')
   })
 
@@ -201,19 +201,19 @@ describe('hit and stand', () => {
     const table = run(['5s', '9h', '6d', 'Kc', '5c', '4h'], ['hit'])
     expect(hand(table).cards).toEqual(['5s', '6d', 'Kc'])
     expect(table.detail.dealer).toEqual(['9h', '5c', '4h'])
-    expect(hand(table)).toMatchObject({ result: 'win', payout: 2_000 })
+    expect(hand(table)).toMatchObject({ result: 'win', payout: 20 })
   })
 
   it('pays a dealer bust', () => {
     const table = run(['Ts', '6h', '2d', 'Tc', '8c'], ['stand'])
     expect(table.detail.dealer).toEqual(['6h', 'Tc', '8c'])
-    expect(hand(table)).toMatchObject({ result: 'win', payout: 2_000 })
+    expect(hand(table)).toMatchObject({ result: 'win', payout: 20 })
     expect(summarize(table.detail)).toBe('Dealer bust on 24')
   })
 
   it('returns the stake on a push', () => {
     const table = run(['Ts', '9h', '9d', 'Tc'], ['stand'])
-    expect(hand(table)).toMatchObject({ result: 'push', payout: 1_000 })
+    expect(hand(table)).toMatchObject({ result: 'push', payout: 10 })
     expect(summarize(table.detail)).toBe('Push on 19')
   })
 
@@ -231,9 +231,9 @@ describe('double', () => {
     expect(hand(table)).toMatchObject({
       cards: ['9s', '6d', '2c'],
       doubled: true,
-      stake: 2_000,
+      stake: 20,
       result: 'win',
-      payout: 4_000,
+      payout: 40,
     })
     expect(summarize(table.detail)).toBe('Doubled, dealer bust on 26')
   })
@@ -241,7 +241,7 @@ describe('double', () => {
   it('loses twice the bet on a lost double', () => {
     // 6 5 = 11 doubles and gets a 2: 13. Dealer 9 T = 19.
     const table = run(['6s', '9h', '5d', '2c', 'Tc'], ['double'])
-    expect(hand(table)).toMatchObject({ stake: 2_000, result: 'lose', payout: 0 })
+    expect(hand(table)).toMatchObject({ stake: 20, result: 'lose', payout: 0 })
     expect(roundPayout(table.detail)).toBe(0n)
   })
 
@@ -260,7 +260,7 @@ describe('split', () => {
     expect(legalMoves(table.detail)).toEqual(['hit', 'stand', 'double', 'split'])
     play(table, 'split', deck)
     expect(table.detail.hands.map((h) => h.cards)).toEqual([['8s', '3c'], ['8d']])
-    expect(table.detail.hands.map((h) => h.stake)).toEqual([1_000, 1_000])
+    expect(table.detail.hands.map((h) => h.stake)).toEqual([10, 10])
     expect(table.detail.active).toBe(0)
     expect(deck.left()).toBe(0)
   })
@@ -273,11 +273,11 @@ describe('split', () => {
       ['split', 'double', 'stand'],
     )
     expect(table.detail.hands).toMatchObject([
-      { cards: ['8s', '3c', 'Td'], doubled: true, stake: 2_000, result: 'win', payout: 4_000 },
-      { cards: ['8d', 'Kh'], doubled: false, stake: 1_000, result: 'lose', payout: 0 },
+      { cards: ['8s', '3c', 'Td'], doubled: true, stake: 20, result: 'win', payout: 40 },
+      { cards: ['8d', 'Kh'], doubled: false, stake: 10, result: 'lose', payout: 0 },
     ])
     expect(table.detail.dealer).toEqual(['6h', '9c', '5s'])
-    expect(roundPayout(table.detail)).toBe(4_000n)
+    expect(roundPayout(table.detail)).toBe(40n)
     expect(summarize(table.detail)).toBe('Split: won 21 doubled, lost 18')
   })
 
@@ -291,7 +291,7 @@ describe('split', () => {
   it('gives split aces one card each, and an ace and a ten there is 21, not blackjack', () => {
     const table = run(['As', '9h', 'Ad', 'Kc', '5d', '8h'], ['split'])
     expect(table.detail.hands).toMatchObject([
-      { cards: ['As', 'Kc'], result: 'win', payout: 2_000 },
+      { cards: ['As', 'Kc'], result: 'win', payout: 20 },
       { cards: ['Ad', '5d'], result: 'lose', payout: 0 },
     ])
     expect(table.detail.dealer).toEqual(['9h', '8h'])
@@ -326,8 +326,8 @@ describe('split', () => {
 describe('the stake a move adds', () => {
   it('asks for one more bet to double or split, and nothing to hit or stand', () => {
     const table = run(['8s', '6h', '8d'])
-    expect(extraStake(table.detail, 'double')).toBe(1_000)
-    expect(extraStake(table.detail, 'split')).toBe(1_000)
+    expect(extraStake(table.detail, 'double')).toBe(10)
+    expect(extraStake(table.detail, 'split')).toBe(10)
     expect(extraStake(table.detail, 'hit')).toBe(0)
     expect(extraStake(table.detail, 'stand')).toBe(0)
   })
@@ -367,14 +367,14 @@ describe('the idle rule', () => {
 })
 
 describe('payouts', () => {
-  it('pays every outcome, rounded down to a hundredth', () => {
-    expect(handPayout(1_000n, 'blackjack')).toBe(2_500n)
-    expect(handPayout(1_000n, 'win')).toBe(2_000n)
-    expect(handPayout(1_000n, 'push')).toBe(1_000n)
-    expect(handPayout(1_000n, 'lose')).toBe(0n)
-    expect(handPayout(1_000n, 'bust')).toBe(0n)
-    // 1.01 chips: a blackjack pays 1.515 on top, paid as 1.51.
-    expect(handPayout(101n, 'blackjack')).toBe(252n)
+  it('pays every outcome, rounded down to a whole chip', () => {
+    expect(handPayout(10n, 'blackjack')).toBe(25n)
+    expect(handPayout(10n, 'win')).toBe(20n)
+    expect(handPayout(10n, 'push')).toBe(10n)
+    expect(handPayout(10n, 'lose')).toBe(0n)
+    expect(handPayout(10n, 'bust')).toBe(0n)
+    // 5 chips: a blackjack pays 7.5 on top, paid as 7. On 1 chip, 1.5 is paid as 1.
+    expect(handPayout(5n, 'blackjack')).toBe(12n)
     expect(handPayout(1n, 'blackjack')).toBe(2n)
   })
 })
@@ -391,11 +391,11 @@ describe('the slow reveal', () => {
   it('plays for a hit from a hard 12 or more, never from a soft hand or a small bet', () => {
     const detail = (cards: Card[], slowReveal = true): BlackjackDetail => ({
       ...undealt(),
-      bet: 1_000,
+      bet: 10,
       slowReveal,
       active: 0,
       dealer: ['9s'],
-      hands: [{ cards, stake: 1_000, doubled: false, done: false, result: null, payout: null }],
+      hands: [{ cards, stake: 10, doubled: false, done: false, result: null, payout: null }],
     })
     const slow = (cards: Card[], big = true) => {
       const d = detail(cards, big)
@@ -462,7 +462,7 @@ describe('moves in two steps', () => {
     const deck = stack('9s', '6h', '2d', 'Tc', 'Th', '5c')
     const table = deal(BET, deck)
     commit(table, 'double')
-    expect(hand(table)).toMatchObject({ doubled: true, stake: 2_000, cards: ['9s', '2d'] })
+    expect(hand(table)).toMatchObject({ doubled: true, stake: 20, cards: ['9s', '2d'] })
     expect(deck.left()).toBe(3)
     drawFor(table, 'double', deck)
     expect(hand(table).cards).toEqual(['9s', '2d', 'Tc'])

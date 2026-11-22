@@ -29,7 +29,7 @@ function NumberInput({ settingKey, id, describedBy, invalid, draft, onDraft }: I
       id={id}
       aria-describedby={describedBy}
       aria-invalid={invalid || undefined}
-      inputMode={unit === 'chips' || unit === 'share' ? 'decimal' : 'numeric'}
+      inputMode={unit === 'share' ? 'decimal' : 'numeric'}
       autoComplete="off"
       suffix={unitSuffix(settingKey)}
       value={typeof draft === 'string' ? draft : ''}

@@ -1,6 +1,6 @@
 /**
  * JSON for responses and live events. Chip amounts are bigint on the server
- * and plain numbers (hundredths) on the wire, so this converts them, and
+ * and plain numbers (whole chips) on the wire, so this converts them, and
  * refuses any amount too large to be exact in the browser.
  */
 import type { Wire } from '../../shared/wire.ts'

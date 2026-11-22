@@ -30,7 +30,7 @@ const key = () => ({ 'idempotency-key': randomUUID() })
 async function season(name: string, starts: string, ends: string, status = 'active') {
   const [row] = await testDb.query<{ id: number }>(
     `insert into seasons (name, starts_at, ends_at, starting_balance, status)
-     values ($1, now() + $2::interval, now() + $3::interval, 10000, $4) returning id`,
+     values ($1, now() + $2::interval, now() + $3::interval, 100, $4) returning id`,
     [name, starts, ends, status],
   )
   if (!row) throw new Error('no season')
@@ -78,8 +78,8 @@ describe('ending a season early', () => {
     await testDb.query(`update users set display_name = initcap(username) where id = any($1)`, [
       [alice, bob],
     ])
-    await fundWallet(id, alice, 15_000n)
-    await fundWallet(id, bob, 12_000n)
+    await fundWallet(id, alice, 150n)
+    await fundWallet(id, bob, 120n)
     const before = await stored(id)
 
     const res = await admin.post(
@@ -180,22 +180,22 @@ describe('editing a season', () => {
     const startsAt = new Date(Date.now() + 31 * 86_400_000)
     const res = await admin.patch(
       `/api/admin/seasons/${id}`,
-      { name: 'Spring 2027', startsAt: startsAt.toISOString(), startingBalance: 20_000 },
+      { name: 'Spring 2027', startsAt: startsAt.toISOString(), startingBalance: 200 },
       key(),
     )
     expect(res.status).toBe(200)
     expect(res.body.season).toMatchObject({
       name: 'Spring 2027',
       startsAt: startsAt.toISOString(),
-      startingBalance: 20_000,
+      startingBalance: 200,
       phase: 'upcoming',
     })
     const [audit] = await testDb.query<{ before: unknown; after: unknown }>(
       `select before, after from audit_log where action = 'season.updated' order by id desc limit 1`,
     )
     expect(audit).toEqual({
-      before: { name: 'Spring', startsAt: expect.any(String), startingBalance: 10_000 },
-      after: { name: 'Spring 2027', startsAt: startsAt.toISOString(), startingBalance: 20_000 },
+      before: { name: 'Spring', startsAt: expect.any(String), startingBalance: 100 },
+      after: { name: 'Spring 2027', startsAt: startsAt.toISOString(), startingBalance: 200 },
     })
 
     const same = await admin.patch(`/api/admin/seasons/${id}`, { name: 'Spring 2027' }, key())

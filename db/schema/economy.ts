@@ -4,7 +4,7 @@
  * and the `*_ready_at` cooldowns, `daily_state` (the bonus, the streak, the
  * challenges, the rank bought today), `seasons.status` and `season_results`.
  *
- * Chip amounts are bigint hundredths; times are timestamptz compared with the
+ * Chip amounts are bigint whole chips; times are timestamptz compared with the
  * database's now().
  */
 import { sql } from 'drizzle-orm'

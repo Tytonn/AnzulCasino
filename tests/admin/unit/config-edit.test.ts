@@ -8,10 +8,13 @@ import { describe, expect, it } from 'vitest'
 
 import { CONFIG_KEYS, configDefaults, configWireValue, setting } from '../../../shared/config.ts'
 import {
+  chipsProblem,
+  chipsText,
   formatWire,
   friendlyError,
   fromDraft,
   hundredthsText,
+  parseChips,
   parseHundredths,
   SECTIONS,
   sectionKeys,
@@ -70,14 +73,38 @@ describe('sections and names', () => {
 })
 
 describe('typing amounts', () => {
-  it('shows hundredths as chips, grouped, with cents only when there are some', () => {
+  it('shows chips as whole numbers, grouped', () => {
+    expect(chipsText(100)).toBe('100')
+    expect(chipsText(0)).toBe('0')
+    expect(chipsText(1_000_000_000)).toBe('1,000,000,000')
+  })
+
+  it('reads typed chips back, and says why a point is refused', () => {
+    expect(parseChips('5')).toBe(5)
+    expect(parseChips(' 1,000 ')).toBe(1_000)
+    for (const bad of ['', 'five', '2.5', '2.', '-1', '1e3', '.5']) {
+      expect(parseChips(bad), bad).toBeNull()
+    }
+    for (const value of [0, 1, 99, 12_345, 1_000_000_000]) {
+      expect(parseChips(chipsText(value))).toBe(value)
+    }
+    const whole = 'Chips are whole numbers. Type an amount without a decimal point.'
+    expect(chipsProblem('2.5')).toBe(whole)
+    expect(chipsProblem(' 1,000.50 ')).toBe(whole)
+    expect(chipsProblem('lots')).toBe('Type a number of chips, such as 5 or 250.')
+    expect(chipsProblem('lots', 'Type the starting chips, such as 100.')).toBe(
+      'Type the starting chips, such as 100.',
+    )
+  })
+
+  it('shows a share in percent, with hundredths only when there are some', () => {
     expect(hundredthsText(10_000)).toBe('100')
     expect(hundredthsText(250)).toBe('2.5')
     expect(hundredthsText(205)).toBe('2.05')
     expect(hundredthsText(1_000_000_000)).toBe('10,000,000')
   })
 
-  it('reads what was typed back to hundredths', () => {
+  it('reads a typed share back to hundredths of a percent', () => {
     expect(parseHundredths('5')).toBe(500)
     expect(parseHundredths(' 2.5 ')).toBe(250)
     expect(parseHundredths('1,000.25')).toBe(100_025)
@@ -99,7 +126,8 @@ describe('drafts', () => {
   })
 
   it('turns each unit into what the server stores', () => {
-    expect(fromDraft('work_pay_max', '7.50')).toEqual({ ok: true, value: 750 })
+    expect(fromDraft('work_pay_max', '7')).toEqual({ ok: true, value: 7 })
+    expect(fromDraft('tier_crown_price', '10,000,000')).toEqual({ ok: true, value: 10_000_000 })
     expect(fromDraft('crime_success_pct', '47.5')).toEqual({ ok: true, value: 4750 })
     expect(fromDraft('steal_attempts_per_day', '3')).toEqual({ ok: true, value: 3 })
     expect(fromDraft('command_race', [' Race ', 'RC'])).toEqual({ ok: true, value: ['race', 'rc'] })
@@ -113,7 +141,11 @@ describe('drafts', () => {
   it('says what is wrong in the editor’s words', () => {
     expect(fromDraft('work_pay_max', 'lots')).toEqual({
       ok: false,
-      error: 'Type a number of chips, such as 5 or 2.50.',
+      error: 'Type a number of chips, such as 5 or 250.',
+    })
+    expect(fromDraft('work_pay_max', '7.50')).toEqual({
+      ok: false,
+      error: 'Chips are whole numbers. Type an amount without a decimal point.',
     })
     expect(fromDraft('crime_success_pct', '101')).toEqual({ ok: false, error: 'Use 0% to 100%.' })
     expect(fromDraft('steal_attempts_per_day', '2.5')).toEqual({
@@ -128,7 +160,8 @@ describe('drafts', () => {
   })
 
   it('shows a value the way people read it', () => {
-    expect(formatWire('work_pay_max', 600)).toBe('6 chips')
+    expect(formatWire('work_pay_max', 6)).toBe('6 chips')
+    expect(formatWire('tier_crown_price', 10_000_000)).toBe('10,000,000 chips')
     expect(formatWire('crime_success_pct', 4500)).toBe('45%')
     expect(formatWire('stream_round_runs', 'fold')).toBe('Fold into one line')
   })

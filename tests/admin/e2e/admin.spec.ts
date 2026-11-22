@@ -91,13 +91,13 @@ test('an admin gives a player a chip and takes it back, in public', async ({
     await dialog.getByRole('button', { name: 'Add 1 chip' }).click()
     await expect(admin.page.getByText('Added 1 chip to Alice’s wallet.')).toBeVisible()
     await expect(dialog).toBeHidden()
-    await expect(row).toContainText(`${formatChips(start + 100)} wallet`)
+    await expect(row).toContainText(`${formatChips(start + 1)} wallet`)
   })
 
   await test.step('another player sees it on the Audit page without reloading', async () => {
     const entry = auditEntry(watcher.page, `Browser test, ${stamp}: one chip`)
     await expect(entry).toContainText('Admin added 1 chip to Alice’s wallet')
-    await expect(entry).toContainText(`Wallet: ${formatChips(start)} → ${formatChips(start + 100)}`)
+    await expect(entry).toContainText(`Wallet: ${formatChips(start)} → ${formatChips(start + 1)}`)
     await snap(watcher.page, 'admin', 'audit-live', testInfo)
   })
 
@@ -105,7 +105,7 @@ test('an admin gives a player a chip and takes it back, in public', async ({
     await row.getByRole('button', { name: 'Adjust chips' }).click()
     const dialog = admin.page.getByRole('dialog', { name: 'Adjust Alice’s chips' })
     await dialog.getByRole('radio', { name: 'Take' }).click()
-    await dialog.getByLabel('Chips', { exact: true }).fill(String(start / 100 + 2))
+    await dialog.getByLabel('Chips', { exact: true }).fill(String(start + 2))
     await expect(dialog.getByRole('alert')).toContainText('Alice has only')
     await dialog.getByLabel('Chips', { exact: true }).fill('1')
     await expect(dialog.getByRole('alert')).toBeHidden()
@@ -174,7 +174,7 @@ test('a giveaway reaches the player it names', async ({ browser }, testInfo) => 
   const back = await admin.context.request.post('/api/admin/chips', {
     data: {
       userId: bobId,
-      amount: -100,
+      amount: -1,
       account: 'wallet',
       reason: `Browser test, ${stamp}: taking back the test giveaway`,
     },

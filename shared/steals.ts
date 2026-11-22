@@ -6,7 +6,7 @@
 export const STEAL_OUTCOMES = ['success', 'failed', 'blocked'] as const
 export type StealOutcome = (typeof STEAL_OUTCOMES)[number]
 
-/** One steal attempt as the API, the ticker and the `steal.result` event send it. Amounts in hundredths. */
+/** One steal attempt as the API, the ticker and the `steal.result` event send it. Amounts in chips. */
 export interface StealView {
   id: number
   seasonId: number

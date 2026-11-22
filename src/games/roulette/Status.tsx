@@ -27,7 +27,7 @@ const CALL_MS = 1_300
 /** The countdown turns gold for its last seconds. */
 const HURRY_MS = 5_000
 
-/** What the landed spin did for you, in hundredths. */
+/** What the landed spin did for you, in chips. */
 export interface MyResult {
   spin: number
   number: number
