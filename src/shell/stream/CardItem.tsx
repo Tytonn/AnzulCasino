@@ -6,14 +6,15 @@
  * with buttons that work only for the round's player. A game without a card
  * gets a plain one with the bet and the result.
  *
- * Finished cards fold to one line ("Bob · Blackjack 50 · Bust −50") that
- * expands to the replay, and a run of them by one player folds into one
- * line ("Bob · 6 hands · +45") while the stream_round_runs setting says so.
+ * Finished cards fold to their replay under one line ("Bob · Blackjack 50 ·
+ * Bust −50"), open, so the result stays in view; the line closes it to just
+ * the line. A run of them by one player gathers under one line ("Bob · 6
+ * hands · +45") while the stream_round_runs setting says so, also open.
  *
  * A round the whole table shares (a roulette spin) has one card for
  * everyone: its frame names the game, the round, the players and the chips
  * on it, and the game's `sharedCard` draws the rest. It folds to its own
- * line ("Roulette · Round 12 · 17 Black · 3 players").
+ * line ("Roulette · Round 12 · 17 Black · 3 players"), open to its result.
  */
 import {
   type ComponentType,
@@ -334,7 +335,7 @@ function PlainShared({ shared }: { shared: SharedRoundView }) {
   )
 }
 
-/** A finished card as one line, which opens to the replay. In a run's list, without its player. */
+/** A finished card as one line over its replay, open until closed. In a run's list, without its player. */
 export const FoldedLine = memo(function FoldedLine(props: {
   message: ChatMessage
   owner?: boolean
@@ -346,13 +347,13 @@ export const FoldedLine = memo(function FoldedLine(props: {
   )
 })
 
-/** A finished shared round as one line ("Roulette · Round 12 · 17 Black · 3 players"), which opens to its result. */
+/** A finished shared round as one line ("Roulette · Round 12 · 17 Black · 3 players") over its result, open until closed. */
 function SharedFoldedLine({ message }: { message: ChatMessage }) {
   const me = useMe()
   const id = cardSharedRoundId(message)
   const shared = useSharedRound(id, message.sharedRound)
   const game = cardGame(message)
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(true)
   const Replay = game ? SHARED_REPLAYS[game.id] : undefined
   const facts = shared ? sharedFacts(shared, me.id) : null
 
@@ -397,7 +398,7 @@ function RoundFoldedLine({ message, owner = true }: { message: ChatMessage; owne
   const roundId = cardRoundId(message)
   const round = useCardRound(roundId, message.round)
   const game = cardGame(message)
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(true)
   const Replay = game ? REPLAYS[game.id] : undefined
 
   return (
@@ -461,9 +462,9 @@ function Chevron({ open }: { open: boolean }) {
   )
 }
 
-/** Several finished rounds in a row by one player, as one line. */
+/** Several finished rounds in a row by one player, under one line, open until closed. */
 export const RunLine = memo(function RunLine({ messages }: { messages: readonly ChatMessage[] }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(true)
   const rounds = useRunRounds(messages)
   const first = messages[0]
   if (!first) return null

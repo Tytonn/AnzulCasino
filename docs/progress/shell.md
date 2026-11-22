@@ -151,6 +151,12 @@ Plan, approved by Tyton on 2026-11-22: https://claude.ai/artifact/Sj3mrj6zpw6mgh
   unit (typed bets, the result order, shared-card rows and folding), 15 integration
   tests, and `tests/roulette/e2e/card.spec.ts` at 1440 and 375, all passing locally.
 
+- **Results stay open** (2026-11-22, Tyton: "can you make the results of games stay open
+  in chat instead of going small like they do now?"). A finished card still folds a few
+  seconds after its result, but to its line with the replay open under it, and a run's
+  line starts open too. Tapping a line closes it to the line alone. The live card's
+  timing, pins and big wins are unchanged (`src/shell/stream/CardItem.tsx`).
+
 ## Not done yet
 
 - Watch the coin flip card's browser test: on one phone-size run against the roulette

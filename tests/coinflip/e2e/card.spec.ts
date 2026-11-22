@@ -4,7 +4,7 @@
  * asks for what is missing; .flip 25 t lands the coin on a card pinned above
  * the box; the player changes the call and flips again, with the keys on a
  * desktop and taps on a phone; the other player watches it land without the
- * buttons; and the flips fold to a line that opens to the replay.
+ * buttons; and the flips fold to a line that stays open to the replay.
  * Screenshots land in tests/coinflip/screenshots.
  *
  * On a deploy preview the stream keeps what earlier runs posted, so every
@@ -155,7 +155,7 @@ test('a flip from the message box lands live for everyone, flips again, then fol
     }
   })
 
-  await test.step('both flips fold, and their line opens to the replay', async () => {
+  await test.step('both flips fold to their replay, open, and the line closes it', async () => {
     const { config } = (await (await bob.page.request.get('/api/config')).json()) as {
       config: ConfigValues
     }
@@ -167,21 +167,24 @@ test('a flip from the message box lands live for everyone, flips again, then fol
       )
       await expect(run).toBeVisible({ timeout: 20_000 })
       const toggle = run.getByRole('button', { name: /2 Coin flips/ })
-      await toggle.click()
       await expect(toggle).toHaveAttribute('aria-expanded', 'true')
     }
     await expect(firstLine).toBeVisible({ timeout: 20_000 })
     await expect(firstLine).toContainText(`Coin flip 25 · ${landed(first)}`)
     await expect(firstLine).toContainText(signed(first))
 
+    // The result stays in view: the line is open to the replay until closed.
     const open = firstLine.getByRole('button').first()
-    await open.click()
     await expect(open).toHaveAttribute('aria-expanded', 'true')
-    await expect(
-      firstLine.getByRole('img', { name: `The coin landed ${landed(first)}` }),
-    ).toBeVisible()
+    const coin = firstLine.getByRole('img', { name: `The coin landed ${landed(first)}` })
+    await expect(coin).toBeVisible()
     await expect(firstLine).toContainText(`Called Tails, landed ${landed(first)}`)
     await snap(bob.page, LANE, 'card-replay', testInfo)
+    await open.click()
+    await expect(open).toHaveAttribute('aria-expanded', 'false')
+    await expect(coin).toHaveCount(0)
+    await open.click()
+    await expect(coin).toBeVisible()
 
     // Alice's pin let go, and her stream folds the flips too.
     await expect(pinned(alice.page)).toHaveCount(0, { timeout: 15_000 })

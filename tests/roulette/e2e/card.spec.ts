@@ -7,7 +7,7 @@
  * with the same number on every screen (Carol's too, who opens the stream
  * mid-round), the number large on a ball of its color, and both players
  * listed winners first; the wallets match, and the card folds to a line
- * that opens to the result. Screenshots land in tests/roulette/screenshots.
+ * that stays open to the result. Screenshots land in tests/roulette/screenshots.
  *
  * A round closes 15 seconds after its latest bet by default, so a run takes
  * about half a minute. On a deploy preview the stream keeps what earlier
@@ -221,7 +221,7 @@ test('two players bet on one round, and everyone sees the same result pop up', a
     await snap(bob.page, LANE, 'card-results', testInfo)
   })
 
-  await test.step('the card folds to a line that opens to the result', async () => {
+  await test.step('the card folds to its line, still open to the result', async () => {
     for (const page of [alice.page, bob.page]) {
       await expect(pinned(page).locator(`[data-shared="${id}"]`)).toHaveCount(0, {
         timeout: 20_000,
@@ -233,7 +233,6 @@ test('two players bet on one round, and everyone sees the same result pop up', a
     await expect(line).toContainText(words(number))
     await expect(line).toContainText('2 players')
     const open = line.getByRole('button').first()
-    await open.click()
     await expect(open).toHaveAttribute('aria-expanded', 'true')
     const replay = line.getByRole('list', { name: 'Results' })
     await expect(replay.getByRole('listitem')).toHaveCount(2)
@@ -241,6 +240,10 @@ test('two players bet on one round, and everyone sees the same result pop up', a
     await expect(replay).toContainText('Bob')
     if (!phone) await line.scrollIntoViewIfNeeded()
     await snap(bob.page, LANE, 'card-replay', testInfo)
+    // The line closes it to one line.
+    await open.click()
+    await expect(open).toHaveAttribute('aria-expanded', 'false')
+    await expect(replay).toHaveCount(0)
   })
 
   await alice.close()
