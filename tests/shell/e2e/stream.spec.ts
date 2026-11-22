@@ -175,7 +175,8 @@ test('a hand dealt from the message box plays live for everyone, then folds', as
         await expect(card.getByRole('img', { name: cardName(shown) }).first()).toBeVisible()
       }
       if (dealt.round.status === 'open') {
-        await expect(card).toContainText('Your keys')
+        // The keys are a desktop's; a phone's card says it is live.
+        await expect(card).toContainText(phone ? 'live' : 'Your keys')
         await expect(card.getByRole('group', { name: 'Your move' })).toBeVisible()
         await expect(card.getByRole('img', { name: 'A face-down card' }).first()).toBeVisible()
         await expect(
