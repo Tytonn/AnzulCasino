@@ -30,6 +30,7 @@ import { Avatar, PlayerName } from '../../kit/PlayerName.tsx'
 import { useMe, usePlayer } from '../../kit/queries.ts'
 import type { CardProps } from '../manifests.ts'
 import { type GameEntry, gameById, games } from '../registry.ts'
+import { TOUCH, useMediaQuery } from '../media.ts'
 import { Slot } from '../Slot.tsx'
 import { useUi } from '../ui.ts'
 import { cardRoundId, type CardState } from './fold.ts'
@@ -129,6 +130,8 @@ export const CardItem = memo(function CardItem({
   const roundId = cardRoundId(message)
   const round = useCardRound(roundId, message.round)
   const keys = useCardKeys((s) => s.roundId === roundId && roundId !== 0)
+  // On a touch screen the keys mean nothing: the card says it is live, as for everyone.
+  const touch = useMediaQuery(TOUCH)
   const game = cardGame(message)
   const Card = game ? CARDS[game.id] : undefined
   const mine = message.userId === me.id
@@ -174,7 +177,7 @@ export const CardItem = memo(function CardItem({
               <span className="text-muted @max-[32rem]:hidden">{round.summary}</span>
               <Amount value={result} />
             </>
-          ) : keys ? (
+          ) : keys && !touch ? (
             <span className="text-accent">Your keys</span>
           ) : (
             <span className="flex items-center gap-1.5 text-online">
@@ -201,8 +204,14 @@ export const CardItem = memo(function CardItem({
   )
 })
 
-/** A finished card as one line, which opens to the replay. */
-export const FoldedLine = memo(function FoldedLine({ message }: { message: ChatMessage }) {
+/** A finished card as one line, which opens to the replay. In a run's list, without its player. */
+export const FoldedLine = memo(function FoldedLine({
+  message,
+  owner = true,
+}: {
+  message: ChatMessage
+  owner?: boolean
+}) {
   const roundId = cardRoundId(message)
   const round = useCardRound(roundId, message.round)
   const game = cardGame(message)
@@ -217,8 +226,12 @@ export const FoldedLine = memo(function FoldedLine({ message }: { message: ChatM
         aria-expanded={open}
         className="flex w-full min-w-0 items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-surface-2"
       >
-        <FoldedOwner userId={message.userId} />
-        <span className="text-faint">·</span>
+        {owner && (
+          <>
+            <FoldedOwner userId={message.userId} />
+            <span className="text-faint">·</span>
+          </>
+        )}
         <span className="min-w-0 truncate text-muted">
           {game?.name ?? 'Game'}{' '}
           {round && <span className="text-text tabular-nums">{formatChips(round.stake)}</span>}
@@ -302,7 +315,7 @@ export const RunLine = memo(function RunLine({ messages }: { messages: readonly 
         <ol className="space-y-1 border-t border-border/70 p-1.5">
           {messages.map((m) => (
             <li key={m.id}>
-              <FoldedLine message={m} />
+              <FoldedLine message={m} owner={false} />
             </li>
           ))}
         </ol>

@@ -66,10 +66,15 @@ Plan, approved by Tyton on 2026-11-22: https://claude.ai/artifact/Sj3mrj6zpw6mgh
   a page over the stream). The older browser tests open the classic rooms at `/classic`.
 - Merged `main` with the Admin lane (PR #18). Its settings save bar now sits at
   `bottom-3`: the stream shell has no tab bar under the page.
+- Merged `main` again with PR #16 (a `main` deploy link explains itself). CI failed once
+  on the blackjack lane's double-deal test: with random cards the first hand could end
+  at the deal on a dealer blackjack, which frees the table for a second hand, so the
+  rest were refused for the chips left instead of the open hand. The test now stacks a
+  hand that stays open (reproduced with a stacked dealer blackjack first).
 
 ## Not done yet
 
-- Tyton tries the preview with `test` and `test2`; nothing merges before he approves it.
+- Tyton tries the preview with `test` and `test2`; nothing merges before Tyton approves it.
 - Then, in order: the coin flip as a card (and the lane guide's worked example, section
   6); merge the shell; roulette as one shared card per spin (shared-round cards in the
   round helper); heist on cards; economy cards (the chat drop with Grab, Daily in You);
