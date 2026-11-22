@@ -83,6 +83,11 @@ Plan, approved by Tyton on 2026-11-22: https://claude.ai/artifact/Sj3mrj6zpw6mgh
   whole chips; posts and rounds from before the switch read 100 times too large. The
   shell's tests count whole chips now, and the stream test stands on any hand of Alice's
   that a failed test leaves open, which held up the blackjack lane's test in one run.
+  On the preview after the switch, every browser test passed but the roulette lane's
+  two-player test, once: it reads the table through the proxy after the number lands,
+  and by then the 3-second result had given way to the next spin's betting. It passed
+  on a rerun. A 50-chip hand tried by hand read +50 on the card, the fold, the wallet
+  and the board.
 
 ## Not done yet
 
