@@ -57,7 +57,7 @@ export async function loadConfig(executor: Executor): Promise<ConfigValues> {
 
 export interface ConfigChange {
   key: string
-  /** The wire form: a plain number (chips as hundredths), or a list of strings for lines. */
+  /** The wire form: a plain number (chips, or a share in basis points), or a list of strings for lines. */
   value: unknown
   actorId: string
   /** Why, in the admin's words. Shown on the Audit page. */

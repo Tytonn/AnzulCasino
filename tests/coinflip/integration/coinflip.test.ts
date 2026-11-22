@@ -68,13 +68,13 @@ async function rounds(userId: string) {
 
 describe('POST /api/coinflip/play', () => {
   it('bets and flips in one request, paying 1.96x for a right call and nothing for a wrong one', async () => {
-    const { id, client } = await player(100n)
+    const { id, client } = await player(10_000n)
     const outcomes = new Set<boolean>()
-    let expected = 100n * CHIP
+    let expected = 10_000n * CHIP
     // Flip until both a win and a loss have been seen (each flip is 50/50).
     for (let i = 0; i < 60 && outcomes.size < 2; i++) {
       const call = SIDES[i % 2] as (typeof SIDES)[number]
-      const res = await client.post<Flip>('/api/coinflip/play', { bet: '1', call }, key())
+      const res = await client.post<Flip>('/api/coinflip/play', { bet: '25', call }, key())
       expect(res.status, JSON.stringify(res.body)).toBe(200)
       const { round, wallet } = res.body
       const face = round.detail.face
@@ -85,8 +85,8 @@ describe('POST /api/coinflip/play', () => {
         game: 'coinflip',
         userId: id,
         status: 'settled',
-        stake: 100,
-        payout: won ? 196 : 0,
+        stake: 25,
+        payout: won ? 49 : 0,
         multiplier: won ? 196 : 0,
         summary: SIDE_NAMES[face],
         detail: { call, face, edgePct: 200 },
@@ -96,6 +96,23 @@ describe('POST /api/coinflip/play', () => {
     }
     expect(outcomes).toEqual(new Set([true, false]))
     expect(await balance(id)).toBe(expected)
+    expect(await ledgerMismatches(db(), seasonId)).toEqual([])
+  })
+
+  it('rounds a win down to a whole chip: 1.96x of 1 chip pays the 1 back', async () => {
+    const { id, client } = await player(100n)
+    let win: Flip | null = null
+    for (let i = 0; i < 40 && !win; i++) {
+      const res = await client.post<Flip>('/api/coinflip/play', { bet: '1', call: 'heads' }, key())
+      expect(res.status, JSON.stringify(res.body)).toBe(200)
+      if (res.body.round.detail.face === 'heads') win = res.body
+    }
+    expect(win?.round).toMatchObject({ stake: 1, payout: 1, multiplier: 100 })
+    // Even: no chat post, and the ledger still adds up.
+    const posts = await testDb.query(`select id from chat_messages where meta->>'userId' = $1`, [
+      id,
+    ])
+    expect(posts).toHaveLength(0)
     expect(await ledgerMismatches(db(), seasonId)).toEqual([])
   })
 
@@ -121,7 +138,7 @@ describe('POST /api/coinflip/play', () => {
     const ticker = capture.events.find(
       (e) => e.name === 'round.settled' && !e.channel.includes('room:'),
     )
-    expect(ticker?.envelope.data).toMatchObject({ userId: id, game: 'coinflip', stake: 500 })
+    expect(ticker?.envelope.data).toMatchObject({ userId: id, game: 'coinflip', stake: 5 })
     // One wallet update, after the payout.
     const wallets = capture.events.filter((e) => e.name === 'wallet.updated')
     expect(wallets).toHaveLength(1)
@@ -217,7 +234,7 @@ describe('POST /api/coinflip/play', () => {
     )
     expect(post?.kind).toBe('system')
     expect(post?.body).toMatch(
-      won ? /went all in on Coin flip and won 9\.60$/ : /went all in on Coin flip and lost 10$/,
+      won ? /went all in on Coin flip and won 9$/ : /went all in on Coin flip and lost 10$/,
     )
   })
 })
@@ -267,7 +284,7 @@ describe('the house edge setting', () => {
         expect(res.body.round.detail.edgePct).toBe(0)
         if (res.body.round.detail.face === 'heads') win = res.body
       }
-      expect(win?.round).toMatchObject({ payout: 200, multiplier: 200 })
+      expect(win?.round).toMatchObject({ payout: 2, multiplier: 200 })
     } finally {
       await set(200)
     }

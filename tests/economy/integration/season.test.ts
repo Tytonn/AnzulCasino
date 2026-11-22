@@ -39,7 +39,7 @@ const key = () => ({ 'idempotency-key': randomUUID() })
 async function season(name: string, startsAgo: string, endsIn: string, status = 'active') {
   const [row] = await testDb.query<{ id: number }>(
     `insert into seasons (name, starts_at, ends_at, starting_balance, status)
-     values ($1, now() - $2::interval, now() + $3::interval, 10000, $4) returning id`,
+     values ($1, now() - $2::interval, now() + $3::interval, 100, $4) returning id`,
     [name, startsAgo, endsIn, status],
   )
   if (!row) throw new Error('no season')
@@ -174,7 +174,7 @@ describe('the season moving on', () => {
     // The hand is played out: Dee wins 1,000 chips, which count.
     await db().transaction(async (tx) => {
       await tx.execute(
-        `update game_rounds set status = 'settled', payout = 100000, multiplier = 1000, settled_at = now() where season_id = ${id} and status = 'open'` as never,
+        `update game_rounds set status = 'settled', payout = 1000, multiplier = 10, settled_at = now() where season_id = ${id} and status = 'open'` as never,
       )
       await credit(tx, { seasonId: id, userId: dee, amount: 1_000n * CHIP, reason: 'payout' })
     })
@@ -189,10 +189,10 @@ describe('the season moving on', () => {
     expect(record?.places).toHaveLength(6)
     expect(record?.places.some((p) => p.userId === eve)).toBe(false)
     expect(record?.places.slice(0, 4).map((p) => [p.rank, p.displayName, p.netWorth])).toEqual([
-      [1, 'Dee', 105_000],
-      [2, 'Ben', 80_000],
-      [3, 'Cal', 80_000],
-      [4, 'Ava', 50_000],
+      [1, 'Dee', 1_050],
+      [2, 'Ben', 800],
+      [3, 'Cal', 800],
+      [4, 'Ava', 500],
     ])
     expect(posts()).toEqual([
       '🏁 Final season is over! 🥇 Dee 1,050 · 🥈 Ben 800 · 🥉 Cal 800. Every place is in the Hall of Fame.',

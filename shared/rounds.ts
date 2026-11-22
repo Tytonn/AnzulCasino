@@ -18,7 +18,7 @@ export interface RoundView<D = unknown> {
   game: string
   userId: string
   status: RoundStatus
-  /** Hundredths. Grows if the game takes more stake mid-round (a double down). */
+  /** Chips. Grows if the game takes more stake mid-round (a double down). */
   stake: number
   /** Everything paid back, stake included. Null while open. */
   payout: number | null

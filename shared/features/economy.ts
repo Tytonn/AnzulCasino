@@ -6,12 +6,13 @@
  * server draws every outcome with node:crypto (server/features/economy/);
  * nothing here is random.
  *
- * Chips are hundredths, as everywhere: bigint in the math, plain numbers on
- * the wire. Ranks are `tier` in code, because "rank" means a leaderboard place.
+ * Chips are whole numbers, as everywhere: bigint in the math, plain numbers
+ * on the wire. Ranks are `tier` in code, because "rank" means a leaderboard
+ * place.
  */
 import { z } from 'zod'
 
-import { CHIP, floorToChip, formatMultiplier, mulDiv } from '../chips.ts'
+import { formatMultiplier, mulDiv } from '../chips.ts'
 import type { ConfigValues } from '../config.ts'
 import { CONFIG, tierSettings } from '../config.ts'
 import { addGameDays, gameDay, gameDayStart } from '../game-day.ts'
@@ -44,16 +45,50 @@ export function tierUnlocksAt(seasonStartsAt: Date, unlockDay: number): Date {
   return gameDayStart(addGameDays(first, Math.max(1, unlockDay) - 1))
 }
 
+/** The time income counts: what has passed, up to `capHours`. */
+function countedMs(elapsedMs: bigint, capHours: number): bigint {
+  const cap = BigInt(Math.max(0, Math.floor(capHours))) * BigInt(HOUR_MS)
+  return elapsedMs < cap ? elapsedMs : cap
+}
+
 /**
- * Rank income earned over `elapsedMs` at `perDay` hundredths a day, capped
- * at `capHours` of income, rounded down to a hundredth. Exact (bigint): the
+ * Rank income earned over `elapsedMs` at `perDay` chips a day, capped at
+ * `capHours` of income, rounded down to a whole chip. Exact (bigint): the
  * server pays this.
  */
 export function accruedIncome(perDay: bigint, elapsedMs: bigint, capHours: number): bigint {
   if (perDay <= 0n || elapsedMs <= 0n) return 0n
-  const cap = BigInt(Math.max(0, Math.floor(capHours))) * BigInt(HOUR_MS)
-  const counted = elapsedMs < cap ? elapsedMs : cap
-  return mulDiv(perDay, counted, BigInt(DAY_MS))
+  return mulDiv(perDay, countedMs(elapsedMs, capHours), BigInt(DAY_MS))
+}
+
+/**
+ * The time a collect leaves on the income clock: what `paid` whole chips did
+ * not use up, so the part of a chip still building carries over to the next
+ * collect instead of being lost to the rounding. Less than a chip's worth of
+ * time (4.8 hours at 5 a day). Time past the cap is still lost, as the cap
+ * says.
+ */
+export function incomeCarryMs(
+  perDay: bigint,
+  elapsedMs: bigint,
+  capHours: number,
+  paid: bigint,
+): bigint {
+  if (perDay <= 0n || elapsedMs <= 0n) return 0n
+  const counted = countedMs(elapsedMs, capHours)
+  // The time the paid chips are worth, rounded up, so the carry never pays twice.
+  const used = -mulDiv(-paid, BigInt(DAY_MS), perDay)
+  return counted > used ? counted - used : 0n
+}
+
+/**
+ * The same carry at another rate, worth the same part of a chip: a rank
+ * bought keeps what was building at the old rank, but never pays the new
+ * rate for time before it was bought.
+ */
+export function carryAtRate(carryMs: bigint, fromPerDay: bigint, toPerDay: bigint): bigint {
+  if (carryMs <= 0n || fromPerDay <= 0n || toPerDay <= 0n) return 0n
+  return mulDiv(carryMs, fromPerDay, toPerDay)
 }
 
 /** The same, in plain numbers, for a counter that ticks in the browser. Display only. */
@@ -66,6 +101,19 @@ export function accruedIncomeShown(perDay: number, elapsedMs: number, capHours: 
 /** Milliseconds until uncollected income stops growing, from `elapsedMs`. */
 export function incomeFullInMs(elapsedMs: number, capHours: number): number {
   return Math.max(0, capHours * HOUR_MS - elapsedMs)
+}
+
+/**
+ * Milliseconds until the income waiting reaches its next whole chip, or null
+ * once it has stopped growing at the cap. Display only: the server counts.
+ */
+export function nextChipInMs(perDay: number, elapsedMs: number, capHours: number): number | null {
+  if (perDay <= 0) return null
+  const cap = Math.max(0, capHours) * HOUR_MS
+  const counted = Math.min(Math.max(0, elapsedMs), cap)
+  const next = Math.floor((perDay * counted) / DAY_MS) + 1
+  const at = Math.ceil((next * DAY_MS) / perDay)
+  return at > cap ? null : Math.max(0, at - counted)
 }
 
 // ---------------------------------------------------------------- the streak bonus
@@ -150,35 +198,28 @@ export function commandSettings(config: ConfigValues, command: IncomeCommand): C
 }
 
 /**
- * The step a payout or fine is drawn in: whole chips when both ends of the
- * range are whole chips (2 to 6 pays 2, 3, 4, 5 or 6), else hundredths.
+ * How many whole-chip values a range holds, so a draw of 0..count-1 picks
+ * one: 2 to 6 pays 2, 3, 4, 5 or 6.
  */
-export function drawStep(min: bigint, max: bigint): bigint {
-  return min % CHIP === 0n && max % CHIP === 0n ? CHIP : 1n
-}
-
-/** How many values a range holds at its step, so a draw of 0..count-1 picks one. */
 export function rangeCount(min: bigint, max: bigint): bigint {
   if (max <= min) return 1n
-  return (max - min) / drawStep(min, max) + 1n
+  return max - min + 1n
 }
 
 /** The value at position `index` (0-based) of a range. */
 export function rangeValue(min: bigint, max: bigint, index: bigint): bigint {
   if (max <= min) return min
-  const value = min + index * drawStep(min, max)
+  const value = min + index
   return value > max ? max : value
 }
 
-/** The average of a range drawn evenly, in hundredths. */
+/** The average of a range drawn evenly, in chips. */
 export function rangeMean(min: bigint, max: bigint): number {
   if (max <= min) return Number(min)
-  const step = drawStep(min, max)
-  const top = min + ((max - min) / step) * step
-  return (Number(min) + Number(top)) / 2
+  return (Number(min) + Number(max)) / 2
 }
 
-/** What a press is worth on average, in hundredths (a fine counted in full). */
+/** What a press is worth on average, in chips (a fine counted in full). */
 export function expectedPerPress(s: CommandSettings): number {
   const p = s.successPct / 10_000
   return p * rangeMean(s.payMin, s.payMax) - (1 - p) * rangeMean(s.fineMin, s.fineMax)
@@ -289,13 +330,13 @@ export interface ChallengeSpec {
 
 /** A challenge as saved in daily_state.challenges for one player and game day. */
 export interface SavedChallenge extends ChallengeSpec {
-  /** Hundredths. */
+  /** Chips. */
   reward: number
   /** When it was claimed, or null. */
   claimedAt: string | null
 }
 
-/** One settled round, as challenges read them. Amounts in hundredths. */
+/** One settled round, as challenges read them. Amounts in chips. */
 export interface ChallengeRound {
   game: string
   stake: number
@@ -390,11 +431,13 @@ export function pickChallenges(
   return picked
 }
 
-/** A challenge's reward: the low end of the range when easy, the middle for medium, the top when hard. */
+/**
+ * A challenge's reward: the low end of the range when easy, the middle
+ * (rounded down to a whole chip) for medium, the top when hard.
+ */
 export function challengeReward(level: ChallengeLevel, min: bigint, max: bigint): bigint {
   const top = max > min ? max : min
-  const amount = level === 1 ? min : level === 3 ? top : min + (top - min) / 2n
-  return drawStep(min, max) === CHIP ? floorToChip(amount) : amount
+  return level === 1 ? min : level === 3 ? top : min + (top - min) / 2n
 }
 
 const won = (r: ChallengeRound) => r.payout > r.stake
@@ -475,7 +518,7 @@ export function describeProgress(c: ChallengeSpec, progress: number): string {
 
 // ---------------------------------------------------------------- chat drops
 
-/** Each winner's share of a drop, rounded down to a hundredth. */
+/** Each winner's share of a drop, rounded down to a whole chip: 10 between 3 is 3 each. */
 export function dropShare(pot: bigint, winners: number): bigint {
   if (winners <= 0 || pot <= 0n) return 0n
   return pot / BigInt(winners)
@@ -548,9 +591,9 @@ export const DropClaimInput = z.strictObject({
 })
 export type DropClaimInput = z.infer<typeof DropClaimInput>
 
-// ---------------------------------------------------------------- what the API sends (chips as hundredths)
+// ---------------------------------------------------------------- what the API sends (chips as plain numbers)
 
-/** A rank as the shop and the Daily panel show it. Chips are hundredths. */
+/** A rank as the shop and the Daily panel show it. Amounts in chips. */
 export interface TierStepView {
   tier: Tier
   /** Zero for the base rank. */
@@ -605,7 +648,7 @@ export interface EconomyState {
   version: number
   income: {
     tier: Tier
-    /** Hundredths a day at the current rank. */
+    /** Chips a day at the current rank. */
     perDay: number
     capHours: number
     /** When income started to build: the last collect, or the player's start in the season. */
@@ -664,7 +707,7 @@ export interface IncomeResult {
   command: IncomeCommand
   /** Paid, or fined (a fine stops at an empty wallet). */
   outcome: 'paid' | 'fined'
-  /** Hundredths that moved: the payout, or the fine actually taken. */
+  /** Chips that moved: the payout, or the fine actually taken. */
   amount: number
   /** For a fine: what it would have been before it stopped at zero. */
   drawn: number

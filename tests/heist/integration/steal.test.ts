@@ -70,20 +70,20 @@ async function expectLedgerClean() {
 describe('POST /api/heist/steal: outcomes', () => {
   it('a success moves the take from the target’s wallet to the thief’s and makes the target immune', async () => {
     await fx.setConfig('steal_success_pct', ALWAYS)
-    const leader = await fx.player(600)
-    const thief = await fx.player(40)
+    const leader = await fx.player(60_000)
+    const thief = await fx.player(4_000)
 
     const res = await steal(thief, leader)
     expect(res.status, JSON.stringify(res.body)).toBe(200)
     const { steal: attempt, wallet, immuneUntil } = res.body
-    // Second place robbing first: a gap of 1 is 1.5% + 0.3% = 1.8% of 600.
+    // Second place robbing first: a gap of 1 is 1.5% + 0.3% = 1.8% of 60,000.
     expect(attempt).toMatchObject({
       outcome: 'success',
       thiefId: thief.id,
       targetId: leader.id,
       thiefRank: 2,
       targetRank: 1,
-      amount: Number(basisPoints(600n * CHIP, 180)),
+      amount: Number(basisPoints(60_000n * CHIP, 180)),
       fine: 0,
     })
     expect(attempt.amount).toBe(1080)
@@ -114,9 +114,11 @@ describe('POST /api/heist/steal: outcomes', () => {
 
   it('matches the spec’s worked example: tenth robbing the leader takes the 4% maximum, or pays a 5% fine', async () => {
     await fx.setConfig('steal_success_pct', ALWAYS)
-    const leader = await fx.player(600)
-    for (const chips of [300, 250, 200, 150, 120, 100, 80, 60]) await fx.player(chips)
-    const tenth = await fx.player(40)
+    const leader = await fx.player(60_000)
+    for (const chips of [30_000, 25_000, 20_000, 15_000, 12_000, 10_000, 8_000, 6_000]) {
+      await fx.player(chips)
+    }
+    const tenth = await fx.player(4_000)
 
     const won = await steal(tenth, leader)
     expect(won.status, JSON.stringify(won.body)).toBe(200)
@@ -125,9 +127,11 @@ describe('POST /api/heist/steal: outcomes', () => {
     // The same thief, failing against another leader the next time.
     await fx.setConfig('steal_success_pct', NEVER)
     await fx.freshSeason()
-    const leader2 = await fx.player(600)
-    for (const chips of [300, 250, 200, 150, 120, 100, 80, 60]) await fx.player(chips)
-    const tenth2 = await fx.player(40)
+    const leader2 = await fx.player(60_000)
+    for (const chips of [30_000, 25_000, 20_000, 15_000, 12_000, 10_000, 8_000, 6_000]) {
+      await fx.player(chips)
+    }
+    const tenth2 = await fx.player(4_000)
     const lost = await steal(tenth2, leader2)
     expect(lost.status).toBe(200)
     expect(lost.body.steal).toMatchObject({ outcome: 'failed', amount: 0, fine: 200 })
@@ -138,9 +142,9 @@ describe('POST /api/heist/steal: outcomes', () => {
 
   it('a failure fines the thief, pays the target and leaves the target open to others', async () => {
     await fx.setConfig('steal_success_pct', NEVER)
-    const target = await fx.player(100)
-    const thief = await fx.player(50)
-    const other = await fx.player(30)
+    const target = await fx.player(10_000)
+    const thief = await fx.player(5_000)
+    const other = await fx.player(3_000)
 
     const res = await steal(thief, target)
     expect(res.status).toBe(200)
@@ -156,7 +160,7 @@ describe('POST /api/heist/steal: outcomes', () => {
 
   it('a thief with an empty wallet who fails pays nothing', async () => {
     await fx.setConfig('steal_success_pct', NEVER)
-    const target = await fx.player(100)
+    const target = await fx.player(10_000)
     const thief = await fx.player(0)
     const res = await steal(thief, target)
     expect(res.status, JSON.stringify(res.body)).toBe(200)
@@ -167,8 +171,8 @@ describe('POST /api/heist/steal: outcomes', () => {
 
   it('a shield charge blocks the steal: the charge and the attempt are used, no fine, and the target is immune', async () => {
     await fx.setConfig('steal_success_pct', ALWAYS)
-    const target = await fx.player(100)
-    const thief = await fx.player(50)
+    const target = await fx.player(10_000)
+    const thief = await fx.player(5_000)
     const bought = await target.client.post('/api/heist/shield', {}, key())
     expect(bought.status, JSON.stringify(bought.body)).toBe(200)
     const targetAfterShield = await fx.wallet(target.id)
@@ -183,7 +187,7 @@ describe('POST /api/heist/steal: outcomes', () => {
 
     expect((await state(target)).me).toMatchObject({ charges: 0 })
     expect((await state(thief)).me).toMatchObject({ attemptsUsed: 1 })
-    const other = await fx.player(20)
+    const other = await fx.player(2_000)
     const refused = await steal(other, target)
     expect(refused.status).toBe(409)
     expect(refused.body.error.code).toBe('steal_immune')
@@ -192,8 +196,8 @@ describe('POST /api/heist/steal: outcomes', () => {
 
   it('robbing someone ranked below you takes the 0.5% down rate', async () => {
     await fx.setConfig('steal_success_pct', ALWAYS)
-    const thief = await fx.player(500)
-    const below = await fx.player(200)
+    const thief = await fx.player(50_000)
+    const below = await fx.player(20_000)
     const res = await steal(thief, below)
     expect(res.status).toBe(200)
     expect(res.body.steal).toMatchObject({ thiefRank: 1, targetRank: 2, amount: 100 })
@@ -201,8 +205,8 @@ describe('POST /api/heist/steal: outcomes', () => {
 
   it('players level on the board rob each other at the base rate', async () => {
     await fx.setConfig('steal_success_pct', ALWAYS)
-    const a = await fx.player(100)
-    const b = await fx.player(100)
+    const a = await fx.player(10_000)
+    const b = await fx.player(10_000)
     // Both funded in their own transaction, so make them level on time too.
     await testDb.query(
       `update wallets set net_worth_at = now() - interval '1 hour' where season_id = $1`,
@@ -215,17 +219,17 @@ describe('POST /api/heist/steal: outcomes', () => {
 
   it('never touches the vault', async () => {
     await fx.setConfig('steal_success_pct', ALWAYS)
-    const target = await fx.player(1_000)
+    const target = await fx.player(100_000)
     const moved = await target.client.post(
       '/api/heist/vault',
-      { direction: 'deposit', amount: '200' },
+      { direction: 'deposit', amount: '20k' },
       key(),
     )
     expect(moved.status, JSON.stringify(moved.body)).toBe(200)
-    const thief = await fx.player(10)
+    const thief = await fx.player(1_000)
     const res = await steal(thief, target)
     expect(res.status).toBe(200)
-    expect(res.body.steal.amount).toBe(Number(basisPoints(800n * CHIP, 150 + 30 * 1)))
+    expect(res.body.steal.amount).toBe(Number(basisPoints(80_000n * CHIP, 150 + 30 * 1)))
     expect((await fx.wallet(target.id)).vault).toBe(20_000n)
   })
 })
@@ -234,14 +238,14 @@ describe('POST /api/heist/steal: the daily loss cap', () => {
   it('limits what one target can lose in a game day, then refuses', async () => {
     await fx.setConfig('steal_success_pct', ALWAYS)
     await fx.setConfig('immunity_hours', 0)
-    const target = await fx.player(1_000)
+    const target = await fx.player(100_000)
     const thieves = [
-      await fx.player(100),
-      await fx.player(90),
-      await fx.player(80),
-      await fx.player(70),
+      await fx.player(10_000),
+      await fx.player(9_000),
+      await fx.player(8_000),
+      await fx.player(7_000),
     ]
-    const cap = basisPoints(1_000n * CHIP, cfg.daily_loss_cap_pct)
+    const cap = basisPoints(100_000n * CHIP, cfg.daily_loss_cap_pct)
     expect(cap).toBe(4_000n)
 
     let stolen = 0n
@@ -269,21 +273,21 @@ describe('POST /api/heist/steal: the daily loss cap', () => {
 
   it('counts from net worth at the daily reset, not the wallet now', async () => {
     await fx.setConfig('steal_success_pct', ALWAYS)
-    const target = await fx.player(100)
+    const target = await fx.player(10_000)
     await fx.backdate(target.id)
     // A big win after the reset does not raise today's cap.
     await db().transaction((tx) =>
       credit(tx, {
         seasonId: fx.seasonId,
         userId: target.id,
-        amount: 900n * CHIP,
+        amount: 90_000n * CHIP,
         reason: 'payout',
       }),
     )
-    const thief = await fx.player(10)
+    const thief = await fx.player(1_000)
     const res = await steal(thief, target)
     expect(res.status).toBe(200)
-    // 1.8% of 1,000 is 18, but the cap is 4% of the 100 at the reset.
+    // 1.8% of 100,000 is 1,800, but the cap is 4% of the 10,000 at the reset.
     expect(res.body.steal.amount).toBe(400)
     const info = (await state(thief)).targets.find((t) => t.userId === target.id)
     expect(info?.capLeft).toBe(0)
@@ -293,12 +297,12 @@ describe('POST /api/heist/steal: the daily loss cap', () => {
 describe('POST /api/heist/steal: who can be robbed', () => {
   it('allows two attempts a game day, three with the extra attempt, then refuses', async () => {
     await fx.setConfig('steal_success_pct', NEVER)
-    const thief = await fx.player(50)
+    const thief = await fx.player(5_000)
     const targets = [
-      await fx.player(100),
-      await fx.player(90),
-      await fx.player(80),
-      await fx.player(70),
+      await fx.player(10_000),
+      await fx.player(9_000),
+      await fx.player(8_000),
+      await fx.player(7_000),
     ]
 
     for (const target of targets.slice(0, 2)) expect((await steal(thief, target)).status).toBe(200)
@@ -320,8 +324,8 @@ describe('POST /api/heist/steal: who can be robbed', () => {
 
   it('allows one try per target per game day', async () => {
     await fx.setConfig('steal_success_pct', NEVER)
-    const thief = await fx.player(50)
-    const target = await fx.player(100)
+    const thief = await fx.player(5_000)
+    const target = await fx.player(10_000)
     expect((await steal(thief, target)).status).toBe(200)
     const again = await steal(thief, target)
     expect(again.status).toBe(409)
@@ -331,10 +335,10 @@ describe('POST /api/heist/steal: who can be robbed', () => {
 
   it('refuses yourself, unknown players, players under the floor and immune players, using no attempt', async () => {
     await fx.setConfig('steal_success_pct', ALWAYS)
-    const thief = await fx.player(50)
+    const thief = await fx.player(5_000)
     const poor = await fx.player(24)
-    const rich = await fx.player(500)
-    const other = await fx.player(60)
+    const rich = await fx.player(50_000)
+    const other = await fx.player(6_000)
 
     const self = await steal(thief, thief)
     expect(self.status).toBe(409)
@@ -361,10 +365,26 @@ describe('POST /api/heist/steal: who can be robbed', () => {
     expect((await state(thief)).me.attemptsUsed).toBe(0)
   })
 
+  it('refuses a steal that would take less than a whole chip, using no attempt', async () => {
+    await fx.setConfig('steal_success_pct', ALWAYS)
+    // Ranked above the thief, so the 0.5% down rate: under a chip of 150.
+    const thief = await fx.player(5_000)
+    const small = await fx.player(150)
+    const res = await steal(thief, small)
+    expect(res.status).toBe(409)
+    expect(res.body.error).toMatchObject({
+      code: 'steal_too_little',
+      message: `${small.name} has too little in their wallet for a steal to take a whole chip.`,
+    })
+    expect((await state(thief)).me.attemptsUsed).toBe(0)
+    expect(await fx.wallet(small.id)).toEqual({ balance: 150n, vault: 0n })
+    expect(await stealRows()).toHaveLength(0)
+  })
+
   it('refuses every steal in the final day, and outside a season', async () => {
     await fx.freshSeason(12)
-    const thief = await fx.player(50)
-    const target = await fx.player(100)
+    const thief = await fx.player(5_000)
+    const target = await fx.player(10_000)
     const res = await steal(thief, target)
     expect(res.status).toBe(409)
     expect(res.body.error).toMatchObject({
@@ -384,8 +404,8 @@ describe('POST /api/heist/steal: who can be robbed', () => {
 describe('POST /api/heist/steal: safety', () => {
   it('a replayed request key returns the first answer and changes nothing', async () => {
     await fx.setConfig('steal_success_pct', ALWAYS)
-    const thief = await fx.player(50)
-    const target = await fx.player(100)
+    const thief = await fx.player(5_000)
+    const target = await fx.player(10_000)
     const headers = key()
     const first = await thief.client.post<Answer>(
       '/api/heist/steal',
@@ -409,8 +429,8 @@ describe('POST /api/heist/steal: safety', () => {
 
   it('many parallel steals by one thief on one target make one attempt', async () => {
     await fx.setConfig('steal_success_pct', NEVER)
-    const thief = await fx.player(50)
-    const target = await fx.player(100)
+    const thief = await fx.player(5_000)
+    const target = await fx.player(10_000)
     const results = await Promise.all(Array.from({ length: 10 }, () => steal(thief, target)))
     expect(results.filter((r) => r.status === 200)).toHaveLength(1)
     expect(results.filter((r) => r.status === 409)).toHaveLength(9)
@@ -423,8 +443,8 @@ describe('POST /api/heist/steal: safety', () => {
     await fx.setConfig('immunity_hours', 0)
     for (let round = 0; round < 5; round++) {
       await fx.freshSeason()
-      const a = await fx.player(100)
-      const b = await fx.player(100)
+      const a = await fx.player(10_000)
+      const b = await fx.player(10_000)
       const [ab, ba] = await Promise.all([steal(a, b), steal(b, a)])
       expect(ab.status, JSON.stringify(ab.body)).toBe(200)
       expect(ba.status, JSON.stringify(ba.body)).toBe(200)
@@ -435,9 +455,9 @@ describe('POST /api/heist/steal: safety', () => {
   it('a crowd robbing one target at once never passes the daily cap or the attempts', async () => {
     await fx.setConfig('steal_success_pct', ALWAYS)
     await fx.setConfig('immunity_hours', 0)
-    const target = await fx.player(1_000)
+    const target = await fx.player(100_000)
     const thieves: TestPlayer[] = []
-    for (let i = 0; i < 12; i++) thieves.push(await fx.player(20 + i))
+    for (let i = 0; i < 12; i++) thieves.push(await fx.player(2_000 + 100 * i))
     const results = await Promise.all(thieves.map((t) => steal(t, target)))
     const ok = results.filter((r) => r.status === 200)
     expect(ok.length).toBeGreaterThan(0)
@@ -447,7 +467,7 @@ describe('POST /api/heist/steal: safety', () => {
       [target.id],
     )
     expect(BigInt(row?.total ?? 0)).toBeLessThanOrEqual(
-      basisPoints(1_000n * CHIP, cfg.daily_loss_cap_pct),
+      basisPoints(100_000n * CHIP, cfg.daily_loss_cap_pct),
     )
     const [daily] = await testDb.query<{ stolen_today: string }>(
       `select stolen_today from daily_state where user_id = $1 and season_id = $2`,
@@ -458,7 +478,7 @@ describe('POST /api/heist/steal: safety', () => {
   })
 
   it('refuses without a session, without a request key, and with a bad target', async () => {
-    const thief = await fx.player(50)
+    const thief = await fx.player(5_000)
     const { apiClient } = await import('../../helpers/api.ts')
     const { heistApi } = await import('../../../server/features/heist/api.ts')
     const anon = apiClient(heistApi)
@@ -485,8 +505,8 @@ describe('POST /api/heist/steal: safety', () => {
 describe('live news and hidden data', () => {
   it('tells everyone about the attempt, the target alone about their loss, and never shows shield charges', async () => {
     await fx.setConfig('steal_success_pct', ALWAYS)
-    const target = await fx.player(100)
-    const thief = await fx.player(50)
+    const target = await fx.player(10_000)
+    const thief = await fx.player(5_000)
     // The target holds two charges; one blocks, one stays secret.
     expect((await target.client.post('/api/heist/shield', {}, key())).status).toBe(200)
     expect((await target.client.post('/api/heist/shield', {}, key())).status).toBe(200)
@@ -528,8 +548,8 @@ describe('live news and hidden data', () => {
 
   it('a success moves both wallets on the leaderboard and posts in chat', async () => {
     await fx.setConfig('steal_success_pct', ALWAYS)
-    const target = await fx.player(100)
-    const thief = await fx.player(50)
+    const target = await fx.player(10_000)
+    const thief = await fx.player(5_000)
     const res = await steal(thief, target)
     await thief.client.settle()
     const standings = capture.events.filter((e) => e.name === 'standing.changed')
@@ -545,7 +565,7 @@ describe('live news and hidden data', () => {
     const post = capture.events.find((e) => e.name === 'chat.message')
     expect(post?.envelope.data).toMatchObject({
       kind: 'system',
-      body: `${thief.name} robbed ${target.name} for 1.80 chips.`,
+      body: `${thief.name} robbed ${target.name} for 180 chips.`,
       meta: { tone: 'win', userId: thief.id },
     })
     const feed = capture.events.find((e) => e.name === 'steal.result')
@@ -556,12 +576,12 @@ describe('live news and hidden data', () => {
 describe('GET /api/heist/state and /api/heist/steals', () => {
   it('shows the caller’s day and every other player’s public defenses', async () => {
     await fx.setConfig('steal_success_pct', ALWAYS)
-    const me = await fx.player(100)
-    const other = await fx.player(200)
-    const thief = await fx.player(10)
+    const me = await fx.player(10_000)
+    const other = await fx.player(20_000)
+    const thief = await fx.player(1_000)
     const robbery = await steal(thief, other)
     expect(robbery.status).toBe(200)
-    // Third robbing first: 2.1% of 200 is 4.20 of the 8 chips (4%) the target can lose today.
+    // Third robbing first: 2.1% of 20,000 is 420 of the 800 chips (4%) the target can lose today.
     expect(robbery.body.steal.amount).toBe(420)
 
     const mine = await state(me)

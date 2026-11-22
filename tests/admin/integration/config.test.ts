@@ -65,7 +65,7 @@ describe('reading the settings', () => {
     const res = await admin.get<AdminConfigState>('/api/admin/config')
     expect(res.status).toBe(200)
     expect(Object.keys(res.body.values).sort()).toEqual([...CONFIG_KEYS].sort())
-    expect(res.body.values.starting_balance).toBe(10_000)
+    expect(res.body.values.starting_balance).toBe(100)
     expect(res.body.values.command_blackjack).toEqual(['bj', 'blackjack'])
     expect(res.body.values.stream_bal_lb).toBe('private')
     expect(res.body.pending).toEqual([])
@@ -121,30 +121,30 @@ describe('saving', () => {
   })
 
   it('holds an economy change until the next reset and lists it ahead of time', async () => {
-    const res = await save([{ key: 'work_pay_max', value: 900 }])
+    const res = await save([{ key: 'work_pay_max', value: 9 }])
     expect(res.status).toBe(200)
     const [saved] = res.body.saved
     expect(saved?.effectiveAt).toBe(res.body.state.nextReset)
-    expect(res.body.state.values.work_pay_max).toBe(600)
+    expect(res.body.state.values.work_pay_max).toBe(6)
     expect(res.body.state.pending).toEqual([
       {
         key: 'work_pay_max',
-        value: 900,
-        current: 600,
+        value: 9,
+        current: 6,
         effectiveAt: res.body.state.nextReset,
         by: expect.objectContaining({ id: adminId }),
         reason: null,
       },
     ])
-    expect((await loadConfig(db())).work_pay_max).toBe(600n)
+    expect((await loadConfig(db())).work_pay_max).toBe(6n)
 
     const audit = await admin.get('/api/admin/audit')
     expect(audit.body.pending).toHaveLength(1)
   })
 
   it('takes a waiting change back when the value in force is saved again', async () => {
-    await save([{ key: 'work_pay_max', value: 900 }])
-    const res = await save([{ key: 'work_pay_max', value: 600 }])
+    await save([{ key: 'work_pay_max', value: 9 }])
+    const res = await save([{ key: 'work_pay_max', value: 6 }])
     expect(res.status).toBe(200)
     expect(res.body.saved).toHaveLength(1)
     expect(res.body.state.pending).toEqual([])
@@ -192,19 +192,19 @@ describe('saving', () => {
 
   it('raises a minimum and its maximum together, in whichever order works', async () => {
     const up = await save([
-      { key: 'work_pay_min', value: 1_000 },
-      { key: 'work_pay_max', value: 2_000 },
+      { key: 'work_pay_min', value: 10 },
+      { key: 'work_pay_max', value: 20 },
     ])
     expect(up.status).toBe(200)
     expect(up.body.saved.map((s) => s.key)).toEqual(['work_pay_max', 'work_pay_min'])
     const down = await save([
-      { key: 'work_pay_max', value: 300 },
-      { key: 'work_pay_min', value: 100 },
+      { key: 'work_pay_max', value: 3 },
+      { key: 'work_pay_min', value: 1 },
     ])
     expect(down.status).toBe(200)
     const wrong = await save([
-      { key: 'work_pay_min', value: 5_000 },
-      { key: 'work_pay_max', value: 4_000 },
+      { key: 'work_pay_min', value: 50 },
+      { key: 'work_pay_max', value: 40 },
     ])
     expect(wrong.status).toBe(400)
     expect(wrong.body.error.key).toBe('work_pay_min')

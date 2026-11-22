@@ -24,13 +24,7 @@ import {
 import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
-import {
-  chipCount,
-  floorToChip,
-  formatChips,
-  formatChipsShort,
-  formatShare,
-} from '../../../shared/chips.ts'
+import { chipCount, formatChips, formatChipsShort, formatShare } from '../../../shared/chips.ts'
 import { blockMessage, type StealResponse, stealFine } from '../../../shared/features/heist.ts'
 import type { StandingView } from '../../../shared/seasons.ts'
 import { api, errorMessage, requestKey } from '../../kit/api.ts'
@@ -567,11 +561,7 @@ function SmoothHeight({ children }: { children: ReactNode }) {
 function CountUp({ to, prefix }: { to: number; prefix: string }) {
   const reduced = useReducedMotion() ?? false
   const value = useMotionValue(reduced ? to : 0)
-  const text = useTransform(value, (v) =>
-    v >= to
-      ? `${prefix}${formatChips(to)}`
-      : `${prefix}${formatChips(floorToChip(BigInt(Math.floor(v))))}`,
-  )
+  const text = useTransform(value, (v) => `${prefix}${formatChips(v >= to ? to : Math.floor(v))}`)
   useEffect(() => {
     if (reduced) {
       value.jump(to)

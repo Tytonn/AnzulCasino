@@ -56,23 +56,23 @@ describe('chips', () => {
   it('says whose chips moved and the balance either side', () => {
     const added = entry({
       target: 'bob',
-      before: { value: 10_000 },
-      after: { userId: 'b', account: 'wallet', delta: 1_050, value: 11_050 },
+      before: { value: 100 },
+      after: { userId: 'b', account: 'wallet', delta: 1_050, value: 1_150 },
     })
     expect(read(describeEntry(added))).toBe(
-      'Ada added 10.50 chips to Bob’s wallet | Wallet: 100 → 110.50',
+      'Ada added 1,050 chips to Bob’s wallet | Wallet: 100 → 1,150',
     )
     const own = entry({
-      before: { value: 500 },
-      after: { userId: 'a', account: 'vault', delta: -100, value: 400 },
+      before: { value: 5 },
+      after: { userId: 'a', account: 'vault', delta: -1, value: 4 },
     })
     expect(read(describeEntry(own))).toBe('Ada took 1 chip from their own vault | Vault: 5 → 4')
   })
 
   it('reads amounts the foundation stored as text', () => {
     const big = entry({
-      before: { value: '900000000000' },
-      after: { userId: 'b', account: 'wallet', delta: '100000000000', value: '1000000000000' },
+      before: { value: '9000000000' },
+      after: { userId: 'b', account: 'wallet', delta: '1000000000', value: '10000000000' },
     })
     expect(read(describeEntry(big))).toBe(
       'Ada added 1,000,000,000 chips to Bob’s wallet | Wallet: 9,000,000,000 → 10,000,000,000',
@@ -83,12 +83,12 @@ describe('chips', () => {
     const recipients = (ids: string[]) => ids.map((userId) => ({ userId }))
     const one = entry({
       action: 'giveaway.given',
-      after: { recipients: recipients(['b']), share: 100, total: 100, amount: 100 },
+      after: { recipients: recipients(['b']), share: 1, total: 1, amount: 1 },
     })
     expect(read(describeEntry(one))).toBe('Ada gave Bob 1 chip')
     const each = entry({
       action: 'giveaway.given',
-      after: { recipients: recipients(['b', 'c']), share: 500, total: 1_000, amount: 500 },
+      after: { recipients: recipients(['b', 'c']), share: 5, total: 10, amount: 5 },
     })
     expect(read(describeEntry(each))).toBe(
       'Ada gave Bob and Cy 5 chips each | 2 players, 10 chips in all',
@@ -99,13 +99,13 @@ describe('chips', () => {
         recipients: recipients(['a', 'b', 'c']),
         everyone: true,
         split: true,
-        share: 333,
-        total: 999,
-        amount: 1_000,
+        share: 3,
+        total: 9,
+        amount: 10,
       },
     })
     expect(read(describeEntry(split))).toBe(
-      'Ada split 10 chips between all 3 players, 3.33 each | 3 players, 9.99 chips in all',
+      'Ada split 10 chips between all 3 players, 3 each | 3 players, 9 chips in all',
     )
   })
 })
@@ -116,8 +116,8 @@ describe('settings', () => {
       action: 'config.changed',
       kind: 'config',
       target: 'work_pay_max',
-      before: { value: 600 },
-      after: { value: 900, effectiveAt: '2026-11-22T15:00:00Z' },
+      before: { value: 6 },
+      after: { value: 9, effectiveAt: '2026-11-22T15:00:00Z' },
     })
     expect(read(describeEntry(change))).toBe('Ada changed Work pay max from 6 chips to 9 chips')
   })
@@ -252,8 +252,8 @@ describe('seasons and accounts', () => {
     const changed = entry({
       action: 'season.updated',
       kind: 'seasons',
-      before: { startingBalance: 10_000 },
-      after: { startingBalance: 20_000 },
+      before: { startingBalance: 100 },
+      after: { startingBalance: 200 },
     })
     expect(read(describeEntry(changed))).toBe('Ada changed Season 3 | Starting chips: 100 → 200')
   })

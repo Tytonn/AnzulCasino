@@ -23,7 +23,7 @@ export interface Result {
   icon: Icon
   /** The color for the icon, such as var(--economy-work). */
   tone: string
-  /** Hundredths, signed: above zero was paid, below zero was a fine. */
+  /** Chips, signed: above zero was paid, below zero was a fine. */
   amount: number
   /** The flavor line, if any. */
   line: string | null

@@ -17,7 +17,7 @@ import { Button } from '../../kit/Button.tsx'
 import { serverNow, useNow } from '../../kit/clock.ts'
 import { queryKeys, useConfig, useMe } from '../../kit/queries.ts'
 import { toast } from '../../kit/toast.tsx'
-import { hundredthsText, parseHundredths } from './config-edit.ts'
+import { chipsProblem, chipsText, parseChips } from './config-edit.ts'
 import { adminKeys, useSeasons } from './data.ts'
 import { AlertIcon } from './icons.tsx'
 import {
@@ -235,13 +235,13 @@ function EditDialog({
   const [name, setName] = useState(season.name)
   const [startsAt, setStartsAt] = useState(localInput(new Date(season.startsAt)))
   const [endsAt, setEndsAt] = useState(localInput(new Date(season.endsAt)))
-  const [balance, setBalance] = useState(hundredthsText(season.startingBalance))
+  const [balance, setBalance] = useState(chipsText(season.startingBalance))
   const [busy, setBusy] = useState(false)
   const [key, setKey] = useState(requestKey)
 
   const start = fromLocal(startsAt)
   const end = fromLocal(endsAt)
-  const chips = parseHundredths(balance)
+  const chips = parseChips(balance)
   const nameError = name.trim() ? null : 'Name the season.'
   const dateError = !upcoming
     ? null
@@ -251,7 +251,9 @@ function EditDialog({
         ? 'It must end after it starts.'
         : null
   const balanceError =
-    !upcoming || (chips !== null && chips > 0) ? null : 'Type the starting chips, such as 100.'
+    !upcoming || (chips !== null && chips > 0)
+      ? null
+      : chipsProblem(balance, 'Type the starting chips, such as 100.')
 
   const body: Record<string, unknown> = {}
   if (name.trim() !== season.name) body.name = name.trim()
@@ -351,7 +353,7 @@ function EditDialog({
                 <SuffixInput
                   id={id}
                   aria-describedby={describedBy}
-                  inputMode="decimal"
+                  inputMode="numeric"
                   suffix="chips"
                   value={balance}
                   onChange={(e) => setBalance(e.target.value)}
@@ -402,9 +404,11 @@ function ScheduleCard({ seasons }: { seasons: SeasonView[] }) {
     start && Number.isInteger(length) && length > 0
       ? new Date(start.getTime() + length * DAY)
       : null
-  const chips = balance.trim() ? parseHundredths(balance) : null
+  const chips = balance.trim() ? parseChips(balance) : null
   const balanceError =
-    balance.trim() && !(chips && chips > 0) ? 'Type the starting chips, such as 100.' : null
+    balance.trim() && !(chips && chips > 0)
+      ? chipsProblem(balance, 'Type the starting chips, such as 100.')
+      : null
   const ready = !!name.trim() && !!start && !!end && length <= 366 && !balanceError
   const suggestion = `Season ${seasons.length + 1}`
 
@@ -500,7 +504,7 @@ function ScheduleCard({ seasons }: { seasons: SeasonView[] }) {
             <SuffixInput
               id={id}
               aria-describedby={describedBy}
-              inputMode="decimal"
+              inputMode="numeric"
               suffix="chips"
               placeholder={config ? formatChips(config.starting_balance) : ''}
               value={balance}

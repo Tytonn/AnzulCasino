@@ -118,39 +118,39 @@ describe('debit and credit', () => {
       debit(tx, {
         seasonId,
         userId: id,
-        amount: 2_550n,
+        amount: 25n,
         reason: 'bet',
         refType: 'game_round',
         refId: 42,
         meta: { game: 'coinflip' },
       }),
     )
-    expect(out).toMatchObject({ balance: 7_450n, vault: 0n })
+    expect(out).toMatchObject({ balance: 75n, vault: 0n })
     const back = await db().transaction((tx) =>
-      credit(tx, { seasonId, userId: id, amount: 5_100n, reason: 'payout' }),
+      credit(tx, { seasonId, userId: id, amount: 51n, reason: 'payout' }),
     )
-    expect(back.balance).toBe(12_550n)
+    expect(back.balance).toBe(126n)
 
     expect(await ledgerRows(id)).toEqual([
-      expect.objectContaining({ delta: '10000', balance_after: '10000', reason: 'season_start' }),
+      expect.objectContaining({ delta: '100', balance_after: '100', reason: 'season_start' }),
       {
         account: 'wallet',
-        delta: '-2550',
-        balance_after: '7450',
+        delta: '-25',
+        balance_after: '75',
         reason: 'bet',
         ref_type: 'game_round',
         ref_id: '42',
         meta: { game: 'coinflip' },
       },
-      expect.objectContaining({ delta: '5100', balance_after: '12550', reason: 'payout' }),
+      expect.objectContaining({ delta: '51', balance_after: '126', reason: 'payout' }),
     ])
   })
 
   it('refuse to go below zero, and change nothing when they do', async () => {
     const id = await player(10n)
     const attempt = db().transaction(async (tx) => {
-      await credit(tx, { seasonId, userId: id, amount: 500n, reason: 'payout' })
-      await debit(tx, { seasonId, userId: id, amount: 1_501n, reason: 'bet' })
+      await credit(tx, { seasonId, userId: id, amount: 5n, reason: 'payout' })
+      await debit(tx, { seasonId, userId: id, amount: 16n, reason: 'bet' })
     })
     await expect(attempt).rejects.toBeInstanceOf(InsufficientFunds)
     await expect(attempt).rejects.toMatchObject({
@@ -159,16 +159,16 @@ describe('debit and credit', () => {
       message: 'You only have 15 chips.',
     })
     // The credit before it rolled back with it.
-    expect(await balances(id)).toEqual({ balance: 1_000n, vault: 0n })
+    expect(await balances(id)).toEqual({ balance: 10n, vault: 0n })
     expect(await ledgerRows(id)).toHaveLength(1)
   })
 
-  it('refuse amounts that are not bigint hundredths above zero', async () => {
+  it('refuse amounts that are not bigint chips above zero', async () => {
     const id = await player(1n)
-    for (const amount of [0n, -100n, 100 as unknown as bigint]) {
+    for (const amount of [0n, -1n, 1 as unknown as bigint]) {
       await expect(
         db().transaction((tx) => credit(tx, { seasonId, userId: id, amount, reason: 'payout' })),
-      ).rejects.toThrow(/bigint hundredths/)
+      ).rejects.toThrow(/bigint chips/)
     }
     expect(await ledgerRows(id)).toHaveLength(1)
   })
@@ -177,22 +177,22 @@ describe('debit and credit', () => {
     const outsider = await createPlayer(testDb)
     await expect(
       db().transaction((tx) =>
-        debit(tx, { seasonId, userId: outsider, amount: 100n, reason: 'bet' }),
+        debit(tx, { seasonId, userId: outsider, amount: 1n, reason: 'bet' }),
       ),
     ).rejects.toMatchObject({ status: 409, code: 'no_wallet' })
   })
 
   it('keep an hourly net worth point as chips move', async () => {
     const id = await player(100n)
-    await db().transaction((tx) => debit(tx, { seasonId, userId: id, amount: 500n, reason: 'bet' }))
-    await db().transaction((tx) => debit(tx, { seasonId, userId: id, amount: 250n, reason: 'bet' }))
+    await db().transaction((tx) => debit(tx, { seasonId, userId: id, amount: 5n, reason: 'bet' }))
+    await db().transaction((tx) => debit(tx, { seasonId, userId: id, amount: 3n, reason: 'bet' }))
     const points = await testDb.query<{ net_worth: string; on_the_hour: boolean }>(
       `select net_worth, at = date_trunc('hour', at) as on_the_hour
        from net_worth_snapshots where season_id = $1 and user_id = $2`,
       [seasonId, id],
     )
     // Both moves happened in the same hour, so one point holds the latest worth.
-    expect(points).toEqual([{ net_worth: '9250', on_the_hour: true }])
+    expect(points).toEqual([{ net_worth: '92', on_the_hour: true }])
   })
 })
 
@@ -215,9 +215,9 @@ describe('locking', () => {
     }
     // Each accepted bet saw the balance the one before it left.
     expect(accepted.map((r) => r.body.balance).sort((a, b) => b - a)).toEqual(
-      Array.from({ length: 33 }, (_, i) => 10_000 - 300 * (i + 1)),
+      Array.from({ length: 33 }, (_, i) => 100 - 3 * (i + 1)),
     )
-    expect(await balances(id)).toEqual({ balance: 100n, vault: 0n })
+    expect(await balances(id)).toEqual({ balance: 1n, vault: 0n })
     expect((await ledgerRows(id)).filter((r) => r.reason === 'bet')).toHaveLength(33)
   })
 
@@ -228,7 +228,7 @@ describe('locking', () => {
       Array.from({ length: 20 }, () => client.post('/api/test/bet', { amount: 'all' }, key())),
     )
     const accepted = results.filter((r) => r.status === 200)
-    expect(accepted.map((r) => r.body)).toEqual([{ bet: 10_000, balance: 0 }])
+    expect(accepted.map((r) => r.body)).toEqual([{ bet: 100, balance: 0 }])
     for (const r of results.filter((r) => r.status !== 200)) {
       expect(r.body.error.message).toBe('Your wallet is empty.')
     }
@@ -239,7 +239,7 @@ describe('locking', () => {
     const id = await player(10n)
     const outcomes = await Promise.allSettled(
       Array.from({ length: 50 }, () =>
-        db().transaction((tx) => debit(tx, { seasonId, userId: id, amount: 100n, reason: 'bet' })),
+        db().transaction((tx) => debit(tx, { seasonId, userId: id, amount: 1n, reason: 'bet' })),
       ),
     )
     expect(outcomes.filter((o) => o.status === 'fulfilled')).toHaveLength(10)
@@ -257,7 +257,7 @@ describe('idempotency keys', () => {
     const k = key()
     const first = await client.post('/api/test/bet', { amount: '10' }, k)
     expect(first.status).toBe(200)
-    expect(first.body).toEqual({ bet: 1_000, balance: 9_000 })
+    expect(first.body).toEqual({ bet: 10, balance: 90 })
 
     const again = await client.post('/api/test/bet', { amount: '10' }, k)
     expect(again.status).toBe(200)
@@ -267,7 +267,7 @@ describe('idempotency keys', () => {
     expect(changed.body).toEqual(first.body)
 
     await client.settle()
-    expect(await balances(id)).toEqual({ balance: 9_000n, vault: 0n })
+    expect(await balances(id)).toEqual({ balance: 90n, vault: 0n })
     expect((await ledgerRows(id)).filter((r) => r.reason === 'bet')).toHaveLength(1)
     // Live publishes and other after-commit work ran once.
     expect(afterCommitRuns.filter((run) => run === k['idempotency-key'])).toHaveLength(1)
@@ -282,10 +282,10 @@ describe('idempotency keys', () => {
     )
     for (const r of results) {
       expect(r.status).toBe(200)
-      expect(r.body).toEqual({ bet: 1_000, balance: 9_000 })
+      expect(r.body).toEqual({ bet: 10, balance: 90 })
     }
     await client.settle()
-    expect(await balances(id)).toEqual({ balance: 9_000n, vault: 0n })
+    expect(await balances(id)).toEqual({ balance: 90n, vault: 0n })
     expect((await ledgerRows(id)).filter((r) => r.reason === 'bet')).toHaveLength(1)
     expect(afterCommitRuns.filter((run) => run === k['idempotency-key'])).toHaveLength(1)
   })
@@ -297,11 +297,11 @@ describe('idempotency keys', () => {
     const refused = await client.post('/api/test/bet', { amount: '10' }, k)
     expect(refused.status).toBe(400)
     await db().transaction((tx) =>
-      credit(tx, { seasonId, userId: id, amount: 1_000n, reason: 'daily_bonus' }),
+      credit(tx, { seasonId, userId: id, amount: 10n, reason: 'daily_bonus' }),
     )
     const retried = await client.post('/api/test/bet', { amount: '10' }, k)
     expect(retried.status).toBe(200)
-    expect(retried.body).toEqual({ bet: 1_000, balance: 500 })
+    expect(retried.body).toEqual({ bet: 10, balance: 5 })
   })
 
   it('refuses a key that was used for another action', async () => {
@@ -312,7 +312,7 @@ describe('idempotency keys', () => {
     const reused = await client.post('/api/test/bet', { amount: '10' }, k)
     expect(reused.status).toBe(409)
     expect(reused.body.error.code).toBe('idempotency_key_reused')
-    expect(await balances(id)).toEqual({ balance: 10_000n, vault: 0n })
+    expect(await balances(id)).toEqual({ balance: 100n, vault: 0n })
   })
 
   it('keeps each player’s keys separate', async () => {
@@ -320,7 +320,7 @@ describe('idempotency keys', () => {
     for (const id of [await player(100n), await player(100n)]) {
       const client = await loggedIn(testApi, id)
       const res = await client.post('/api/test/bet', { amount: '10' }, k)
-      expect(res.body).toEqual({ bet: 1_000, balance: 9_000 })
+      expect(res.body).toEqual({ bet: 10, balance: 90 })
     }
   })
 
@@ -337,7 +337,7 @@ describe('idempotency keys', () => {
       expect(res.status).toBe(400)
       expect(res.body.error.code).toBe('missing_idempotency_key')
     }
-    expect(await balances(id)).toEqual({ balance: 10_000n, vault: 0n })
+    expect(await balances(id)).toEqual({ balance: 100n, vault: 0n })
   })
 })
 
@@ -350,22 +350,22 @@ describe('transfers', () => {
         seasonId,
         fromUserId: target,
         toUserId: thief,
-        amount: 2_575n,
+        amount: 25n,
         outReason: 'steal_out',
         inReason: 'steal_in',
         refType: 'steal',
         refId: 7,
       }),
     )
-    expect(out.from.balance).toBe(7_425n)
-    expect(out.to.balance).toBe(12_575n)
+    expect(out.from.balance).toBe(75n)
+    expect(out.to.balance).toBe(125n)
     expect((await ledgerRows(target)).at(-1)).toMatchObject({
-      delta: '-2575',
+      delta: '-25',
       reason: 'steal_out',
       ref_type: 'steal',
       ref_id: '7',
     })
-    expect((await ledgerRows(thief)).at(-1)).toMatchObject({ delta: '2575', reason: 'steal_in' })
+    expect((await ledgerRows(thief)).at(-1)).toMatchObject({ delta: '25', reason: 'steal_in' })
   })
 
   it('refuse to overdraw the sender, and change nothing', async () => {
@@ -377,21 +377,21 @@ describe('transfers', () => {
           seasonId,
           fromUserId: from,
           toUserId: to,
-          amount: 1_001n,
+          amount: 11n,
           outReason: 'fine_out',
           inReason: 'fine_in',
         }),
       ),
     ).rejects.toBeInstanceOf(InsufficientFunds)
-    expect(await balances(from)).toEqual({ balance: 1_000n, vault: 0n })
-    expect(await balances(to)).toEqual({ balance: 1_000n, vault: 0n })
+    expect(await balances(from)).toEqual({ balance: 10n, vault: 0n })
+    expect(await balances(to)).toEqual({ balance: 10n, vault: 0n })
     await expect(
       db().transaction((tx) =>
         transfer(tx, {
           seasonId,
           fromUserId: from,
           toUserId: from,
-          amount: 100n,
+          amount: 1n,
           outReason: 'fine_out',
           inReason: 'fine_in',
         }),
@@ -418,7 +418,7 @@ describe('transfers', () => {
             seasonId,
             fromUserId,
             toUserId,
-            amount: 100n,
+            amount: 1n,
             outReason: 'steal_out',
             inReason: 'steal_in',
           }),
@@ -426,7 +426,7 @@ describe('transfers', () => {
       }),
     )
     // Each direction ran 8 times, so everyone is back where they started.
-    for (const id of [a, b, c]) expect(await balances(id)).toEqual({ balance: 10_000n, vault: 0n })
+    for (const id of [a, b, c]) expect(await balances(id)).toEqual({ balance: 100n, vault: 0n })
   })
 })
 
@@ -444,15 +444,15 @@ describe('the vault', () => {
       moveBetweenAccounts(tx, {
         seasonId,
         userId: id,
-        amount: 4_000n,
+        amount: 40n,
         from: 'wallet',
         reason: 'vault_deposit',
       }),
     )
-    expect(await balances(id)).toEqual({ balance: 6_000n, vault: 4_000n })
+    expect(await balances(id)).toEqual({ balance: 60n, vault: 40n })
     expect((await ledgerRows(id)).slice(-2)).toEqual([
-      expect.objectContaining({ account: 'wallet', delta: '-4000', balance_after: '6000' }),
-      expect.objectContaining({ account: 'vault', delta: '4000', balance_after: '4000' }),
+      expect.objectContaining({ account: 'wallet', delta: '-40', balance_after: '60' }),
+      expect.objectContaining({ account: 'vault', delta: '40', balance_after: '40' }),
     ])
     // Net worth did not move, so its timestamp (the leaderboard tiebreak) did not either.
     expect(await worthAt()).toEqual(before)
@@ -461,12 +461,12 @@ describe('the vault', () => {
       moveBetweenAccounts(tx, {
         seasonId,
         userId: id,
-        amount: 1_500n,
+        amount: 15n,
         from: 'vault',
         reason: 'vault_withdraw',
       }),
     )
-    expect(out).toEqual({ balance: 7_500n, vault: 2_500n })
+    expect(out).toEqual({ balance: 75n, vault: 25n })
   })
 
   it('refuses to take more than the vault holds', async () => {
@@ -476,7 +476,7 @@ describe('the vault', () => {
         moveBetweenAccounts(tx, {
           seasonId,
           userId: id,
-          amount: 100n,
+          amount: 1n,
           from: 'vault',
           reason: 'vault_withdraw',
         }),
@@ -496,7 +496,7 @@ describe('the ledger', () => {
     await nudge(1)
     try {
       expect(await ledgerMismatches(db(), seasonId)).toEqual([
-        { userId: id, account: 'wallet', stored: 1_001n, ledgerSum: 1_000n },
+        { userId: id, account: 'wallet', stored: 11n, ledgerSum: 10n },
       ])
     } finally {
       await nudge(-1)

@@ -95,10 +95,10 @@ const PAST = 'Hall of Fame test season'
 
 /** Final standings for a finished season, best first: [username, tier, net worth]. */
 const STANDINGS = [
-  ['bob', 'gold', 18_452_000],
-  ['alice', 'silver', 12_904_050],
-  ['carol', 'bronze', 9_850_000],
-  ['admin', 'base', 125_000],
+  ['bob', 'gold', 184_520],
+  ['alice', 'silver', 129_040],
+  ['carol', 'bronze', 98_500],
+  ['admin', 'base', 1_250],
 ] as const
 
 /** Writes a finished season with frozen standings, as the end of a season does. */
@@ -107,7 +107,7 @@ async function addFinishedSeason(db: pg.Client): Promise<void> {
   const [season] = (
     await db.query<{ id: number }>(
       `insert into seasons (name, starts_at, ends_at, starting_balance, status)
-       values ($1, now() - interval '70 days', now() - interval '40 days', 10000, 'ended')
+       values ($1, now() - interval '70 days', now() - interval '40 days', 100, 'ended')
        returning id`,
       [PAST],
     )

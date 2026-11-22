@@ -186,7 +186,7 @@ describe('GET /api/players and /api/ticker', () => {
     const aliceId = await createPlayer(testDb, `alice_${seasonId}`)
     const goneId = await createPlayer(testDb, `gone_${seasonId}`)
     await testDb.query(`update users set disabled_at = now() where id = $1`, [goneId])
-    await fundWallet(seasonId, aliceId, 10_000n)
+    await fundWallet(seasonId, aliceId, 100n)
     await testDb.query(`update wallets set tier = 'silver' where season_id = $1 and user_id = $2`, [
       seasonId,
       aliceId,
@@ -214,8 +214,8 @@ describe('GET /api/players and /api/ticker', () => {
   it('shows the latest rounds and steal attempts of the season, newest first, with no secrets', async () => {
     const userId = await createPlayer(testDb)
     const targetId = await createPlayer(testDb)
-    await fundWallet(seasonId, userId, 10_000n)
-    await fundWallet(seasonId, targetId, 10_000n)
+    await fundWallet(seasonId, userId, 100n)
+    await fundWallet(seasonId, targetId, 100n)
     for (const [i, payout] of [0, 400, 150].entries()) {
       await testDb.query(
         `insert into game_rounds (season_id, user_id, game, status, stake, payout, multiplier,

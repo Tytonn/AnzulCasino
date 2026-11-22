@@ -76,7 +76,7 @@ function generator(seed: number): () => number {
 
 type Random = () => number
 
-/** A whole number of hundredths from `min` to `max`, both included. */
+/** A whole number of chips from `min` to `max`, both included. */
 function between(random: Random, min: bigint, max: bigint): bigint {
   return min + BigInt(Math.floor(random() * Number(max - min + 1n)))
 }
@@ -505,10 +505,13 @@ function simulate(seed: number): Season {
   }
 
   function collect(p: Player, now: number) {
+    const perDay = TIER_INFO[p.tier]?.income ?? 0n
     const minutes = Math.min(now - p.lastCollect, INCOME_CAP_MINUTES)
-    p.lastCollect = now
-    const income =
-      ((TIER_INFO[p.tier]?.income ?? 0n) * BigInt(Math.floor(minutes))) / BigInt(DAY_MINUTES)
+    const income = (perDay * BigInt(Math.floor(minutes))) / BigInt(DAY_MINUTES)
+    // Like the site (incomeCarryMs), only the minutes the whole chips paid are
+    // worth are used up: the part of a chip still building stays on the clock.
+    const used = perDay > 0n ? Math.ceil((Number(income) * DAY_MINUTES) / Number(perDay)) : minutes
+    p.lastCollect = now - Math.max(0, minutes - used)
     if (income <= 0n) return
     p.wallet += income
     p.rankIncome += income
@@ -522,6 +525,10 @@ function simulate(seed: number): Season {
     const needed = p.style.ranks === 'reserve' ? (next.price * 3n) / 2n : next.price
     if (p.wallet < needed) return
     collect(p, now)
+    // The part of a chip still building carries over at the new rate (carryAtRate).
+    const before = TIER_INFO[p.tier]?.income ?? 0n
+    const carry = now - p.lastCollect
+    p.lastCollect = next.income > 0n ? now - (carry * Number(before)) / Number(next.income) : now
     p.wallet -= next.price
     p.tier += 1
     p.tierBoughtToday = true
@@ -894,8 +901,8 @@ const quantile = (values: number[], q: number) => {
 }
 const mean = (values: number[]) => values.reduce((a, b) => a + b, 0) / Math.max(1, values.length)
 const pct = (x: number) => (Number.isFinite(x) ? `${(x * 100).toFixed(1)}%` : '–')
-const chips = (hundredths: number) => formatChips(BigInt(Math.round(hundredths)))
-const short = (hundredths: number) => formatChipsShort(BigInt(Math.round(hundredths)))
+const chips = (amount: number) => formatChips(BigInt(Math.round(amount)))
+const short = (amount: number) => formatChipsShort(BigInt(Math.round(amount)))
 const table = (rows: string[][]) => {
   const widths = rows[0]?.map((_, c) => Math.max(...rows.map((r) => (r[c] ?? '').length))) ?? []
   return rows
@@ -1244,13 +1251,11 @@ if (args.json) {
         },
         bottomHalfSteal: { median: quantile(bottom, 0.5), mean: mean(bottom) },
         stealsVsTables: stealsMoved / tables,
-        supplyMedianByDay: Array.from(
-          { length: DAYS },
-          (_, d) =>
-            quantile(
-              seasons.map((s) => Number(s.supply[d] ?? 0n)),
-              0.5,
-            ) / 100,
+        supplyMedianByDay: Array.from({ length: DAYS }, (_, d) =>
+          quantile(
+            seasons.map((s) => Number(s.supply[d] ?? 0n)),
+            0.5,
+          ),
         ),
         flags,
       },

@@ -138,18 +138,18 @@ describe('POST /api/blackjack/deal', () => {
       game: 'blackjack',
       userId: id,
       status: 'open',
-      stake: 1_000,
+      stake: 10,
       payout: null,
       detail: {
-        bet: 1_000,
-        hands: [{ cards: ['9s', '5d'], stake: 1_000, result: null }],
+        bet: 10,
+        hands: [{ cards: ['9s', '5d'], stake: 10, result: null }],
         dealer: ['7h'],
         active: 0,
         peeked: false,
         slowReveal: false,
       },
     })
-    expect(res.body.wallet.balance).toBe(9_000)
+    expect(res.body.wallet.balance).toBe(90)
     const [row] = await rounds(id)
     expect(row).toMatchObject({ status: 'open', secret: null })
     expect(stacked.cards).toEqual([])
@@ -202,8 +202,8 @@ describe('POST /api/blackjack/deal', () => {
     stack('As', '6h', 'Kd', 'Tc')
     const res = await deal(client, '10')
     ok(res)
-    expect(res.body.round).toMatchObject({ status: 'settled', payout: 2_500, summary: 'Blackjack' })
-    expect(res.body.wallet.balance).toBe(11_500)
+    expect(res.body.round).toMatchObject({ status: 'settled', payout: 25, summary: 'Blackjack' })
+    expect(res.body.wallet.balance).toBe(115)
     expect(await balance(id)).toBe(115n * CHIP)
     expect(await ledgerMismatches(db(), seasonId)).toEqual([])
   })
@@ -226,7 +226,7 @@ describe('POST /api/blackjack/deal', () => {
     const ticker = capture.events.find(
       (e) => e.name === 'round.settled' && !e.channel.includes('room:'),
     )
-    expect(ticker?.envelope.data).toMatchObject({ game: 'blackjack', stake: 500, payout: 0 })
+    expect(ticker?.envelope.data).toMatchObject({ game: 'blackjack', stake: 5, payout: 0 })
   })
 
   it('needs a session, an idempotency key and an amount', async () => {
@@ -269,7 +269,7 @@ describe('POST /api/blackjack/deal', () => {
     expect(res.body.round).toMatchObject({
       allIn: true,
       bigBet: true,
-      payout: 2_500,
+      payout: 25,
       detail: { slowReveal: true },
     })
     const [post] = await testDb.query<{ kind: string; body: string }>(
@@ -320,20 +320,20 @@ describe('POST /api/blackjack/move', () => {
     ok(doubled)
     expect(doubled.body.round).toMatchObject({
       status: 'settled',
-      stake: 2_000,
-      payout: 4_000,
+      stake: 20,
+      payout: 40,
       summary: 'Doubled, dealer bust on 25',
-      detail: { hands: [{ cards: ['9s', '2d', 'Tc'], doubled: true, stake: 2_000 }] },
+      detail: { hands: [{ cards: ['9s', '2d', 'Tc'], doubled: true, stake: 20 }] },
     })
-    expect(doubled.body.wallet.balance).toBe(12_000)
+    expect(doubled.body.wallet.balance).toBe(120)
     const ledger = await testDb.query<{ reason: string; delta: string }>(
       `select reason, delta from ledger where user_id = $1 and reason <> 'season_start' order by id`,
       [id],
     )
     expect(ledger.map((r) => [r.reason, Number(r.delta)])).toEqual([
-      ['bet', -1_000],
-      ['bet', -1_000],
-      ['payout', 4_000],
+      ['bet', -10],
+      ['bet', -10],
+      ['payout', 40],
     ])
     expect(await ledgerMismatches(db(), seasonId)).toEqual([])
   })
@@ -345,15 +345,15 @@ describe('POST /api/blackjack/move', () => {
     stack('3c')
     const split = await move(client, dealt.body.round, 'split')
     ok(split)
-    expect(split.body.round).toMatchObject({ status: 'open', stake: 2_000 })
+    expect(split.body.round).toMatchObject({ status: 'open', stake: 20 })
     expect(split.body.round.detail.hands.map((h) => h.cards)).toEqual([['8s', '3c'], ['8d']])
-    expect(split.body.wallet.balance).toBe(8_000)
+    expect(split.body.wallet.balance).toBe(80)
 
     // Double after the split: 8 3 catches a ten. The second hand gets its king.
     stack('Td', 'Kh')
     const doubled = await move(client, split.body.round, 'double')
     ok(doubled)
-    expect(doubled.body.round).toMatchObject({ status: 'open', stake: 3_000 })
+    expect(doubled.body.round).toMatchObject({ status: 'open', stake: 30 })
     expect(doubled.body.round.detail).toMatchObject({ active: 1 })
     expect(doubled.body.round.detail.hands.map((h) => h.cards)).toEqual([
       ['8s', '3c', 'Td'],
@@ -365,8 +365,8 @@ describe('POST /api/blackjack/move', () => {
     ok(stood)
     expect(stood.body.round).toMatchObject({
       status: 'settled',
-      stake: 3_000,
-      payout: 4_000,
+      stake: 30,
+      payout: 40,
       summary: 'Split: won 21 doubled, lost 18',
       detail: { dealer: ['6h', '9c', '5s'] },
     })
@@ -390,7 +390,7 @@ describe('POST /api/blackjack/move', () => {
       })
     }
     expect(await balance(id)).toBe(4n * CHIP)
-    expect(await rounds(id)).toMatchObject([{ status: 'open', stake: '600' }])
+    expect(await rounds(id)).toMatchObject([{ status: 'open', stake: '6' }])
     // The hand plays on.
     stack('Kc')
     ok(await move(client, dealt.body.round, 'stand'))
@@ -505,7 +505,7 @@ describe('the slow reveal', () => {
 
     const over = await player(100n)
     stack('9s', '7h', '2d')
-    expect((await deal(over.client, '50.01')).body.round.detail.slowReveal).toBe(true)
+    expect((await deal(over.client, '51')).body.round.detail.slowReveal).toBe(true)
 
     const doubling = await player(100n)
     stack('9s', '7h', '2d')

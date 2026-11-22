@@ -19,7 +19,7 @@ Every route needs a session and is rate-limited; every change needs `auth: 'admi
 | `GET /api/admin/players` | admin | Every account, disabled ones too: role, last seen, wallet, vault and rank tier in the current season |
 | `POST /api/admin/players/:id/disable`, `/enable` | admin | Disables an account and ends its sessions, or lets it back in. Never yourself |
 | `POST /api/admin/chips` | admin | A manual adjustment with a required reason: one `admin_adjust` ledger row, a chat post naming the admin, the player, the amount and the reason, and a note to the player. Taking more than the wallet or vault holds is refused with the amount there |
-| `POST /api/admin/giveaways` | admin | Chips to chosen players or everyone, the same amount each, or a pot split between them, rounded down to a hundredth. One `giveaway` ledger row each, one chat post with names and amounts, a note to each player |
+| `POST /api/admin/giveaways` | admin | Chips to chosen players or everyone, the same amount each, or a pot split between them, rounded down to a whole chip. One `giveaway` ledger row each, one chat post with names and amounts, a note to each player |
 | `GET /api/admin/config`, `POST /api/admin/config` | admin | Every setting in force, the changes waiting for the next reset, and who last changed each. A save sends several changes in one transaction through `changeConfig`, in whichever order works (a minimum and its maximum together, a word moved from one command to another), with an optional reason. A refusal names its key, so the editor shows it on that row |
 | `POST /api/admin/seasons/:id/end` | admin | Ends the running season early: at once, or at a chosen time before its end. Posts in chat; an end at once also moves the season to its podium right away |
 | `PATCH /api/admin/seasons/:id` | admin | Renames any season; changes the dates and starting chips of one that has not started, with the same overlap checks as creating one |
@@ -51,7 +51,8 @@ Every audit row also goes out live as `audit.logged` on the feed channel. Invite
 
 - **End early only moves the end earlier.** A season that has not started is edited instead; a season cannot be deleted, because its audit rows point at it.
 - **Giveaways and adjustments need a running season**, since wallets belong to one; after the end, chips are final. A player without a wallet yet joins the season first, with the starting chips, as on their next visit.
-- **A split pot rounds each share down to a hundredth**; the remainder is not given.
+- **A split pot rounds each share down to a whole chip**; the remainder is not given, and a pot too small for a chip each is refused.
+- **Admin amounts are exact whole chips** (since 2026-11-22): a typed decimal point is refused with a plain answer instead of being rounded.
 - **An admin can adjust their own chips**, in public like any other adjustment ("took 1 chip from their own wallet").
 - **Config changes do not post in chat** (the spec lists them on the Audit page, ahead of time when they wait for the reset). Chip adjustments, giveaways and an early end do.
 - **The invite message carries the code**, since the sign-up page does not read one from its address yet.

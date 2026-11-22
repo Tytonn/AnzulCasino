@@ -15,15 +15,16 @@ import { flip } from '../../../server/games/coinflip/rules.ts'
 
 describe('coin flip payouts', () => {
   it('pays twice the stake less the edge on a win, and nothing on a loss', () => {
-    expect(coinflipPayout(10_000n, true, 200)).toBe(19_600n)
-    expect(coinflipPayout(10_000n, false, 200)).toBe(0n)
-    expect(coinflipPayout(10_000n, true, 0)).toBe(20_000n)
     expect(coinflipPayout(100n, true, 200)).toBe(196n)
+    expect(coinflipPayout(100n, false, 200)).toBe(0n)
+    expect(coinflipPayout(100n, true, 0)).toBe(200n)
+    expect(coinflipPayout(25n, true, 200)).toBe(49n)
   })
 
-  it('rounds a payout down to a whole hundredth', () => {
-    // 1.01 chips at 2%: 1.9796 chips, paid as 1.97.
-    expect(coinflipPayout(101n, true, 200)).toBe(197n)
+  it('rounds a payout down to a whole chip', () => {
+    // 10 chips at 2%: 19.6 chips, paid as 19. One chip pays 1.96, so 1: the stake back.
+    expect(coinflipPayout(10n, true, 200)).toBe(19n)
+    expect(coinflipPayout(1n, true, 200)).toBe(1n)
     expect(coinflipPayout(333n, true, 150)).toBe(656n)
   })
 

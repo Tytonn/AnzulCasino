@@ -106,18 +106,20 @@ describe('the daily loss cap and the take', () => {
     expect(capLeft(chips(1_000), chips(90), 400)).toBe(0n)
   })
 
-  it('takes the rate of the wallet, rounded down to a hundredth, within what is left of the cap', () => {
-    // 1.5% of 1.01 chips is 0.01515 chips: one hundredth.
-    expect(stealAmount(101n, 150, chips(10))).toBe(1n)
-    expect(stealAmount(chips(600), 180, chips(100))).toBe(1_080n)
-    expect(stealAmount(chips(600), 180, 500n)).toBe(500n)
+  it('takes the rate of the wallet, rounded down to a whole chip, within what is left of the cap', () => {
+    // 1.5% of 101 chips is 1.515 chips: one chip. Of 66 chips it is 0.99: nothing.
+    expect(stealAmount(chips(101), 150, chips(10))).toBe(chips(1))
+    expect(stealAmount(chips(66), 150, chips(10))).toBe(0n)
+    expect(stealAmount(chips(600), 180, chips(100))).toBe(chips(10))
+    expect(stealAmount(chips(600), 180, chips(5))).toBe(chips(5))
     expect(stealAmount(0n, 180, chips(10))).toBe(0n)
     expect(stealAmount(chips(600), 180, 0n)).toBe(0n)
   })
 
   it('fines a share of the thief’s own wallet, and nothing from an empty one', () => {
-    expect(stealFine(chips(50), 500)).toBe(250n)
-    expect(stealFine(333n, 500)).toBe(16n)
+    // 5% of 50 is 2.5 chips, and of 333 it is 16.65: rounded down.
+    expect(stealFine(chips(50), 500)).toBe(chips(2))
+    expect(stealFine(chips(333), 500)).toBe(chips(16))
     expect(stealFine(0n, 500)).toBe(0n)
   })
 })
@@ -128,8 +130,9 @@ describe('prices', () => {
     expect(shieldPrice(chips(150), cfg)).toBe(chips(3))
     expect(shieldPrice(chips(100), cfg)).toBe(chips(3))
     expect(shieldPrice(0n, cfg)).toBe(chips(3))
-    expect(shieldPrice(12_345n, cfg)).toBe(300n)
-    expect(shieldPrice(123_456n, cfg)).toBe(2_469n)
+    // 2% of 199 is 3.98, rounded down to the 3 minimum; 2% of 12,345 is 246.9.
+    expect(shieldPrice(chips(199), cfg)).toBe(chips(3))
+    expect(shieldPrice(chips(12_345), cfg)).toBe(chips(246))
   })
 
   it('prices the extra steal attempt the same way from its own settings', () => {
@@ -165,8 +168,8 @@ describe('the vault’s room', () => {
     expect(vaultRoom(0n, chips(50), 10_000)).toBe(0n)
   })
 
-  it('rounds down to a hundredth', () => {
-    expect(vaultRoom(101n, 0n, 2_500)).toBe(25n)
+  it('rounds down to a whole chip', () => {
+    expect(vaultRoom(chips(101), 0n, 2_500)).toBe(chips(25))
   })
 })
 
@@ -218,11 +221,20 @@ describe('who can be robbed', () => {
   }
 
   it('says what a success would take', () => {
-    expect(checkTarget(facts())).toEqual({ ok: true, gap: 3, rate: 240, amount: 1_440n })
+    // 2.4% of 600 is 14.4 chips: 14.
+    expect(checkTarget(facts())).toEqual({ ok: true, gap: 3, rate: 240, amount: chips(14) })
   })
 
   it('limits the take to what is left of the cap', () => {
-    expect(checkTarget(facts({ capLeft: 900n }))).toMatchObject({ ok: true, amount: 900n })
+    expect(checkTarget(facts({ capLeft: chips(9) }))).toMatchObject({ ok: true, amount: chips(9) })
+  })
+
+  it('refuses a steal that would take less than a whole chip', () => {
+    // 2.4% of 41 chips is 0.984: nothing to take yet, so no attempt is spent on it.
+    const small = { id: 'target', rank: 1, balance: chips(41), netWorth: chips(300) }
+    expect(checkTarget(facts({ target: small }))).toEqual({ ok: false, reason: 'too_little' })
+    const enough = { ...small, balance: chips(42) }
+    expect(checkTarget(facts({ target: enough }))).toMatchObject({ ok: true, amount: chips(1) })
   })
 
   it('refuses for each reason the spec lists', () => {
@@ -251,8 +263,14 @@ describe('who can be robbed', () => {
   })
 
   it('counts the floor on net worth, so chips in the vault keep a player robbable', () => {
+    // 20 in the wallet is under the floor of 25, but 30 in all is not. At 10%
+    // (the default rates take under a chip of 20) a success takes 2.
     const vaulted = { id: 'target', rank: 1, balance: chips(20), netWorth: chips(30) }
-    expect(checkTarget(facts({ target: vaulted }))).toMatchObject({ ok: true })
+    const rates = { ...cfg, steal_base_rate: 1_000, steal_per_rank: 0, steal_max_rate: 1_000 }
+    expect(checkTarget(facts({ target: vaulted, cfg: rates }))).toMatchObject({
+      ok: true,
+      amount: chips(2),
+    })
   })
 
   it('names the most general reason first', () => {
@@ -301,6 +319,7 @@ describe('the words a player sees', () => {
       'Bob has under 25 chips net worth, too little to rob.',
       'Bob has lost all they can to steals today.',
       'Bob has nothing in their wallet to take.',
+      'Bob has too little in their wallet for a steal to take a whole chip.',
     ])
   })
 
@@ -358,9 +377,10 @@ describe('typed vault amounts', () => {
       ok: true,
       amount: chips(100),
     })
+    // Half of 125 is 62.5: rounded down to a whole chip.
     expect(parseVaultAmount('half', 'deposit', wallet, vaultNow, 2_500)).toEqual({
       ok: true,
-      amount: 6_250n,
+      amount: chips(62),
     })
     expect(parseVaultAmount('half', 'withdraw', wallet, vaultNow, 2_500)).toEqual({
       ok: true,
@@ -375,7 +395,7 @@ describe('typed vault amounts', () => {
     })
     expect(parseVaultAmount('12.505', 'deposit', wallet, vaultNow, 2_500)).toEqual({
       ok: true,
-      amount: 1_250n,
+      amount: chips(12),
     })
     expect(parseVaultAmount('lots', 'deposit', wallet, vaultNow, 2_500)).toEqual({
       ok: false,

@@ -5,7 +5,7 @@
  * server reads the result through loadConfig() in server/lib/config.ts.
  *
  * Units:
- * - `chips`: hundredths of a chip, bigint in code. `min_bet` 100n is 1 chip.
+ * - `chips`: whole chips, bigint in code. `min_bet` 1n is 1 chip.
  * - `share`: basis points, where 100 is 1% and 10,000 is 100%. Every `_pct`
  *   and `_rate` key is a share. Use basisPoints() and formatShare() from
  *   shared/chips.ts.
@@ -18,7 +18,7 @@
  * - everything else: a whole number in the unit its name ends with.
  *
  * On the wire and in the table, every value is a plain number (chips as
- * hundredths), except `text` and `choice`, a string, and `lines` and
+ * whole chips), except `text` and `choice`, a string, and `lines` and
  * `words`, an array of strings.
  *
  * Changes to the economy, ranks, giveaways, steals, shields and the vault
@@ -930,7 +930,7 @@ function parseLines(key: ConfigKey, s: LinesSetting, raw: unknown): ParsedValue 
 }
 
 /**
- * Checks a value in its wire form (a plain number with chips as hundredths, a
+ * Checks a value in its wire form (a plain number with chips as whole chips, a
  * string for text, or a list of strings for lines) against the key's unit and
  * limits.
  */
@@ -989,7 +989,7 @@ export function formatConfigValue(key: ConfigKey, value: ConfigValue): string {
   return formatValue(setting(key), value)
 }
 
-/** The value as it travels and is stored: chips as a number of hundredths. */
+/** The value as it travels and is stored: chips as a plain number of chips. */
 export function configWireValue(value: ConfigValue): number | string | string[] {
   if (typeof value === 'string') return value
   return typeof value === 'object' ? [...value] : Number(value)
@@ -1035,9 +1035,9 @@ export function commandWordClash(
 }
 
 export interface TierSettings {
-  /** Hundredths. Zero for the base tier. */
+  /** Chips. Zero for the base tier. */
   price: bigint
-  /** Hundredths per day. */
+  /** Chips per day. */
   income: bigint
   /** First season day it can be bought. Zero for the base tier, which everyone has. */
   unlockDay: number

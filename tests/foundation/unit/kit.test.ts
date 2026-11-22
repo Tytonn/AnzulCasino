@@ -331,11 +331,11 @@ describe('seats', () => {
 
   it('grows the chip stack with each tenfold', () => {
     expect(chipsFor(0)).toBe(0)
-    expect(chipsFor(50)).toBe(1) // half a chip
-    expect(chipsFor(900)).toBe(1) // 9 chips
-    expect(chipsFor(1_000)).toBe(2) // 10 chips
-    expect(chipsFor(100_000)).toBe(4) // 1,000 chips
-    expect(chipsFor(10 ** 15)).toBe(6)
+    expect(chipsFor(1)).toBe(1)
+    expect(chipsFor(9)).toBe(1)
+    expect(chipsFor(10)).toBe(2)
+    expect(chipsFor(1_000)).toBe(4)
+    expect(chipsFor(10 ** 13)).toBe(6)
   })
 })
 

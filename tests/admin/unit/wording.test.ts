@@ -53,38 +53,38 @@ describe('names in a sentence', () => {
 describe('chat posts and notes', () => {
   it('says who moved whose chips, and why', () => {
     const post = { admin: 'Ada', player: 'Bob', self: false, account: 'wallet' as const }
-    expect(adjustPostText({ ...post, amount: 50_000n, reason: 'Refund for the frozen flip' })).toBe(
+    expect(adjustPostText({ ...post, amount: 500n, reason: 'Refund for the frozen flip' })).toBe(
       "🧾 Ada added 500 chips to Bob's wallet: Refund for the frozen flip",
     )
-    expect(adjustPostText({ ...post, amount: -150n, account: 'vault', reason: 'Typo' })).toBe(
-      "🧾 Ada took 1.50 chips from Bob's vault: Typo",
+    expect(adjustPostText({ ...post, amount: -15n, account: 'vault', reason: 'Typo' })).toBe(
+      "🧾 Ada took 15 chips from Bob's vault: Typo",
     )
-    expect(adjustPostText({ ...post, self: true, amount: -100n, reason: 'My own fine' })).toBe(
+    expect(adjustPostText({ ...post, self: true, amount: -1n, reason: 'My own fine' })).toBe(
       '🧾 Ada took 1 chip from their own wallet: My own fine',
     )
-    expect(adjustNoticeText('Ada', 100n, 'wallet', 'Birthday')).toBe(
+    expect(adjustNoticeText('Ada', 1n, 'wallet', 'Birthday')).toBe(
       'Ada added 1 chip to your wallet: Birthday',
     )
-    expect(adjustNoticeText('Ada', -250n, 'vault', 'Typo')).toBe(
-      'Ada took 2.50 chips from your vault: Typo',
+    expect(adjustNoticeText('Ada', -25n, 'vault', 'Typo')).toBe(
+      'Ada took 25 chips from your vault: Typo',
     )
   })
 
   it('words a giveaway by how it was given', () => {
     const base = { admin: 'Ada', everyone: false, split: false, note: null }
-    expect(giveawayPostText({ ...base, names: ['Bob'], amount: 100n, share: 100n })).toBe(
+    expect(giveawayPostText({ ...base, names: ['Bob'], amount: 1n, share: 1n })).toBe(
       '🎁 Ada gave Bob 1 chip.',
     )
     expect(
-      giveawayPostText({ ...base, names: ['Bob', 'Cy'], amount: 500n, share: 500n, note: 'Hi' }),
+      giveawayPostText({ ...base, names: ['Bob', 'Cy'], amount: 5n, share: 5n, note: 'Hi' }),
     ).toBe('🎁 Ada gave Bob and Cy 5 chips each: Hi')
     expect(
       giveawayPostText({
         ...base,
         everyone: true,
         names: ['A', 'B', 'C'],
-        amount: 200n,
-        share: 200n,
+        amount: 2n,
+        share: 2n,
       }),
     ).toBe('🎁 Ada gave everyone 2 chips.')
     expect(
@@ -93,12 +93,12 @@ describe('chat posts and notes', () => {
         everyone: true,
         split: true,
         names: ['A', 'B', 'C'],
-        amount: 1000n,
-        share: 333n,
+        amount: 10n,
+        share: 3n,
       }),
-    ).toBe('🎁 Ada split 10 chips between all 3 players, 3.33 each.')
-    expect(giveawayNoticeText('Ada', 333n, 'Happy Friday')).toBe(
-      '🎁 Ada gave you 3.33 chips: Happy Friday',
+    ).toBe('🎁 Ada split 10 chips between all 3 players, 3 each.')
+    expect(giveawayNoticeText('Ada', 3n, 'Happy Friday')).toBe(
+      '🎁 Ada gave you 3 chips: Happy Friday',
     )
   })
 

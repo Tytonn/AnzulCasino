@@ -418,10 +418,10 @@ export default function RouletteRoom() {
   })
 
   const worth = balance + betsTotal(bets.current)
-  const rack = chipRack(limits?.minBet ?? 100n, worth)
+  const rack = chipRack(limits?.minBet ?? 1n, worth)
   const [picked, setPicked] = useState<bigint | null>(readChip)
   const chip =
-    picked !== null && (!limits || picked >= limits.minBet) ? picked : (rack[1] ?? rack[0] ?? 100n)
+    picked !== null && (!limits || picked >= limits.minBet) ? picked : (rack[1] ?? rack[0] ?? 1n)
   const pick = useCallback((amount: bigint) => {
     setPicked(amount)
     saveChip(amount)

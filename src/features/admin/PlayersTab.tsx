@@ -25,7 +25,7 @@ import { CopyIcon } from '../../kit/icons.tsx'
 import { Avatar } from '../../kit/PlayerName.tsx'
 import { queryKeys, useMe, useSeason } from '../../kit/queries.ts'
 import { toast } from '../../kit/toast.tsx'
-import { parseHundredths } from './config-edit.ts'
+import { chipsProblem, parseChips } from './config-edit.ts'
 import { adminKeys, useAdminPlayers } from './data.ts'
 import { SearchIcon } from './icons.tsx'
 import {
@@ -169,10 +169,10 @@ function AdjustDialog({
   const held = BigInt(
     account === 'wallet' ? (player.wallet?.balance ?? 0) : (player.wallet?.vault ?? 0),
   )
-  const parsed = amountText.trim() ? parseHundredths(amountText) : null
+  const parsed = amountText.trim() ? parseChips(amountText) : null
   const amountError =
     amountText.trim() && (parsed === null || parsed === 0)
-      ? 'Type a number of chips above zero, such as 5 or 2.50.'
+      ? chipsProblem(amountText, 'Type a number of chips above zero, such as 5 or 250.')
       : parsed !== null && parsed > MAX_ADMIN_AMOUNT
         ? 'That is more than a billion chips.'
         : parsed !== null && direction === 'take' && BigInt(parsed) > held
@@ -269,7 +269,7 @@ function AdjustDialog({
               id={id}
               aria-describedby={describedBy}
               aria-invalid={amountError ? true : undefined}
-              inputMode="decimal"
+              inputMode="numeric"
               autoComplete="off"
               placeholder="10"
               suffix="chips"

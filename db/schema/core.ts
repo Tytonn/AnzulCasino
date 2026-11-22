@@ -4,7 +4,7 @@
  * A lane that needs its own table adds it in db/schema/<lane>.ts with the
  * table name prefixed by the lane name.
  *
- * Chip amounts are bigint counts of hundredths of a chip (spec rule 2).
+ * Chip amounts are bigint counts of whole chips (spec rule 2).
  * Time columns are timestamptz and are compared against the database's now().
  */
 import { type SQL, sql } from 'drizzle-orm'
@@ -37,7 +37,7 @@ import { STEAL_OUTCOMES } from '../../shared/steals.ts'
 import { TIERS } from '../../shared/tiers.ts'
 import { INVITE_KINDS, ROLES } from '../../shared/users.ts'
 
-/** A chip amount: a bigint count of hundredths of a chip. */
+/** A chip amount: a bigint count of whole chips. */
 const chips = (name: string) => bigint(name, { mode: 'bigint' })
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: 'date' })
 const bigId = (name: string) => bigint(name, { mode: 'number' })
