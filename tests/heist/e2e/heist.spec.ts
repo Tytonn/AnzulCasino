@@ -159,9 +159,10 @@ test('a steal plays out for the thief, and the target sees it as it lands', asyn
   await heistReady(target.page)
 
   const answer = await test.step('the thief sees the odds, then cracks the vault', async () => {
+    // Exact, since "Rob Test" is also the start of "Rob Test 2".
     await page
       .getByRole('dialog', { name: 'Heist' })
-      .getByRole('button', { name: `Rob ${targetName}` })
+      .getByRole('button', { name: `Rob ${targetName}`, exact: true })
       .click()
     const dialog = page.getByRole('dialog', { name: 'Rob a player' })
     await expect(dialog).toBeVisible()
@@ -228,7 +229,7 @@ test('a steal plays out for the thief, and the target sees it as it lands', asyn
       blocked: `${targetName}’s shield blocked ${thiefName}`,
       failed: `${thiefName} got caught robbing ${targetName}`,
     }[answer.steal.outcome]
-    await expect(panel.getByText(line).first()).toBeVisible()
+    await expect(panel.getByText(line, { exact: true }).first()).toBeVisible()
     await snap(page, LANE, 'panel-log', testInfo)
     await page.keyboard.press('Escape')
     await expect(panel).toBeHidden()
