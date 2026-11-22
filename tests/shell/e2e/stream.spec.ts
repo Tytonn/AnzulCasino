@@ -10,9 +10,18 @@
  * On a deploy preview the stream keeps what earlier runs posted, so every
  * check looks for this run's own items: its chat lines, its rounds by id.
  */
-import { expect, type Locator, type Page, type Response, test } from '@playwright/test'
+import { randomUUID } from 'node:crypto'
 
-import type { StreamFilter } from '../../../shared/chat.ts'
+import {
+  type APIResponse,
+  expect,
+  type Locator,
+  type Page,
+  type Response,
+  test,
+} from '@playwright/test'
+
+import type { StreamFilter, StreamPage } from '../../../shared/chat.ts'
 import { formatChips } from '../../../shared/chips.ts'
 import type { ConfigValues } from '../../../shared/config.ts'
 import type { IncomeResponse } from '../../../shared/features/economy.ts'
@@ -49,7 +58,7 @@ const pinned = (page: Page) => page.getByRole('region', { name: 'Your game' })
 const inStream = (page: Page, roundId: number) =>
   stream(page).locator(`[data-round="${roundId}"], [data-folded="${roundId}"]`)
 
-async function expectOk(res: Response) {
+async function expectOk(res: Response | APIResponse) {
   expect(res.status(), await res.text()).toBe(200)
 }
 
@@ -66,6 +75,29 @@ async function deal(page: Page): Promise<Hand> {
   const res = await answer
   await expectOk(res)
   return (await res.json()) as Hand
+}
+
+/**
+ * Stands on every blackjack hand the player still has open. On a preview a
+ * run that failed mid-hand leaves one, and the server deals no second hand
+ * until it is finished, as it tells a player.
+ */
+async function finishOpenHands(page: Page) {
+  const res = await page.request.get('/api/stream?filter=games')
+  await expectOk(res)
+  const { mine } = (await res.json()) as StreamPage
+  for (const message of mine) {
+    let round = message.round
+    for (let moves = 0; round?.game === 'blackjack' && round.status === 'open'; moves++) {
+      expect(moves, 'A hand that standing does not finish').toBeLessThan(4)
+      const stood = await page.request.post('/api/blackjack/move', {
+        data: { move: 'stand', roundId: round.id, steps: round.steps },
+        headers: { 'idempotency-key': randomUUID() },
+      })
+      await expectOk(stood)
+      round = ((await stood.json()) as Hand).round
+    }
+  }
 }
 
 /** Hits below 12 and stands from there: with the keys on a desktop, with taps on a phone. */
@@ -128,6 +160,7 @@ test('a hand dealt from the message box plays live for everyone, then folds', as
   const stamp = `${testInfo.project.name}-${Date.now().toString(36)}`
 
   await test.step('both open the stream, and Alice says hi', async () => {
+    await finishOpenHands(alice.page)
     await alice.page.goto('/')
     await bob.page.goto('/')
     await expect(alice.page).toHaveTitle('Anzul Casino')
