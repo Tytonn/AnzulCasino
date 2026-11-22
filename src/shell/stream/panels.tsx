@@ -207,7 +207,7 @@ function Pages() {
           </li>
         )
       })}
-      <li>
+      <li className="col-span-2">
         <Link to="/classic" className={ROW}>
           <FloorIcon className="size-4 shrink-0" />
           <span className="truncate">Classic rooms</span>
