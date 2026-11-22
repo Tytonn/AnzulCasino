@@ -66,7 +66,7 @@ export interface SystemMeta {
   game?: string
   /**
    * A chat drop (the economy lane's): its id, the pot, how many players
-   * claimed a share and each share, in hundredths.
+   * claimed a share and each share, in chips.
    */
   drop?: { id: number; pot: number; winners: number; share: number }
 }

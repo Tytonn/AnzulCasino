@@ -105,11 +105,21 @@ export async function lockEconomyPlayer(tx: Tx, seasonId: number, userId: string
     .for('update')
 }
 
-/** Starts income building again from now: after a collect, or a rank bought. */
-export async function restartIncomeClock(tx: Tx, seasonId: number, userId: string): Promise<void> {
+/**
+ * Starts income building again after a collect or a rank bought, from now
+ * less `carryMs`: the part of a chip that was still building, so whole-chip
+ * payouts never lose it (incomeCarryMs in shared/features/economy.ts).
+ */
+export async function restartIncomeClock(
+  tx: Tx,
+  seasonId: number,
+  userId: string,
+  carryMs: bigint,
+): Promise<void> {
+  const carry = carryMs > 0n ? Number(carryMs) : 0
   await tx
     .update(economyPlayers)
-    .set({ collectedAt: sql`now()` })
+    .set({ collectedAt: sql`now() - (${carry}::double precision * interval '1 millisecond')` })
     .where(and(eq(economyPlayers.seasonId, seasonId), eq(economyPlayers.userId, userId)))
 }
 

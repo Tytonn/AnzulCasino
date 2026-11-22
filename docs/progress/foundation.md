@@ -97,7 +97,7 @@ Answered on 2026-11-19:
 
 Answered on 2026-11-18:
 
-- **Rounding at the 100-chip scale:** chips are tracked in whole hundredths (`shared/chips.ts`), cents shown only when an amount is not whole. Bets may have cents, so "all" is all.
+- **Rounding at the 100-chip scale:** chips are tracked in whole hundredths (`shared/chips.ts`), cents shown only when an amount is not whole. Bets may have cents, so "all" is all. _(Superseded on 2026-11-22: chips are whole numbers again, see the shared changes below.)_
 - **Credits on Personal:** keep the database asleep when nobody plays and keep merges batched. Tyton decides on auto-recharge.
 
 ## Done
@@ -213,3 +213,12 @@ Nothing in Stage 1.
 
 - Adding a config key or a ledger reason is a shared change: list it under "Shared changes needed" in the lane's pull request.
 - The Foundation thread makes the shared changes. A lane lists them in its pull request and progress file and sends them to the thread; each batch is one pull request from `main` for Tyton to merge, and the lanes pull `main` after it.
+- **Whole chips again (2026-11-22, Tyton).** Every amount in code, the database, the API and config is a count of whole chips, so the 100-chip season is 100, not 10,000. What lanes should know:
+  - `CHIP` is `1n`, so `100n * CHIP` and `chips(100)` still mean 100 chips. `chips()` refuses a fraction. Multipliers stay in hundredths (196 is 1.96x) and shares in basis points.
+  - `formatChips` never shows decimals (`12,345`), and `chipCount` says "1 chip" or "107 chips". `floorToChip` is gone: `mulDiv` and `basisPoints` already round down to a whole chip.
+  - Typed bets round down: "2.9" bets 2, "half" of 101 is 50, and anything under a chip ("0.5") is refused with "The smallest bet is 1." ("Bet more than zero." is gone). The bet box shows what such text comes to.
+  - Admin amounts (adjust, giveaway, season starting chips, chip settings) are exact and refuse a decimal point: "Chips are whole numbers. Type an amount without a decimal point." Chip inputs open a number pad on phones.
+  - Small results round to 0 or 1, and the screens say so: a right call on a 1-chip coin flip pays 1 and reads "Even" (the seat shows Push), a split giveaway needs a whole chip per share, and a steal that would take under a chip is blocked as `too_little` ("Small wallet") without using the attempt.
+  - Rank income keeps the part of a chip still building: `restartIncomeClock(tx, seasonId, userId, carryMs)` leaves that time on the clock after a collect, and a rank purchase converts it to the new rate, so rounding never loses income.
+  - Test fixtures: `createSeason` starts with 100 chips, and `fundWallet` takes whole chips.
+  - A preview database made before this change holds hundredths, so its amounts read 100 times too large until that preview gets a fresh database. Production was never published, so nothing there needed converting.

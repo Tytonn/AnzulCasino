@@ -4,8 +4,8 @@
  * one locked transaction; the browser uses the same functions only to show
  * the odds, the take, the prices and why a player cannot be robbed.
  *
- * Chip amounts are bigint hundredths. Rates and prices from config are basis
- * points (100 is 1%), and every amount rounds down to a whole hundredth.
+ * Chip amounts are bigint whole chips. Rates and prices from config are basis
+ * points (100 is 1%), and every amount rounds down to a whole chip.
  *
  * Who can see what:
  * - Public: every steal attempt and its outcome, each player's immunity, how
@@ -143,9 +143,9 @@ export function vaultMost(
 export type VaultAmountResult = { ok: true; amount: bigint } | { ok: false; error: string }
 
 /**
- * Reads a typed vault amount the way the bet box reads a bet: 20, 12.50,
- * 2.5k, or the words `max` and `all` (as much as this move allows) and
- * `half` (half of that). The browser previews it; the server reads the same
+ * Reads a typed vault amount the way the bet box reads a bet: 20, 2.5k, or
+ * the words `max` and `all` (as much as this move allows) and `half` (half
+ * of that), in whole chips, rounded down. The browser previews it; the server reads the same
  * text again against the locked wallet.
  */
 export function parseVaultAmount(
@@ -188,7 +188,7 @@ export function vaultMoveProblem(
     if (!deposit && vault <= 0n) return { code: 'vault_empty', message: 'Your vault is empty.' }
     if (deposit && wallet <= 0n) return { code: 'wallet_empty', message: 'Your wallet is empty.' }
     if (deposit && room <= 0n) return { code: 'vault_full', message: full }
-    return { code: 'zero', message: 'Type an amount above zero.' }
+    return { code: 'zero', message: 'Type at least 1 chip.' }
   }
   if (deposit && amount > wallet) {
     return {
@@ -255,6 +255,7 @@ export const TARGET_BLOCKS = [
   'floor',
   'cap',
   'empty',
+  'too_little',
 ] as const
 export type TargetBlock = (typeof TARGET_BLOCKS)[number]
 
@@ -270,7 +271,7 @@ export interface TargetFacts {
   immuneUntil: number | null
   /** Epoch ms: database time on the server, the corrected clock in the browser. */
   now: number
-  /** Hundredths left of the target's daily loss cap. */
+  /** Chips left of the target's daily loss cap. */
   capLeft: bigint
   cfg: StealRates & Pick<ConfigValues, 'steal_floor' | 'steal_success_pct' | 'steal_fine_pct'>
 }
@@ -294,7 +295,8 @@ export function checkTarget(f: TargetFacts): TargetCheck {
   const gap = f.thief.rank - f.target.rank
   const rate = stealRate(gap, f.cfg)
   const amount = stealAmount(f.target.balance, rate, f.capLeft)
-  if (amount <= 0n) return { ok: false, reason: 'empty' }
+  // Steals round down to a whole chip, so a small wallet can be worth nothing yet.
+  if (amount <= 0n) return { ok: false, reason: f.target.balance > 0n ? 'too_little' : 'empty' }
   return { ok: true, gap, rate, amount }
 }
 
@@ -336,6 +338,8 @@ export function blockMessage(
       return `${name} has lost all they can to steals today.`
     case 'empty':
       return `${name} has nothing in their wallet to take.`
+    case 'too_little':
+      return `${name} has too little in their wallet for a steal to take a whole chip.`
   }
 }
 
@@ -351,6 +355,7 @@ export const BLOCK_LABELS: Record<TargetBlock, string> = {
   floor: 'Too poor',
   cap: 'Hit daily cap',
   empty: 'Empty wallet',
+  too_little: 'Small wallet',
 }
 
 /** "Takes 1.8% of their wallet" for the odds line. */
@@ -370,7 +375,7 @@ export interface TargetInfo {
   immuneUntil: string | null
   /** You already tried to rob them this game day. */
   triedToday: boolean
-  /** Hundredths left of their daily loss cap. */
+  /** Chips left of their daily loss cap. */
   capLeft: number
 }
 
@@ -394,7 +399,7 @@ export interface HeistState {
     /** When the season week ends and the weekly shield limit starts over (ISO). */
     weekEndsAt: string | null
     vaultMoved: boolean
-    /** Hundredths stolen from you this game day, and the most you can lose today. */
+    /** Chips stolen from you this game day, and the most you can lose today. */
     stolenToday: number
     lossCap: number
   }

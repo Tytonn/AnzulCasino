@@ -19,7 +19,7 @@ export interface FeltChip {
   userId: string
   /** The player's color, as a CSS value. */
   color: string
-  /** Hundredths. */
+  /** Chips. */
   amount: number
   me: boolean
 }

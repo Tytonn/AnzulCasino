@@ -3,7 +3,7 @@
  * the frozen standings, the podium and the Hall of Fame. Shared by the
  * browser and the server. The server code is in server/features/season/.
  *
- * Chips are hundredths, as plain numbers on the wire.
+ * Chips are whole numbers, plain numbers on the wire.
  */
 import { z } from 'zod'
 
@@ -26,7 +26,7 @@ export interface SeasonPlace {
   avatar: string
   avatarColor: string
   tier: Tier
-  /** Wallet plus vault at the end. Hundredths. */
+  /** Wallet plus vault at the end, in chips. */
   netWorth: number
 }
 

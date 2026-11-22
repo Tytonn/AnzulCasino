@@ -43,7 +43,7 @@ export function takesBets(phase: SeasonPhase): boolean {
   return phase === 'open' || phase === 'final_day'
 }
 
-/** A season as the API sends it. Chip amounts are hundredths. */
+/** A season as the API sends it. Chip amounts are whole chips. */
 export interface SeasonView {
   id: number
   name: string
@@ -80,10 +80,10 @@ export const CreateSeasonInput = z
       .max(40, 'Season names are up to 40 characters.'),
     startsAt: When('Pick a start time.'),
     endsAt: When('Pick an end time.'),
-    /** Hundredths. Defaults to the starting_balance setting. */
+    /** Chips. Defaults to the starting_balance setting. */
     startingBalance: z
       .number()
-      .int('The starting balance must be a whole number of hundredths.')
+      .int('The starting balance must be a whole number of chips.')
       .positive('The starting balance must be above zero.')
       .max(Number.MAX_SAFE_INTEGER)
       .optional(),
@@ -91,7 +91,7 @@ export const CreateSeasonInput = z
   .refine((s) => s.endsAt > s.startsAt, 'The season must end after it starts.')
 export type CreateSeasonInput = z.infer<typeof CreateSeasonInput>
 
-/** A row of GET /api/leaderboard. Chip amounts are hundredths. */
+/** A row of GET /api/leaderboard. Chip amounts are whole chips. */
 export interface StandingView {
   /** 1 is first. Players level on net worth and on when they reached it share a rank. */
   rank: number

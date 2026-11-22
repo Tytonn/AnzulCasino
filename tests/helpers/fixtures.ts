@@ -37,10 +37,7 @@ export async function createPlayer(
 }
 
 /** An active season that started a day ago and ends in 29 days. */
-export async function createSeason(
-  testDb: TestDatabase,
-  startingBalance = 10_000n,
-): Promise<number> {
+export async function createSeason(testDb: TestDatabase, startingBalance = 100n): Promise<number> {
   const row = first(
     await testDb.query<{ id: number }>(
       `insert into seasons (name, starts_at, ends_at, starting_balance, status)
@@ -52,7 +49,7 @@ export async function createSeason(
   return row.id
 }
 
-/** Opens the player's wallet for the season and credits `amount` (hundredths). */
+/** Opens the player’s wallet for the season and credits `amount` chips. */
 export async function fundWallet(seasonId: number, userId: string, amount: bigint): Promise<void> {
   await db().transaction(async (tx) => {
     await tx.insert(wallets).values({ seasonId, userId }).onConflictDoNothing()

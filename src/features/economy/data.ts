@@ -15,6 +15,7 @@ import {
   type EconomyStateResponse,
   type IncomeCommand,
   incomeFullInMs,
+  nextChipInMs,
 } from '../../../shared/features/economy.ts'
 import { api } from '../../kit/api.ts'
 import { useNow } from '../../kit/clock.ts'
@@ -143,7 +144,7 @@ export function ago(iso: string, now: number): string {
 // ---------------------------------------------------------------- income
 
 export interface IncomeNow {
-  /** Hundredths of income waiting now. */
+  /** Chips of income waiting now. */
   income: number
   /** The streak bonus waiting today, or 0 once paid. */
   bonus: number
@@ -153,9 +154,17 @@ export interface IncomeNow {
   fill: number
   /** Milliseconds until income stops growing. */
   fullInMs: number
-  /** Hundredths a day at the player's rank. */
+  /**
+   * Milliseconds until income reaches its next whole chip, when a chip takes
+   * a minute or more to build (Silver's 100 a day or less), else null.
+   */
+  nextChipInMs: number | null
+  /** Chips a day at the player's rank. */
   perDay: number
 }
+
+/** A chip takes at least this long to build when the next-chip countdown is worth showing. */
+const SLOW_CHIP_MS = 60_000
 
 /** Income waiting now, ticking with the server's clock. Display only: the server counts. */
 export function incomeNow(state: EconomyState, now: number): IncomeNow {
@@ -164,13 +173,16 @@ export function incomeNow(state: EconomyState, now: number): IncomeNow {
   const income = accruedIncomeShown(state.income.perDay, elapsed, cap)
   const bonus = state.streak.claimedToday ? 0 : state.streak.bonus
   const capMs = cap * 3_600_000
+  const perDay = state.income.perDay
+  const slow = perDay > 0 && 86_400_000 / perDay >= SLOW_CHIP_MS
   return {
     income,
     bonus,
     total: income + bonus,
     fill: capMs > 0 ? Math.min(1, elapsed / capMs) : 1,
     fullInMs: incomeFullInMs(elapsed, cap),
-    perDay: state.income.perDay,
+    nextChipInMs: slow ? nextChipInMs(perDay, elapsed, cap) : null,
+    perDay,
   }
 }
 

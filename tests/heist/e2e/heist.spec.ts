@@ -8,15 +8,27 @@
  * runs did: a player may already hold two charges, have moved their vault
  * today or used their steal attempts. Each step checks the player's heist
  * state first and tests what the page should say instead.
+ *
+ * Steals round down to a whole chip, so a sample player ranked below the
+ * thief with about 100 chips is worth nothing to rob ("Small wallet"). The
+ * steal falls back to the test accounts, which hold 1,000 chips or more, and
+ * which the foundation's test-account spec has signed in by then.
  */
 import { expect, type Page, test } from '@playwright/test'
 
 import { chipCount, formatChips } from '../../../shared/chips.ts'
 import type { HeistState, StealResponse, VaultResponse } from '../../../shared/features/heist.ts'
+import { TEST_ACCOUNTS, TEST_PASSWORD } from '../../../shared/test-accounts.ts'
 import { SEED_PLAYERS } from '../../../scripts/db/sample-players.ts'
 import { onPhone, openAs, snap } from '../../e2e-helpers/players.ts'
 
 const LANE = 'heist'
+
+/** Players the steal can open as its target, with their password when it is not the sample one. */
+const TARGETS: { username: string; displayName: string; password?: string }[] = [
+  ...SEED_PLAYERS,
+  ...TEST_ACCOUNTS.map((a) => ({ ...a, password: TEST_PASSWORD })),
+]
 
 async function heistState(page: Page): Promise<HeistState> {
   const res = await page.request.get('/api/heist/state')
@@ -120,7 +132,7 @@ test('a steal plays out for the thief, and the target sees it as it lands', asyn
     await panel.getByRole('tab', { name: /^Rob/ }).click()
 
     // The first sample player this thief can rob right now, once the list is
-    // in. A preview can hold other players too, such as the test accounts.
+    // in, else a test account. A preview can hold other players too.
     await expect(panel.getByRole('button', { name: /^Rob / }).first()).toBeVisible()
     const robbable = panel.getByRole('button', { name: /^Rob / }).and(page.locator(':enabled'))
     const { me } = await heistState(page)
@@ -130,7 +142,9 @@ test('a steal plays out for the thief, and the target sees it as it lands', asyn
         buttons.map((b) => b.getAttribute('aria-label') ?? ''),
       )
     ).map((label) => label.replace(/^Rob /, ''))
-    return names.find((name) => SEED_PLAYERS.some((p) => p.displayName === name)) ?? null
+    const first = (pool: readonly { displayName: string }[]) =>
+      names.find((name) => pool.some((p) => p.displayName === name))
+    return first(SEED_PLAYERS) ?? first(TEST_ACCOUNTS) ?? null
   })
   test.skip(
     targetName === null,
@@ -138,16 +152,17 @@ test('a steal plays out for the thief, and the target sees it as it lands', asyn
   )
   if (targetName === null) return
 
-  const sample = SEED_PLAYERS.find((p) => p.displayName === targetName)
-  if (!sample) throw new Error(`${targetName} is not a sample player.`)
-  const target = await openAs(browser, sample.username)
+  const account = TARGETS.find((p) => p.displayName === targetName)
+  if (!account) throw new Error(`${targetName} is not a sample player or a test account.`)
+  const target = await openAs(browser, account.username, account.password)
   await target.page.goto('/')
   await heistReady(target.page)
 
   const answer = await test.step('the thief sees the odds, then cracks the vault', async () => {
+    // Exact, since "Rob Test" is also the start of "Rob Test 2".
     await page
       .getByRole('dialog', { name: 'Heist' })
-      .getByRole('button', { name: `Rob ${targetName}` })
+      .getByRole('button', { name: `Rob ${targetName}`, exact: true })
       .click()
     const dialog = page.getByRole('dialog', { name: 'Rob a player' })
     await expect(dialog).toBeVisible()
@@ -214,7 +229,7 @@ test('a steal plays out for the thief, and the target sees it as it lands', asyn
       blocked: `${targetName}’s shield blocked ${thiefName}`,
       failed: `${thiefName} got caught robbing ${targetName}`,
     }[answer.steal.outcome]
-    await expect(panel.getByText(line).first()).toBeVisible()
+    await expect(panel.getByText(line, { exact: true }).first()).toBeVisible()
     await snap(page, LANE, 'panel-log', testInfo)
     await page.keyboard.press('Escape')
     await expect(panel).toBeHidden()
@@ -222,11 +237,16 @@ test('a steal plays out for the thief, and the target sees it as it lands', asyn
 
   if (!phone) {
     await test.step('the target’s card says why they cannot be robbed again today', async () => {
-      await page
+      // "Test" is also the start of "Test 2", so leave out rows of players whose names hold it.
+      let row = page
         .getByRole('complementary')
         .getByRole('button', { name: new RegExp(targetName) })
-        .first()
-        .click()
+      for (const other of TARGETS) {
+        if (other.displayName !== targetName && other.displayName.includes(targetName)) {
+          row = row.filter({ hasNotText: other.displayName })
+        }
+      }
+      await row.first().click()
       const card = page.getByRole('dialog', { name: 'Player' })
       await expect(
         card.getByRole('button', { name: new RegExp(`^Rob ${targetName}`) }),

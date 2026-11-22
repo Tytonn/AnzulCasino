@@ -48,8 +48,15 @@ export async function hideNetlifyDrawer(context: BrowserContext) {
   await context.route('**/.netlify/scripts/cdp', (route) => route.abort())
 }
 
-/** Signs a context in and returns the player's id. */
-export async function signIn(context: BrowserContext, username: string): Promise<string> {
+/**
+ * Signs a context in and returns the player's id. `password` is for the test
+ * accounts (TEST_PASSWORD); the sample players use PASSWORD.
+ */
+export async function signIn(
+  context: BrowserContext,
+  username: string,
+  password = PASSWORD,
+): Promise<string> {
   await hideNetlifyDrawer(context)
   const saved = sessions.get(username)
   if (saved) {
@@ -58,7 +65,7 @@ export async function signIn(context: BrowserContext, username: string): Promise
     await context.clearCookies()
   }
   const res = await context.request.post('/api/auth/login', {
-    data: { username, password: PASSWORD },
+    data: { username, password },
   })
   expect(res.ok(), await res.text()).toBe(true)
   const id = ((await res.json()) as { user: { id: string } }).user.id
@@ -67,9 +74,13 @@ export async function signIn(context: BrowserContext, username: string): Promise
 }
 
 /** A player signed in with a page open. Close it with `player.close()`. */
-export async function openAs(browser: Browser, username: string): Promise<Player> {
+export async function openAs(
+  browser: Browser,
+  username: string,
+  password?: string,
+): Promise<Player> {
   const context = await browser.newContext()
-  const id = await signIn(context, username)
+  const id = await signIn(context, username, password)
   return { id, context, page: await context.newPage(), close: () => closeTabs(context) }
 }
 

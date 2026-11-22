@@ -3,7 +3,7 @@
  * down"). It never blocks input: a new value restarts the count from where
  * it is. With reduced motion it jumps.
  *
- *   <AnimatedNumber value={wallet.balance} />            // chips, as hundredths
+ *   <AnimatedNumber value={wallet.balance} />            // chips
  *   <AnimatedNumber value={multiplier} format={(n) => `${(n / 100).toFixed(2)}x`} />
  */
 import { animate, motion, useMotionValue, useReducedMotion, useTransform } from 'motion/react'

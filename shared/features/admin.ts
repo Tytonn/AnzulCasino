@@ -5,7 +5,7 @@
  * an audit row that every player can read, and the ones that move chips or
  * end a season also post in chat.
  *
- * Chip amounts are hundredths: bigint on the server, plain safe integers on
+ * Chip amounts are whole chips: bigint on the server, plain safe integers on
  * the wire. Names and reasons are plain text, never HTML (rule 10).
  */
 import { z } from 'zod'
@@ -19,8 +19,8 @@ import type { Role } from '../users.ts'
 
 export const ADMIN = 'admin'
 
-/** The most one adjustment or giveaway can move: a billion chips, in hundredths. */
-export const MAX_ADMIN_AMOUNT = 100_000_000_000
+/** The most one adjustment or giveaway can move: a billion chips. */
+export const MAX_ADMIN_AMOUNT = 1_000_000_000
 
 /** Longest reason or giveaway note, in characters. They are shown in chat and on the Audit page. */
 export const REASON_MAX = 140
@@ -47,18 +47,18 @@ const OptionalReason = line(0, 'Type a reason.')
   .optional()
   .transform((text) => (text ? text : undefined))
 
-/** A chip amount in hundredths, as it travels. */
+/** A chip amount, as it travels. Chips are whole numbers. */
 function amount(message: string) {
   return z
     .number(message)
-    .int('Chips go down to a hundredth, no further.')
+    .int('Chips are whole numbers. Type an amount without a decimal point.')
     .refine((n) => Math.abs(n) <= MAX_ADMIN_AMOUNT, 'That is more than a billion chips.')
 }
 
 /** POST /api/admin/chips: a manual adjustment, up or down. */
 export const AdjustInput = z.strictObject({
   userId: z.uuid({ error: 'Pick a player.' }),
-  /** Hundredths. Above zero adds chips, below zero takes them. */
+  /** Chips. Above zero adds chips, below zero takes them. */
   amount: amount('Type an amount.').refine((n) => n !== 0, 'Type an amount other than zero.'),
   account: z.enum(LEDGER_ACCOUNTS, { error: 'Choose the wallet or the vault.' }).default('wallet'),
   reason: Reason,
@@ -79,7 +79,7 @@ export const GiveawayInput = z.strictObject({
     ],
     { error: 'Pick players, or everyone.' },
   ),
-  /** Hundredths: each player's chips, or the whole pot when `split`. */
+  /** Chips: each player's, or the whole pot when `split`. */
   amount: amount('Type an amount.').refine((n) => n > 0, 'Type an amount above zero.'),
   /** True splits `amount` between them; false gives each of them `amount`. */
   split: z.boolean().default(false),
@@ -113,10 +113,10 @@ export const EditSeasonInput = z
       .optional(),
     startsAt: When('Pick a start time.').optional(),
     endsAt: When('Pick an end time.').optional(),
-    /** Hundredths. */
+    /** Chips. */
     startingBalance: z
       .number('Type the starting chips.')
-      .int('The starting balance must be a whole number of hundredths.')
+      .int('The starting balance must be a whole number of chips.')
       .positive('The starting balance must be above zero.')
       .max(MAX_ADMIN_AMOUNT, 'That is more than a billion chips.')
       .optional(),
@@ -133,7 +133,7 @@ export const ConfigSaveInput = z.strictObject({
     .array(
       z.strictObject({
         key: z.string('Name the setting.').min(1, 'Name the setting.').max(64),
-        /** The wire form: a number (chips in hundredths, shares in basis points), text, or a list. */
+        /** The wire form: a number (chips, or shares in basis points), text, or a list. */
         value: z.unknown(),
       }),
     )
@@ -204,7 +204,7 @@ export interface AuditPerson {
 /**
  * One audit row as the Audit page and `audit.logged` send it. `before` and
  * `after` are the action's own shapes (the *Audit types below for this lane's
- * actions); chip amounts in them are hundredths.
+ * actions); chip amounts in them are whole chips.
  */
 export interface AuditEntryView {
   id: number
@@ -291,7 +291,7 @@ export interface PlayerStatusAudit {
 
 // ---------------------------------------------------------------- views
 
-/** One account as the admin panel lists it. Hundredths. */
+/** One account as the admin panel lists it. Amounts in chips. */
 export interface AdminPlayerView {
   id: string
   username: string
@@ -392,7 +392,7 @@ declare module '../chat.ts' {
 // ---------------------------------------------------------------- the math
 
 /**
- * What each player gets. A split rounds each share down to a hundredth and
+ * What each player gets. A split rounds each share down to a whole chip and
  * gives nothing of the remainder, so a pot is never overpaid.
  */
 export function giveawayShares(
@@ -447,7 +447,7 @@ export function giveawayPostText(post: {
   names: readonly string[]
   everyone: boolean
   split: boolean
-  /** Hundredths: what was typed (each, or the pot). */
+  /** Chips: what was typed (each, or the pot). */
   amount: bigint
   share: bigint
   note?: string | null

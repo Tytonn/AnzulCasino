@@ -77,7 +77,7 @@ beforeAll(async () => {
   aliceId = await player('alice', 'Alice')
   bobId = await player('bob', 'Bob')
   carolId = await player('carol', 'Carol')
-  for (const id of [adminId, aliceId, bobId]) await fundWallet(seasonId, id, 10_000n)
+  for (const id of [adminId, aliceId, bobId]) await fundWallet(seasonId, id, 100n)
   admin = await loggedIn(adminApi, adminId)
 })
 
@@ -134,42 +134,40 @@ describe('a manual adjustment', () => {
   it('adds chips through the ledger, posts in chat, logs it and tells the player', async () => {
     const res = await admin.post(
       '/api/admin/chips',
-      { userId: aliceId, amount: 1_050, reason: 'Payout the coin flip bug ate' },
+      { userId: aliceId, amount: 10, reason: 'Payout the coin flip bug ate' },
       key(),
     )
     expect(res.status).toBe(200)
     expect(res.body.player).toMatchObject({
       id: aliceId,
       displayName: 'Alice',
-      wallet: { balance: 11_050, vault: 0 },
+      wallet: { balance: 110, vault: 0 },
     })
-    expect(await balances(aliceId)).toEqual({ balance: 11_050n, vault: 0n })
+    expect(await balances(aliceId)).toEqual({ balance: 110n, vault: 0n })
 
     const [row] = await testDb.query<{ delta: string; ref_type: string; meta: unknown }>(
       `select delta, ref_type, meta from ledger where user_id = $1 and reason = 'admin_adjust'`,
       [aliceId],
     )
     expect(row).toEqual({
-      delta: '1050',
+      delta: '10',
       ref_type: 'admin',
       meta: { by: adminId, note: 'Payout the coin flip bug ate' },
     })
 
     const post = await lastPost()
-    expect(post.body).toBe(
-      "🧾 Ada added 10.50 chips to Alice's wallet: Payout the coin flip bug ate",
-    )
+    expect(post.body).toBe("🧾 Ada added 10 chips to Alice's wallet: Payout the coin flip bug ate")
     expect(post.meta).toMatchObject({
       tone: 'info',
       userId: aliceId,
-      admin: { kind: 'adjust', by: adminId, userId: aliceId, account: 'wallet', amount: 1_050 },
+      admin: { kind: 'adjust', by: adminId, userId: aliceId, account: 'wallet', amount: 10 },
     })
 
     expect(await lastAudit('chips.adjusted')).toMatchObject({
       actor_id: adminId,
       target: 'alice',
-      before: { userId: aliceId, account: 'wallet', value: 10_000 },
-      after: { userId: aliceId, account: 'wallet', value: 11_050, delta: 1_050 },
+      before: { userId: aliceId, account: 'wallet', value: 100 },
+      after: { userId: aliceId, account: 'wallet', value: 110, delta: 10 },
       reason: 'Payout the coin flip bug ate',
       season_id: seasonId,
     })
@@ -188,7 +186,7 @@ describe('a manual adjustment', () => {
     const [note] = events('notification')
     expect(note?.channel).toBe(userChannel(aliceId))
     expect(note?.envelope.data).toEqual({
-      text: 'Ada added 10.50 chips to your wallet: Payout the coin flip bug ate',
+      text: 'Ada added 10 chips to your wallet: Payout the coin flip bug ate',
       tone: 'good',
     })
   })
@@ -196,13 +194,13 @@ describe('a manual adjustment', () => {
   it('moves the vault too, and takes no more than there is', async () => {
     const add = await admin.post(
       '/api/admin/chips',
-      { userId: bobId, amount: 300, account: 'vault', reason: 'Vault refund' },
+      { userId: bobId, amount: 3, account: 'vault', reason: 'Vault refund' },
       key(),
     )
     expect(add.status).toBe(200)
     const take = await admin.post(
       '/api/admin/chips',
-      { userId: bobId, amount: -500, account: 'vault', reason: 'Too much' },
+      { userId: bobId, amount: -5, account: 'vault', reason: 'Too much' },
       key(),
     )
     expect(take.status).toBe(400)
@@ -212,12 +210,25 @@ describe('a manual adjustment', () => {
     })
     const fair = await admin.post(
       '/api/admin/chips',
-      { userId: bobId, amount: -300, account: 'vault', reason: 'Undo the refund' },
+      { userId: bobId, amount: -3, account: 'vault', reason: 'Undo the refund' },
       key(),
     )
     expect(fair.status).toBe(200)
     expect((await lastPost()).body).toBe("🧾 Ada took 3 chips from Bob's vault: Undo the refund")
-    expect(await balances(bobId)).toEqual({ balance: 10_000n, vault: 0n })
+    expect(await balances(bobId)).toEqual({ balance: 100n, vault: 0n })
+  })
+
+  it('takes whole chips only', async () => {
+    const res = await admin.post(
+      '/api/admin/chips',
+      { userId: bobId, amount: 2.5, reason: 'Half a chip' },
+      key(),
+    )
+    expect(res.status).toBe(400)
+    expect(res.body.error.message).toBe(
+      'Chips are whole numbers. Type an amount without a decimal point.',
+    )
+    expect(await balances(bobId)).toEqual({ balance: 100n, vault: 0n })
   })
 
   it('needs a reason everyone can read', async () => {
@@ -235,18 +246,18 @@ describe('a manual adjustment', () => {
   it('gives a player with no wallet yet their starting chips first', async () => {
     const res = await admin.post(
       '/api/admin/chips',
-      { userId: carolId, amount: 100, reason: 'Welcome gift' },
+      { userId: carolId, amount: 5, reason: 'Welcome gift' },
       key(),
     )
     expect(res.status).toBe(200)
-    expect(res.body.player.wallet).toMatchObject({ balance: 10_100 })
+    expect(res.body.player.wallet).toMatchObject({ balance: 105 })
     const rows = await testDb.query<{ reason: string; delta: string }>(
       `select reason, delta from ledger where user_id = $1 order by id`,
       [carolId],
     )
     expect(rows).toEqual([
-      { reason: 'season_start', delta: '10000' },
-      { reason: 'admin_adjust', delta: '100' },
+      { reason: 'season_start', delta: '100' },
+      { reason: 'admin_adjust', delta: '5' },
     ])
   })
 
@@ -279,21 +290,17 @@ describe('a manual adjustment', () => {
 
   it('never takes the same chips twice when two adjustments race', async () => {
     const take = () =>
-      admin.post('/api/admin/chips', { userId: bobId, amount: -8_000, reason: 'Race' }, key())
+      admin.post('/api/admin/chips', { userId: bobId, amount: -80, reason: 'Race' }, key())
     const results = await Promise.all([take(), take()])
     expect(results.map((r) => r.status).sort()).toEqual([200, 400])
-    expect(await balances(bobId)).toEqual({ balance: 2_000n, vault: 0n })
-    await admin.post(
-      '/api/admin/chips',
-      { userId: bobId, amount: 8_000, reason: 'Put back' },
-      key(),
-    )
+    expect(await balances(bobId)).toEqual({ balance: 20n, vault: 0n })
+    await admin.post('/api/admin/chips', { userId: bobId, amount: 80, reason: 'Put back' }, key())
   })
 
   it('says so when admins adjust their own chips, and sends no note', async () => {
     const res = await admin.post(
       '/api/admin/chips',
-      { userId: adminId, amount: -100, reason: 'Paying my own fine' },
+      { userId: adminId, amount: -1, reason: 'Paying my own fine' },
       key(),
     )
     expect(res.status).toBe(200)
@@ -307,25 +314,21 @@ describe('a manual adjustment', () => {
 
 describe('a giveaway', () => {
   it('gives each named player the same chips, one ledger row each', async () => {
-    const res = await admin.post(
-      '/api/admin/giveaways',
-      { to: [bobId, aliceId], amount: 500 },
-      key(),
-    )
+    const res = await admin.post('/api/admin/giveaways', { to: [bobId, aliceId], amount: 5 }, key())
     expect(res.status).toBe(200)
     expect(res.body).toEqual({
-      share: 500,
-      total: 1_000,
-      recipients: [aliceId, bobId].sort().map((userId) => ({ userId, amount: 500 })),
+      share: 5,
+      total: 10,
+      recipients: [aliceId, bobId].sort().map((userId) => ({ userId, amount: 5 })),
     })
     const rows = await testDb.query<{ user_id: string; delta: string }>(
       `select user_id, delta from ledger where reason = 'giveaway' order by user_id`,
     )
-    expect(rows).toEqual([aliceId, bobId].sort().map((user_id) => ({ user_id, delta: '500' })))
+    expect(rows).toEqual([aliceId, bobId].sort().map((user_id) => ({ user_id, delta: '5' })))
     expect((await lastPost()).body).toBe('🎁 Ada gave Alice and Bob 5 chips each.')
     expect(await lastAudit('giveaway.given')).toMatchObject({
       target: '2 players',
-      after: { split: false, everyone: false, amount: 500, share: 500, total: 1_000 },
+      after: { split: false, everyone: false, amount: 5, share: 5, total: 10 },
     })
     await admin.settle()
     expect(
@@ -339,21 +342,21 @@ describe('a giveaway', () => {
     })
   })
 
-  it('splits a pot, each share rounded down to a hundredth', async () => {
+  it('splits a pot, each share rounded down to a whole chip', async () => {
     const res = await admin.post(
       '/api/admin/giveaways',
-      { to: [aliceId, bobId, carolId], amount: 1_000, split: true, note: 'Bug bounty' },
+      { to: [aliceId, bobId, carolId], amount: 10, split: true, note: 'Bug bounty' },
       key(),
     )
     expect(res.status).toBe(200)
-    expect(res.body).toMatchObject({ share: 333, total: 999 })
+    expect(res.body).toMatchObject({ share: 3, total: 9 })
     expect((await lastPost()).body).toBe(
-      '🎁 Ada split 10 chips between Alice, Bob and Carol, 3.33 each: Bug bounty',
+      '🎁 Ada split 10 chips between Alice, Bob and Carol, 3 each: Bug bounty',
     )
   })
 
   it('gives everyone, the admin too, and leaves disabled accounts out', async () => {
-    const res = await admin.post('/api/admin/giveaways', { to: 'everyone', amount: 100 }, key())
+    const res = await admin.post('/api/admin/giveaways', { to: 'everyone', amount: 1 }, key())
     expect(res.status).toBe(200)
     const ids = res.body.recipients.map((r: { userId: string }) => r.userId)
     expect(ids.sort()).toEqual([adminId, aliceId, bobId, carolId].sort())
@@ -363,7 +366,7 @@ describe('a giveaway', () => {
     expect(events('notification').map((e) => e.channel)).not.toContain(userChannel(adminId))
   })
 
-  it('refuses a disabled player, a stranger, and a share under a hundredth', async () => {
+  it('refuses a disabled player, a stranger, and a share under a chip', async () => {
     const [dave] = await testDb.query<{ id: string }>(
       `select id from users where username = 'dave'`,
     )
@@ -391,7 +394,11 @@ describe('a giveaway', () => {
       key(),
     )
     expect(tiny.status).toBe(400)
-    expect(tiny.body.error.code).toBe('too_small')
+    expect(tiny.body.error).toMatchObject({
+      code: 'too_small',
+      message:
+        '2 chips is too little to split between 3 players. Each share needs at least 1 chip.',
+    })
   })
 })
 
@@ -411,7 +418,7 @@ describe('accounts', () => {
 
   it('disables an account: it is signed out at once and its chips stay put', async () => {
     const eveId = await player('eve', 'Eve')
-    await fundWallet(seasonId, eveId, 5_000n)
+    await fundWallet(seasonId, eveId, 50n)
     const eve = await loggedIn(coreApi, eveId)
     expect((await eve.get('/api/me')).status).toBe(200)
 
@@ -422,7 +429,7 @@ describe('accounts', () => {
     )
     expect(res.status).toBe(200)
     expect(res.body.player.disabledAt).not.toBeNull()
-    expect(res.body.player.wallet).toMatchObject({ balance: 5_000 })
+    expect(res.body.player.wallet).toMatchObject({ balance: 50 })
     expect((await eve.get('/api/me')).status).toBe(401)
     expect(await lastAudit('player.disabled')).toMatchObject({
       target: 'eve',
@@ -440,7 +447,7 @@ describe('accounts', () => {
 
     const back = await admin.post(`/api/admin/players/${eveId}/enable`, {}, key())
     expect(back.status).toBe(200)
-    expect(back.body.player).toMatchObject({ disabledAt: null, wallet: { balance: 5_000 } })
+    expect(back.body.player).toMatchObject({ disabledAt: null, wallet: { balance: 50 } })
     expect(await lastAudit('player.enabled')).toMatchObject({ target: 'eve' })
     const twice = await admin.post(`/api/admin/players/${eveId}/enable`, {}, key())
     expect(twice.status).toBe(409)

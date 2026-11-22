@@ -164,7 +164,7 @@ export async function adjustChips(
 /**
  * A giveaway: the same chips to each player named (or everyone in the
  * season), or a pot split between them, each share rounded down to a
- * hundredth. One `giveaway` ledger row per player, one chat post with names
+ * whole chip. One `giveaway` ledger row per player, one chat post with names
  * and amounts, and a note to each of them.
  */
 export async function giveChips(
@@ -215,7 +215,7 @@ export async function giveChips(
   const { share, total } = giveawayShares(amount, players.length, input.split)
   if (share <= 0n) {
     throw badRequest(
-      `${chipCount(amount)} is too little to split between ${players.length} players. Each share needs at least 0.01.`,
+      `${chipCount(amount)} is too little to split between ${players.length} players. Each share needs at least 1 chip.`,
       'too_small',
     )
   }

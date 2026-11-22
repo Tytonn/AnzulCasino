@@ -15,6 +15,7 @@ import { type ConfigValues, tierSettings } from '../../../shared/config.ts'
 import { userChannel } from '../../../shared/events.ts'
 import {
   accruedIncome,
+  carryAtRate,
   type ChallengeClaimResponse,
   challengeProgress,
   type CollectResponse,
@@ -24,6 +25,7 @@ import {
   drawPress,
   type DropClaimResponse,
   type EconomyState,
+  incomeCarryMs,
   type IncomeCommand,
   incomeReason,
   type IncomeResponse,
@@ -262,7 +264,8 @@ export function collect(ctx: EconomyRequest) {
     if (!clock) throw new Error('The player has no wallet')
 
     const perDay = tierSettings(e.config, wallet.tier).income
-    const income = accruedIncome(perDay, clock.elapsedMs, e.config.tier_income_cap_hours)
+    const capHours = e.config.tier_income_cap_hours
+    const income = accruedIncome(perDay, clock.elapsedMs, capHours)
     const now = await dbNow(e.tx)
     const today = gameDay(now)
     const daily = await lockDaily(e.tx, e.season.id, e.userId, today)
@@ -278,7 +281,7 @@ export function collect(ctx: EconomyRequest) {
       throw new ApiError(
         409,
         'nothing_to_collect',
-        'Nothing to collect yet. Your income builds by the minute, so check back soon.',
+        'Nothing to collect yet. Your income builds a whole chip at a time, so check back soon.',
       )
     }
 
@@ -293,7 +296,9 @@ export function collect(ctx: EconomyRequest) {
         refId: 'collect',
         meta: { tier: wallet.tier },
       })
-      await restartIncomeClock(e.tx, e.season.id, e.userId)
+      // The part of a chip still building stays on the clock for next time.
+      const carry = incomeCarryMs(perDay, clock.elapsedMs, capHours, income)
+      await restartIncomeClock(e.tx, e.season.id, e.userId, carry)
     }
     if (!daily.bonusClaimed) {
       await updateDaily(
@@ -375,11 +380,9 @@ export function buyTier(ctx: EconomyRequest, wanted: Tier) {
     // Collect at the old rate first.
     const clock = await incomeClock(e.tx, e.season.id, e.userId)
     if (!clock) throw new Error('The player has no wallet')
-    const income = accruedIncome(
-      tierSettings(e.config, wallet.tier).income,
-      clock.elapsedMs,
-      e.config.tier_income_cap_hours,
-    )
+    const oldPerDay = tierSettings(e.config, wallet.tier).income
+    const capHours = e.config.tier_income_cap_hours
+    const income = accruedIncome(oldPerDay, clock.elapsedMs, capHours)
     let balance = wallet.balance
     if (income > 0n) {
       const paid = await credit(e.tx, {
@@ -401,7 +404,14 @@ export function buyTier(ctx: EconomyRequest, wanted: Tier) {
         { available: Number(balance) },
       )
     }
-    await restartIncomeClock(e.tx, e.season.id, e.userId)
+    // The part of a chip still building at the old rank carries over, worth
+    // the same at the new rate, so the new rank never pays for earlier time.
+    const carry = carryAtRate(
+      incomeCarryMs(oldPerDay, clock.elapsedMs, capHours, income),
+      oldPerDay,
+      settings.income,
+    )
+    await restartIncomeClock(e.tx, e.season.id, e.userId, carry)
 
     // The new tier first, so the wallet news carries it.
     await e.tx

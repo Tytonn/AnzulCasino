@@ -34,7 +34,7 @@ beforeAll(async () => {
     adminId,
   ])
   await testDb.query(`update users set display_name = 'Alice' where id = $1`, [aliceId])
-  await fundWallet(seasonId, aliceId, 10_000n)
+  await fundWallet(seasonId, aliceId, 100n)
   admin = await loggedIn(adminApi, adminId)
   core = await loggedIn(coreApi, adminId)
   alice = await loggedIn(adminApi, aliceId)

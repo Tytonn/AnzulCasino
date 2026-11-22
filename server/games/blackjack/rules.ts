@@ -114,7 +114,7 @@ function newHand(cards: Card[], stake: number): BlackjackHand {
 }
 
 /**
- * Deals a hand for `bet` (hundredths): a card to the player, the dealer's up
+ * Deals a hand for `bet` (chips): a card to the player, the dealer's up
  * card, the player's second card. With an ace or a ten up, the dealer draws
  * the hole card and peeks. A dealer blackjack, or the player's, ends the
  * round at once; otherwise the player's first hand is up.

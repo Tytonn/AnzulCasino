@@ -86,27 +86,28 @@ describe('POST /api/heist/shield', () => {
     const player = await fx.player(1_000)
     const res = await buyShield(player)
     expect(res.status, JSON.stringify(res.body)).toBe(200)
-    expect(res.body).toMatchObject({ charges: 1, price: 2_000, shieldsThisWeek: 1 })
-    expect(res.body.wallet).toMatchObject({ seasonId: fx.seasonId, balance: 98_000, vault: 0 })
-    expect(await fx.wallet(player.id)).toEqual({ balance: 98_000n, vault: 0n })
+    expect(res.body).toMatchObject({ charges: 1, price: 20, shieldsThisWeek: 1 })
+    expect(res.body.wallet).toMatchObject({ seasonId: fx.seasonId, balance: 980, vault: 0 })
+    expect(await fx.wallet(player.id)).toEqual({ balance: 980n, vault: 0n })
     expect(await ledger(player.id, 'shield_purchase')).toEqual([
-      { account: 'wallet', delta: '-2000', ref_type: 'shield_purchase' },
+      { account: 'wallet', delta: '-20', ref_type: 'shield_purchase' },
     ])
     const purchases = await testDb.query<{ price: string }>(
       `select price from shield_purchases where season_id = $1 and user_id = $2`,
       [fx.seasonId, player.id],
     )
-    expect(purchases).toEqual([{ price: '2000' }])
+    expect(purchases).toEqual([{ price: '20' }])
     expect((await state(player)).me).toMatchObject({ charges: 1, shieldsThisWeek: 1 })
     await expectLedgerClean()
   })
 
   it('costs at least 3 chips', async () => {
-    const player = await fx.player(100)
+    // 2% of 149 is 2.98, rounded down to 2: the 3-chip floor applies.
+    const player = await fx.player(149)
     const res = await buyShield(player)
     expect(res.status).toBe(200)
-    expect(res.body.price).toBe(300)
-    expect(await fx.wallet(player.id)).toEqual({ balance: 9_700n, vault: 0n })
+    expect(res.body.price).toBe(3)
+    expect(await fx.wallet(player.id)).toEqual({ balance: 146n, vault: 0n })
   })
 
   it('refuses a player who cannot pay, and charges nothing', async () => {
@@ -117,7 +118,7 @@ describe('POST /api/heist/shield', () => {
       code: 'insufficient_funds',
       message: 'A shield charge costs 3 chips and you have 2 chips.',
     })
-    expect(await fx.wallet(player.id)).toEqual({ balance: 200n, vault: 0n })
+    expect(await fx.wallet(player.id)).toEqual({ balance: 2n, vault: 0n })
     expect((await state(player)).me.charges).toBe(0)
   })
 
@@ -206,10 +207,10 @@ describe('POST /api/heist/extra-attempt', () => {
     const player = await fx.player(1_000)
     const res = await buyExtra(player)
     expect(res.status, JSON.stringify(res.body)).toBe(200)
-    expect(res.body).toMatchObject({ attemptsAllowed: 3, price: 2_000 })
-    expect(await fx.wallet(player.id)).toEqual({ balance: 98_000n, vault: 0n })
+    expect(res.body).toMatchObject({ attemptsAllowed: 3, price: 20 })
+    expect(await fx.wallet(player.id)).toEqual({ balance: 980n, vault: 0n })
     expect(await ledger(player.id, 'steal_attempt_purchase')).toEqual([
-      { account: 'wallet', delta: '-2000', ref_type: 'game_day' },
+      { account: 'wallet', delta: '-20', ref_type: 'game_day' },
     ])
     expect((await state(player)).me).toMatchObject({ attemptsAllowed: 3, extraBought: true })
 
@@ -224,7 +225,7 @@ describe('POST /api/heist/extra-attempt', () => {
 
   it('costs at least 3 chips, and refuses a player who cannot pay', async () => {
     const cheap = await fx.player(50)
-    expect((await buyExtra(cheap)).body.price).toBe(300)
+    expect((await buyExtra(cheap)).body.price).toBe(3)
     const broke = await fx.player(1)
     const res = await buyExtra(broke)
     expect(res.status).toBe(400)
@@ -260,12 +261,12 @@ describe('POST /api/heist/vault', () => {
     const player = await fx.player(1_000)
     const res = await vault(player, 'deposit', '200')
     expect(res.status, JSON.stringify(res.body)).toBe(200)
-    expect(res.body).toMatchObject({ direction: 'deposit', amount: 20_000 })
-    expect(res.body.wallet).toMatchObject({ balance: 80_000, vault: 20_000 })
-    expect(await fx.wallet(player.id)).toEqual({ balance: 80_000n, vault: 20_000n })
+    expect(res.body).toMatchObject({ direction: 'deposit', amount: 200 })
+    expect(res.body.wallet).toMatchObject({ balance: 800, vault: 200 })
+    expect(await fx.wallet(player.id)).toEqual({ balance: 800n, vault: 200n })
     expect(await ledger(player.id, 'vault_deposit')).toEqual([
-      { account: 'wallet', delta: '-20000', ref_type: 'game_day' },
-      { account: 'vault', delta: '20000', ref_type: 'game_day' },
+      { account: 'wallet', delta: '-200', ref_type: 'game_day' },
+      { account: 'vault', delta: '200', ref_type: 'game_day' },
     ])
     expect((await state(player)).me.vaultMoved).toBe(true)
     await expectLedgerClean()
@@ -281,7 +282,7 @@ describe('POST /api/heist/vault', () => {
     })
     const max = await vault(player, 'deposit', 'max')
     expect(max.status).toBe(200)
-    expect(max.body.amount).toBe(25_000)
+    expect(max.body.amount).toBe(250)
 
     await nextGameDay(player.id)
     const full = await vault(player, 'deposit', 'max')
@@ -293,10 +294,11 @@ describe('POST /api/heist/vault', () => {
 
   it('reads `half` as half of what the move allows', async () => {
     const player = await fx.player(1_000)
-    expect((await vault(player, 'deposit', 'half')).body.amount).toBe(12_500)
+    expect((await vault(player, 'deposit', 'half')).body.amount).toBe(125)
     await nextGameDay(player.id)
-    expect((await vault(player, 'withdraw', 'half')).body.amount).toBe(6_250)
-    expect(await fx.wallet(player.id)).toEqual({ balance: 93_750n, vault: 6_250n })
+    // Half of 125 is 62.5: rounded down to a whole chip.
+    expect((await vault(player, 'withdraw', 'half')).body.amount).toBe(62)
+    expect(await fx.wallet(player.id)).toEqual({ balance: 937n, vault: 63n })
   })
 
   it('allows one move a game day, deposit or withdrawal', async () => {
@@ -310,11 +312,11 @@ describe('POST /api/heist/vault', () => {
     await nextGameDay(player.id)
     const out = await vault(player, 'withdraw', 'all')
     expect(out.status, JSON.stringify(out.body)).toBe(200)
-    expect(out.body).toMatchObject({ direction: 'withdraw', amount: 10_000 })
-    expect(await fx.wallet(player.id)).toEqual({ balance: 100_000n, vault: 0n })
+    expect(out.body).toMatchObject({ direction: 'withdraw', amount: 100 })
+    expect(await fx.wallet(player.id)).toEqual({ balance: 1_000n, vault: 0n })
     expect(await ledger(player.id, 'vault_withdraw')).toEqual([
-      { account: 'vault', delta: '-10000', ref_type: 'game_day' },
-      { account: 'wallet', delta: '10000', ref_type: 'game_day' },
+      { account: 'vault', delta: '-100', ref_type: 'game_day' },
+      { account: 'wallet', delta: '100', ref_type: 'game_day' },
     ])
     await expectLedgerClean()
   })
@@ -335,7 +337,7 @@ describe('POST /api/heist/vault', () => {
 
     const zero = await vault(player, 'deposit', '0')
     expect(zero.status).toBe(400)
-    expect(zero.body.error.message).toBe('Type an amount above zero.')
+    expect(zero.body.error.message).toBe('Type at least 1 chip.')
 
     const more = await vault(player, 'deposit', '2000')
     expect(more.status).toBe(400)
@@ -363,10 +365,10 @@ describe('POST /api/heist/vault', () => {
       vault(player, 'deposit', '100'),
     ])
     expect(results.filter((r) => r.status === 200)).toHaveLength(1)
-    expect(await fx.wallet(player.id)).toEqual({ balance: 90_000n, vault: 10_000n })
+    expect(await fx.wallet(player.id)).toEqual({ balance: 900n, vault: 100n })
     const replay = await vault(player, 'deposit', '100', headers)
     expect(replay.status).toBe(results[0]?.status)
-    expect(await fx.wallet(player.id)).toEqual({ balance: 90_000n, vault: 10_000n })
+    expect(await fx.wallet(player.id)).toEqual({ balance: 900n, vault: 100n })
     await expectLedgerClean()
   })
 

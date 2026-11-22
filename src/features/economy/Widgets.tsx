@@ -258,9 +258,12 @@ export function CollectWidget({ compact }: Props) {
   const has = waiting.total > 0
   const bonus = waiting.bonus > 0
   const tier = TIER_LABELS[state.income.tier]
+  // Income comes a whole chip at a time, so say when the next one lands.
+  const nextChip =
+    waiting.nextChipInMs !== null ? `, the next chip in ${longWait(waiting.nextChipInMs)}` : ''
   const name = has
     ? `Collect ${formatChips(waiting.total)}: ${tier} rank income${bonus ? ` and today's streak bonus` : ''}${shortcutHint('collect')}`
-    : `Collect: income builds at ${perDayText(state.income.perDay)}`
+    : `Collect: income builds at ${perDayText(state.income.perDay)}${nextChip}`
 
   return (
     <Widget
@@ -282,7 +285,11 @@ export function CollectWidget({ compact }: Props) {
       }
       onClick={(button) => {
         if (!has) {
-          toast.info(`Nothing to collect yet. Income builds at ${perDayText(state.income.perDay)}.`)
+          toast.info(
+            waiting.nextChipInMs !== null
+              ? `Nothing to collect yet. Your next chip comes in ${longWait(waiting.nextChipInMs)}.`
+              : `Nothing to collect yet. Income builds at ${perDayText(state.income.perDay)}.`,
+          )
           return
         }
         void collect(queryClient, button)

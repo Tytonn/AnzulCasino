@@ -44,7 +44,7 @@ export interface Movement {
 export interface Change extends Movement {
   seasonId: number
   userId: string
-  /** Hundredths, greater than zero. */
+  /** Chips, greater than zero. */
   amount: bigint
   /** Defaults to the wallet. */
   account?: LedgerAccount
@@ -81,7 +81,7 @@ function noWallet(): ApiError {
 
 function positive(amount: bigint) {
   if (typeof amount !== 'bigint' || amount <= 0n) {
-    throw new Error(`Chip amounts must be bigint hundredths above zero, got ${String(amount)}`)
+    throw new Error(`Chip amounts must be bigint chips above zero, got ${String(amount)}`)
   }
 }
 

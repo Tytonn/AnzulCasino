@@ -236,7 +236,7 @@ export interface StartInput<D, S> {
   /**
    * What the player typed in the bet box ("250", "2.5k", "half", "all"),
    * resolved against the locked wallet so "all" is the balance right now.
-   * Or an exact amount in hundredths.
+   * Or an exact amount of chips.
    */
   bet: string | bigint
   detail: D
@@ -498,7 +498,7 @@ export async function lowerStake<D, S = never>(
 
 export interface Outcome<D> {
   /**
-   * Everything paid back, stake included, in hundredths: 0 for a loss, the
+   * Everything paid back, stake included, in chips: 0 for a loss, the
    * stake for a push, twice the stake for an even-money win. Round down
    * (shared/chips.ts mulDiv) before passing it.
    */

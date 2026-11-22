@@ -79,7 +79,7 @@ describe('creating seasons', () => {
     expect(res.status, JSON.stringify(res.body)).toBe(200)
     expect(res.body.season).toMatchObject({
       name: 'Season 2',
-      startingBalance: 10_000,
+      startingBalance: 100,
       status: 'scheduled',
       phase: 'upcoming',
     })
@@ -187,7 +187,7 @@ describe('starting a season', () => {
     expect(res.body).toMatchObject({
       current: { id: runningId, name: 'Season 1', status: 'active', phase: 'open' },
       next: { name: 'Season 2', phase: 'upcoming' },
-      wallet: { balance: 10_000, vault: 0, tier: 'base' },
+      wallet: { balance: 100, vault: 0, tier: 'base' },
     })
     // Loading again changes nothing.
     await client.get('/api/season')
@@ -203,7 +203,7 @@ describe('the end of a season', () => {
   it('refuses bets at or after the end time, by database time', async () => {
     const [ended] = await testDb.query<{ id: number }>(
       `insert into seasons (name, starts_at, ends_at, starting_balance, status)
-       values ('Season 0', now() - interval '60 days', now() - interval '31 days', 10000, 'active')
+       values ('Season 0', now() - interval '60 days', now() - interval '31 days', 100, 'active')
        returning id`,
     )
     await expect(
@@ -253,31 +253,31 @@ describe('the leaderboard', () => {
     )
     const id = (name: string) => ids.find((r) => r.username === name)?.user_id as string
     await db().transaction(async (tx) => {
-      await credit(tx, { seasonId: runningId, userId: id('bob'), amount: 500n, reason: 'payout' })
+      await credit(tx, { seasonId: runningId, userId: id('bob'), amount: 5n, reason: 'payout' })
     })
     await db().transaction(async (tx) => {
-      await credit(tx, { seasonId: runningId, userId: id('alice'), amount: 500n, reason: 'payout' })
+      await credit(tx, { seasonId: runningId, userId: id('alice'), amount: 5n, reason: 'payout' })
     })
     await testDb.query(
-      `update wallets set balance = balance - 2000, vault = vault + 2000 where season_id = $1 and user_id = $2`,
+      `update wallets set balance = balance - 20, vault = vault + 20 where season_id = $1 and user_id = $2`,
       [runningId, id('alice')],
     )
     // Keep the ledger honest after moving chips by hand.
     await testDb.query(
       `insert into ledger (season_id, user_id, account, delta, balance_after, reason)
-       values ($1, $2, 'wallet', -2000, 8500, 'vault_deposit'), ($1, $2, 'vault', 2000, 2000, 'vault_deposit')`,
+       values ($1, $2, 'wallet', -20, 85, 'vault_deposit'), ($1, $2, 'vault', 20, 20, 'vault_deposit')`,
       [runningId, id('alice')],
     )
 
     const board = await standings(db(), runningId)
     // Bob and Alice both have 105; Bob reached it first. The vault counts.
     expect(board.slice(0, 2).map((s) => [s.rank, s.username, s.netWorth])).toEqual([
-      [1, 'bob', 10_500n],
-      [2, 'alice', 10_500n],
+      [1, 'bob', 105n],
+      [2, 'alice', 105n],
     ])
     expect(board.find((s) => s.username === 'alice')).toMatchObject({
-      balance: 8_500n,
-      vault: 2_000n,
+      balance: 85n,
+      vault: 20n,
     })
     // Everyone else is level on 100, and the ones who started together share a rank.
     expect(board.find((s) => s.username === 'Tyton')?.rank).toBe(3)
@@ -286,7 +286,7 @@ describe('the leaderboard', () => {
     const client = await loggedIn(coreApi, adminId)
     const res = await client.get('/api/leaderboard')
     expect(res.body.seasonId).toBe(runningId)
-    expect(res.body.standings[0]).toMatchObject({ rank: 1, username: 'bob', netWorth: 10_500 })
+    expect(res.body.standings[0]).toMatchObject({ rank: 1, username: 'bob', netWorth: 105 })
     expect(await ledgerMismatches(db(), runningId)).toEqual([])
   })
 })

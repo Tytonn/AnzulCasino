@@ -100,9 +100,11 @@ test('Collect pays the rank income and the streak bonus', async ({ browser }, te
   const button = page.getByRole('button', { name: /^Collect/ })
   await expect(button).toBeVisible()
   if (!/^Collect [\d,.]+: /.test((await button.getAttribute('aria-label')) ?? '')) {
-    // Collected moments ago on a preview: income builds a hundredth at a time.
+    // Collected moments ago on a preview: income builds a whole chip at a time.
     await button.click()
-    await expect(page.getByText(/^Nothing to collect yet\. Income builds at /)).toBeVisible()
+    await expect(
+      page.getByText(/^Nothing to collect yet\. (Your next chip comes in |Income builds at )/),
+    ).toBeVisible()
     await player.close()
     return
   }
@@ -203,7 +205,7 @@ test('a chat drop lands, and the first players to grab it split the pot, live', 
 }, testInfo) => {
   test.skip(!!process.env.E2E_BASE_URL, 'Lands the drop through the local database.')
   const phone = onPhone(testInfo)
-  const dropId = await landDrop(900, 3)
+  const dropId = await landDrop(9, 3)
 
   const alice = await openAs(browser, 'alice')
   const bob = await openAs(browser, 'bob')

@@ -12,7 +12,7 @@
 import { useReducedMotion } from 'motion/react'
 import { useRef, useState } from 'react'
 
-import { formatChips, formatMultiplier, formatShare } from '../../../shared/chips.ts'
+import { chipCount, formatChips, formatMultiplier, formatShare } from '../../../shared/chips.ts'
 import {
   COINFLIP,
   type CoinflipDetail,
@@ -58,17 +58,28 @@ function Outcome({ shown, last }: { shown: Shown; last: RoundView<CoinflipDetail
   if (!round?.detail.face) {
     return <p className="text-muted">Call heads or tails, type a bet, and flip.</p>
   }
-  const won = (round.payout ?? 0) > round.stake
+  const net = (round.payout ?? 0) - round.stake
+  // Chips are whole, so a right call on a small bet can round down to the
+  // stake itself: 1.96x of 1 chip pays 1. That is even, not a loss.
+  const even = net <= 0 && round.detail.face === round.detail.call
   const face = SIDE_NAMES[round.detail.face]
   return (
     <p key={round.id} className="flex flex-wrap items-baseline justify-center gap-x-2">
       {shown.kind === 'idle' && <span className="text-faint">Last flip:</span>}
-      <span className={`text-lg font-bold ${won ? 'text-gold' : 'text-loss'}`}>
-        {won
-          ? `${face}! +${formatChips((round.payout ?? 0) - round.stake)}`
-          : `${face}. −${formatChips(round.stake)}`}
+      <span
+        className={`text-lg font-bold ${net > 0 ? 'text-gold' : even ? 'text-text' : 'text-loss'}`}
+      >
+        {net > 0
+          ? `${face}! +${formatChips(net)}`
+          : even
+            ? `${face}! Even`
+            : `${face}. −${formatChips(round.stake)}`}
       </span>
-      <span className="text-sm text-faint">you called {round.detail.call}</span>
+      <span className="text-sm text-faint">
+        {even
+          ? `a win on ${chipCount(round.stake)} rounds down to ${formatChips(round.payout ?? 0)}`
+          : `you called ${round.detail.call}`}
+      </span>
     </p>
   )
 }
@@ -95,8 +106,10 @@ export default function CoinflipRoom() {
     if (net > 0) {
       const big = isBigWin(round, config?.big_win_times ?? 10)
       celebrate({ net, big, note: round.allIn ? 'All in' : undefined })
-    } else {
+    } else if (net < 0) {
       playSound('loss')
+    } else {
+      playSound('chip')
     }
   }
 

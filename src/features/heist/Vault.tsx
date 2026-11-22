@@ -190,7 +190,7 @@ export function VaultPanel({ heist, compact = false }: { heist: Heist; compact?:
               value={text}
               onChange={(e) => setText(e.target.value)}
               disabled={disabled}
-              inputMode="decimal"
+              inputMode="numeric"
               autoComplete="off"
               enterKeyHint="done"
               placeholder="20 or max"

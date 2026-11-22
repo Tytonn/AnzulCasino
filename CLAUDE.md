@@ -18,7 +18,7 @@ Copied from `docs/SPEC.md`. They apply to every line of code in every lane.
 
 1. **The server decides everything.** The browser sends intents: bet 500, hit, cash out. It never sends an outcome, a balance, a multiplier or a card.
 2. **Chips are whole numbers.** Store them as `bigint`. No floats in chip math. Payouts round down to a whole chip.
-   _(Changed by Tyton, Nov 18, 2026.)_ Chips are tracked in whole hundredths of a chip: every amount is a `bigint` count of hundredths, so there are still no floats. Payouts, steals and fines round down to a whole hundredth. Show cents only when an amount is not a whole number (`107.50`, but `107`).
+   _(Changed by Tyton, Nov 18, 2026, to hundredths of a chip with cents shown; changed back by Tyton, Nov 22, 2026.)_ Chips are whole numbers again, and a season still starts with 100. Every amount is a `bigint` count of whole chips, and nothing shows decimals. Payouts, steals, fines, income and giveaway shares round down to a whole chip, so small ones can come to 0 or 1: a right call on a 1-chip coin flip pays back just the 1 chip.
 3. **Every balance change is one ledger row**, written in the same database transaction as the thing that caused it. A wallet's balance must always equal the sum of its ledger rows. A test checks this.
 4. **Lock before you spend.** Every transaction that moves chips locks the wallet row first (`SELECT ... FOR UPDATE`), then checks the balance. Two fast clicks must never spend the same chips twice.
 5. **Every chip-moving request is idempotent.** The browser sends a unique key with it. A repeated key returns the first result and changes nothing.
@@ -55,7 +55,7 @@ Copied from `docs/SPEC.md`. They apply to every line of code in every lane.
 
 ## Conventions that are easy to miss
 
-- **Chips are hundredths.** Every amount in code, the database and the API is a `bigint` count of hundredths. Convert and format only with `shared/chips.ts`.
+- **Chips are whole.** Every amount in code, the database and the API is a `bigint` count of whole chips (`CHIP` is `1n`). Round down with `mulDiv` and `basisPoints`, and format only with `shared/chips.ts`. Multipliers are still hundredths (196 is 1.96x) and shares are basis points (150 is 1.5%).
 - **"Tier" in code, "Rank" on screen.** `rank` means a player's leaderboard place. The spec's purchasable Ranks are `tier` in code.
 - **Database safety.** Never run `drizzle-kit push`, never run `drizzle-kit migrate` against a hosted database, and never run DDL through a direct connection. Migrations reach Netlify only as committed files that Netlify applies on deploy. The scripts in `scripts/db/` refuse any database that is not on localhost.
 - **Migrations are permanent once pushed.** Your preview's database applies each one, so never edit or delete a pushed migration; add a new one instead. Lane migrations are named `<timestamp>_<lane>_<slug>` (`npm run db:generate -- --name <lane>_<slug>`). Production refuses a migration numbered lower than one it has already applied, so check the order before your merge and renumber yours if needed (`docs/LANE_GUIDE.md`, Migration numbers).

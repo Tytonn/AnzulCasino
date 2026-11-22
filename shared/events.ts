@@ -4,7 +4,7 @@
  * and never publish. Both sides use these types.
  *
  * Every event is self-contained: an id, the server time, a version, and
- * enough data to draw it without a fetch. Chip amounts are hundredths, as
+ * enough data to draw it without a fetch. Chip amounts are whole chips, as
  * plain numbers.
  *
  * A lane adds its own events without editing this file, by extending the

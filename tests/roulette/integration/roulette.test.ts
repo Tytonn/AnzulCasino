@@ -193,18 +193,18 @@ describe('placing bets', () => {
     ])
     expect(first.status, JSON.stringify(first.body)).toBe(200)
     expect(first.body.round.status).toBe('open')
-    expect(first.body.round.stake).toBe(12_00)
+    expect(first.body.round.stake).toBe(12)
     expect(first.body.round.detail).toEqual({
       spin,
       bets: [
-        { spot: 'red', amount: 10_00 },
-        { spot: '17', amount: 2_00 },
+        { spot: 'red', amount: 10 },
+        { spot: '17', amount: 2 },
       ],
       number: null,
       wins: [],
     })
-    expect(first.body.wallet.balance).toBe(88_00)
-    expect(await balance(id)).toBe(88_00n)
+    expect(first.body.wallet.balance).toBe(88)
+    expect(await balance(id)).toBe(88n)
 
     // A later bet joins the same round, onto a spot already bet or a new one.
     const second = await bet(client, spin, [
@@ -213,13 +213,13 @@ describe('placing bets', () => {
     ])
     expect(second.status, JSON.stringify(second.body)).toBe(200)
     expect(second.body.round.id).toBe(first.body.round.id)
-    expect(second.body.round.stake).toBe(18_00)
+    expect(second.body.round.stake).toBe(18)
     expect(second.body.round.detail.bets).toEqual([
-      { spot: 'red', amount: 15_00 },
-      { spot: '17', amount: 2_00 },
-      { spot: '0', amount: 1_00 },
+      { spot: 'red', amount: 15 },
+      { spot: '17', amount: 2 },
+      { spot: '0', amount: 1 },
     ])
-    expect(await balance(id)).toBe(82_00n)
+    expect(await balance(id)).toBe(82n)
 
     // One shared row for the spin, taking bets, with no number yet.
     const row = await spinRow(spin)
@@ -231,9 +231,9 @@ describe('placing bets', () => {
     expect(rounds[0]?.shared_round_id).toBe(row?.id)
     // One ledger row opens the round, and one more per request after it.
     expect((await ledgerOf(id)).map((l) => [l.reason, Number(l.amount)])).toEqual([
-      ['bet', -10_00],
-      ['bet', -2_00],
-      ['bet', -6_00],
+      ['bet', -10],
+      ['bet', -2],
+      ['bet', -6],
     ])
 
     // The room hears the bets, with no number in them.
@@ -251,8 +251,8 @@ describe('placing bets', () => {
     ])
     expect(res.status, JSON.stringify(res.body)).toBe(200)
     expect(res.body.round.detail.bets).toEqual([
-      { spot: 'black', amount: 10_00 },
-      { spot: 'red', amount: 40_00 },
+      { spot: 'black', amount: 10 },
+      { spot: 'red', amount: 40 },
     ])
     expect(res.body.round.allIn).toBe(true)
     expect(await balance(id)).toBe(0n)
@@ -271,7 +271,7 @@ describe('placing bets', () => {
     expect(tooMuch.status).toBe(400)
     expect(tooMuch.body.error.message).toBe('Black: You only have 5 chips.')
     // Nothing went down from the refused request.
-    expect(await balance(id)).toBe(20_00n)
+    expect(await balance(id)).toBe(20n)
     expect(await roundsOf(id)).toHaveLength(0)
 
     const { client: broke } = await player(0n)
@@ -311,33 +311,40 @@ describe('taking bets off', () => {
     // Part of red.
     const part = await client.post<Bet>(
       '/api/roulette/remove',
-      { spin, spot: 'red', amount: 5_00 },
+      { spin, spot: 'red', amount: 5 },
       key(),
     )
     expect(part.status, JSON.stringify(part.body)).toBe(200)
     expect(part.body.round.status).toBe('open')
     expect(part.body.round.id).toBe(placed.body.round.id)
-    expect(part.body.round.stake).toBe(20_00)
+    expect(part.body.round.stake).toBe(20)
     expect(part.body.round.detail.bets).toEqual([
-      { spot: 'red', amount: 15_00 },
-      { spot: '17', amount: 5_00 },
+      { spot: 'red', amount: 15 },
+      { spot: '17', amount: 5 },
     ])
-    expect(await balance(id)).toBe(80_00n)
+    expect(await balance(id)).toBe(80n)
 
     // Leaving less than the smallest bet is refused.
-    const crumbs = await client.post(
-      '/api/roulette/remove',
-      { spin, spot: 'red', amount: 14_50 },
-      key(),
+    await testDb.query(
+      `insert into config (key, value, effective_at) values ('min_bet', '2', now() - interval '1 second')`,
     )
-    expect(crumbs.status).toBe(400)
-    expect(crumbs.body.error.message).toBe('Leave at least 1 on Red, or take it all off.')
+    try {
+      const crumbs = await client.post(
+        '/api/roulette/remove',
+        { spin, spot: 'red', amount: 14 },
+        key(),
+      )
+      expect(crumbs.status).toBe(400)
+      expect(crumbs.body.error.message).toBe('Leave at least 2 on Red, or take it all off.')
+    } finally {
+      await testDb.query(`delete from config where key = 'min_bet'`)
+    }
 
     // A whole spot.
     const whole = await client.post<Bet>('/api/roulette/remove', { spin, spot: '17' }, key())
     expect(whole.status).toBe(200)
-    expect(whole.body.round.detail.bets).toEqual([{ spot: 'red', amount: 15_00 }])
-    expect(await balance(id)).toBe(85_00n)
+    expect(whole.body.round.detail.bets).toEqual([{ spot: 'red', amount: 15 }])
+    expect(await balance(id)).toBe(85n)
 
     // A spot with nothing on it.
     const none = await client.post('/api/roulette/remove', { spin, spot: '18' }, key())
@@ -349,23 +356,23 @@ describe('taking bets off', () => {
     expect(cleared.status, JSON.stringify(cleared.body)).toBe(200)
     expect(cleared.body.round.status).toBe('void')
     expect(cleared.body.round.detail.bets).toEqual([])
-    expect(await balance(id)).toBe(100_00n)
+    expect(await balance(id)).toBe(100n)
 
     // The ledger shows every chip: two bets out, three refunds back.
     const ledger = await ledgerOf(id)
     expect(ledger.map((l) => [l.reason, Number(l.amount)])).toEqual([
-      ['bet', -20_00],
-      ['bet', -5_00],
-      ['refund', 5_00],
-      ['refund', 5_00],
-      ['refund', 15_00],
+      ['bet', -20],
+      ['bet', -5],
+      ['refund', 5],
+      ['refund', 5],
+      ['refund', 15],
     ])
 
     // A new bet on the same spin starts a fresh round.
     const again = await bet(client, spin, [['black', '3']])
     expect(again.status).toBe(200)
     expect(again.body.round.id).not.toBe(placed.body.round.id)
-    expect(again.body.round.detail.bets).toEqual([{ spot: 'black', amount: 3_00 }])
+    expect(again.body.round.detail.bets).toEqual([{ spot: 'black', amount: 3 }])
   })
 })
 
@@ -408,17 +415,17 @@ describe('the draw', () => {
 
     // 17 is black: every number pays 36 of the 37 chips, black doubles,
     // the single number pays 36 times, and the all-in on 1 loses.
-    expect(await balance(everyNumber.id)).toBe(99_00n)
-    expect(await balance(outside.id)).toBe(100_00n)
-    expect(await balance(single.id)).toBe(170_00n)
+    expect(await balance(everyNumber.id)).toBe(99n)
+    expect(await balance(outside.id)).toBe(100n)
+    expect(await balance(single.id)).toBe(170n)
     expect(await balance(allIn.id)).toBe(0n)
 
     const [round] = await roundsOf(single.id)
     expect(round?.status).toBe('settled')
-    expect(Number(round?.payout)).toBe(72_00)
+    expect(Number(round?.payout)).toBe(72)
     expect(round?.detail).toEqual({
       spin,
-      bets: [{ spot: '17', amount: 2_00 }],
+      bets: [{ spot: '17', amount: 2 }],
       number: 17,
       wins: ['17'],
     })
@@ -453,7 +460,7 @@ describe('the draw', () => {
     // A second settle only reads the saved result.
     const again = await settle(everyNumber.client, spin)
     expect(again.body).toEqual(drawn.body)
-    expect(await balance(single.id)).toBe(170_00n)
+    expect(await balance(single.id)).toBe(170n)
   })
 
   it('draws one number however many browsers settle at once', async () => {
@@ -503,7 +510,7 @@ describe('the draw', () => {
     const clear = await client.post('/api/roulette/clear', { spin }, key())
     expect(clear.status).toBe(409)
     // Only the bet placed in time rode the spin, and it won.
-    expect(await balance(id)).toBe(25_00n)
+    expect(await balance(id)).toBe(25n)
     const drawn = await settle(client, spin)
     expect(drawn.body.state === 'drawn' && drawn.body.result.number).toBe(1)
   })
@@ -536,7 +543,7 @@ describe('the draw', () => {
       ['open', null],
     ])
     // 3 is red: 5 on red came back as 10.
-    expect(await balance(id)).toBe(20_00n)
+    expect(await balance(id)).toBe(20n)
   })
 
   it('lets the daily sweep settle a spin nobody came back for', async () => {
@@ -548,7 +555,7 @@ describe('the draw', () => {
     const publishing: Promise<unknown>[] = []
     expect(await sweepUnsettledSpins((p) => publishing.push(p))).toBe(1)
     await Promise.all(publishing)
-    expect(await balance(id)).toBe(24_00n)
+    expect(await balance(id)).toBe(24n)
     expect(await sweepUnsettledSpins(() => {})).toBe(0)
   })
 })
@@ -563,7 +570,7 @@ describe('replays, races and hidden things', () => {
     const second = await client.post<Bet>('/api/roulette/bet', body, headers)
     expect(first.status).toBe(200)
     expect(second.body).toEqual(first.body)
-    expect(await balance(id)).toBe(17_00n)
+    expect(await balance(id)).toBe(17n)
     expect(await ledgerOf(id)).toHaveLength(1)
   })
 
@@ -579,7 +586,7 @@ describe('replays, races and hidden things', () => {
     expect(await balance(id)).toBe(0n)
     const rounds = await roundsOf(id)
     expect(rounds).toHaveLength(1)
-    expect(Number(rounds[0]?.stake)).toBe(10_00)
+    expect(Number(rounds[0]?.stake)).toBe(10)
     expect(await ledgerMismatches(db(), seasonId)).toEqual([])
 
     // All in from several tabs at once: one goes through.
@@ -669,7 +676,7 @@ describe('the room and the table', () => {
     expect(room.status).toBe(200)
     const seats = room.body.rounds.filter((r) => r.userId === a.id || r.userId === b.id)
     expect(seats.map((r) => r.detail.bets)).toEqual(
-      expect.arrayContaining([[{ spot: 'red', amount: 2_00 }], [{ spot: '0', amount: 1_00 }]]),
+      expect.arrayContaining([[{ spot: 'red', amount: 2 }], [{ spot: '0', amount: 1 }]]),
     )
 
     const table = await a.client.get<RouletteTable>('/api/roulette/table')
@@ -692,7 +699,7 @@ describe('the room and the table', () => {
     const after = await a.client.get<RouletteTable>('/api/roulette/table')
     expect(after.body.recent[0]).toMatchObject({ spin, number: 0 })
     // 0 wins 36 for 1, and red loses.
-    expect(await balance(b.id)).toBe(55_00n)
-    expect(await balance(a.id)).toBe(18_00n)
+    expect(await balance(b.id)).toBe(55n)
+    expect(await balance(a.id)).toBe(18n)
   })
 })

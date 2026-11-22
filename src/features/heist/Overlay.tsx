@@ -142,7 +142,7 @@ interface Alert {
   id: number
   kind: 'robbed' | 'blocked' | 'foiled'
   thiefId: string
-  /** Hundredths taken from you, or the fine paid to you. */
+  /** Chips taken from you, or the fine paid to you. */
   amount: number
   charges?: number
   /** "3h", worked out when the news arrives. */
