@@ -91,9 +91,29 @@ export function stealAmount(targetWallet: bigint, rate: number, left: bigint): b
   return raw < left ? raw : left
 }
 
-/** What a failed steal costs the thief: a share of their own wallet, paid to the target. */
-export function stealFine(thiefWallet: bigint, finePct: number): bigint {
-  return thiefWallet > 0n ? basisPoints(thiefWallet, finePct) : 0n
+/**
+ * What a failed steal costs the thief, paid to the target: a share of their
+ * own wallet, at least `steal_min_fine`, and never more than the wallet holds.
+ */
+export function stealFine(
+  thiefWallet: bigint,
+  cfg: Pick<ConfigValues, 'steal_fine_pct' | 'steal_min_fine'>,
+): bigint {
+  if (thiefWallet <= 0n) return 0n
+  const share = basisPoints(thiefWallet, cfg.steal_fine_pct)
+  const fine = share > cfg.steal_min_fine ? share : cfg.steal_min_fine
+  return fine < thiefWallet ? fine : thiefWallet
+}
+
+/** How the fine reads beside its amount: "5% of yours", or why it is more than that. */
+export function fineBasis(
+  thiefWallet: bigint,
+  cfg: Pick<ConfigValues, 'steal_fine_pct' | 'steal_min_fine'>,
+): string {
+  const share = thiefWallet > 0n ? basisPoints(thiefWallet, cfg.steal_fine_pct) : 0n
+  if (share >= cfg.steal_min_fine) return `${formatShare(cfg.steal_fine_pct)} of yours`
+  if (thiefWallet <= cfg.steal_min_fine) return 'your whole wallet'
+  return 'the smallest fine'
 }
 
 /** A share of the wallet with a floor: the price of a shield charge or the extra attempt. */
@@ -273,7 +293,8 @@ export interface TargetFacts {
   now: number
   /** Chips left of the target's daily loss cap. */
   capLeft: bigint
-  cfg: StealRates & Pick<ConfigValues, 'steal_floor' | 'steal_success_pct' | 'steal_fine_pct'>
+  cfg: StealRates &
+    Pick<ConfigValues, 'steal_floor' | 'steal_min_take' | 'steal_success_pct' | 'steal_fine_pct'>
 }
 
 export type TargetCheck =
@@ -295,9 +316,12 @@ export function checkTarget(f: TargetFacts): TargetCheck {
   const gap = f.thief.rank - f.target.rank
   const rate = stealRate(gap, f.cfg)
   const amount = stealAmount(f.target.balance, rate, f.capLeft)
-  // Steals round down to a whole chip, so a small wallet can be worth nothing yet.
-  if (amount <= 0n) return { ok: false, reason: f.target.balance > 0n ? 'too_little' : 'empty' }
-  return { ok: true, gap, rate, amount }
+  if (amount > 0n && amount >= f.cfg.steal_min_take) return { ok: true, gap, rate, amount }
+  // Under the smallest steal (and steals round down to a whole chip): the
+  // wallet is too small for it, or what is left of the daily cap is.
+  if (f.target.balance <= 0n) return { ok: false, reason: 'empty' }
+  const uncapped = basisPoints(f.target.balance, rate)
+  return { ok: false, reason: amount < uncapped ? 'cap' : 'too_little' }
 }
 
 /** The reason in plain words, for the profile card, the target list and the API's refusal. */
@@ -307,6 +331,8 @@ export function blockMessage(
     name?: string
     freezeHours?: number
     floor?: bigint
+    /** The smallest steal, `steal_min_take`. */
+    minTake?: bigint
     immuneFor?: string
     freePerDay?: number
     canBuyExtra?: boolean
@@ -339,7 +365,9 @@ export function blockMessage(
     case 'empty':
       return `${name} has nothing in their wallet to take.`
     case 'too_little':
-      return `${name} has too little in their wallet for a steal to take a whole chip.`
+      return context.minTake !== undefined && context.minTake > 1n
+        ? `${name} has too little in their wallet for a steal to take ${chipCount(context.minTake)}.`
+        : `${name} has too little in their wallet for a steal to take a whole chip.`
   }
 }
 

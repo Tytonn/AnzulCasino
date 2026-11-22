@@ -580,7 +580,7 @@ function simulate(seed: number): Season {
     if (thief.attemptsUsed >= allowed) return
     const ranks = ranksOf(players)
     const thiefRank = ranks[thief.index] ?? PLAYERS
-    const fine = stealFine(thief.wallet, cfg.steal_fine_pct)
+    const fine = stealFine(thief.wallet, cfg)
     let best: { target: Player; amount: bigint; value: number } | null = null
     for (const target of players) {
       const check = checkTarget({

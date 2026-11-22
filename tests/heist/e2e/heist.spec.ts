@@ -9,10 +9,11 @@
  * today or used their steal attempts. Each step checks the player's heist
  * state first and tests what the page should say instead.
  *
- * Steals round down to a whole chip, so a sample player ranked below the
- * thief with under 200 chips in the wallet is worth nothing to rob ("Small
- * wallet"). The steal falls back to the test accounts, which hold 10,000 chips
- * or more, and which the foundation's test-account spec has signed in by then.
+ * A steal must take at least 10 chips, so a sample player ranked below the
+ * thief with under 2,000 chips in the wallet cannot be robbed at the 0.5% down
+ * rate ("Small wallet"). The steal falls back to the test accounts, which hold
+ * 10,000 chips or more, and which the foundation's test-account spec has
+ * signed in by then.
  */
 import { expect, type Locator, type Page, test } from '@playwright/test'
 

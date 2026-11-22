@@ -206,6 +206,7 @@ export function StealAction({ player }: SlotProps['profile-actions']) {
           name,
           freezeHours: heist.cfg.final_freeze_hours,
           floor: heist.cfg.steal_floor,
+          minTake: heist.cfg.steal_min_take,
           immuneFor: row ? shortDuration(row.immuneLeft) : undefined,
           canBuyExtra: heist.canBuyExtra,
         })

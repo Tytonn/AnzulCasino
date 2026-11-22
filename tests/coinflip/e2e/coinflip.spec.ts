@@ -13,14 +13,14 @@ import { onPhone, openAs, snap } from '../../e2e-helpers/players.ts'
 
 const SIDE = { heads: 'Heads', tails: 'Tails' } as const
 
-/** Places a 10-chip flip and returns the server's answer. */
+/** Places a 25-chip flip and returns the server's answer. */
 async function flip(page: Page, side: 'heads' | 'tails', phone: boolean) {
   const box = page.getByRole('textbox', { name: 'Bet amount' })
   const pick = page
     .getByRole('group', { name: 'Your call' })
     .getByRole('button', { name: SIDE[side] })
   const answer = page.waitForResponse((r) => r.url().endsWith('/api/coinflip/play'))
-  await box.fill('10')
+  await box.fill('25')
   if (phone) {
     await pick.click()
     await expect(pick).toHaveAttribute('aria-pressed', 'true')
@@ -37,7 +37,7 @@ async function flip(page: Page, side: 'heads' | 'tails', phone: boolean) {
   return (await res.json()) as PlayResult<CoinflipDetail>
 }
 
-/** How a result reads on a seat: "+9" (1.96x of 10 rounds down to 19) or "−10". */
+/** How a result reads on a seat: "+24" (1.96x of 25 pays 49) or "−25". */
 function seatAmount(result: PlayResult<CoinflipDetail>): string {
   const { stake, payout } = result.round
   return (payout ?? 0) > stake ? `+${formatChips((payout ?? 0) - stake)}` : `−${formatChips(stake)}`
@@ -72,10 +72,10 @@ test('two players flip and watch each other live', async ({ browser }, testInfo)
   const result = await test.step('Alice flips, and her coin lands on the answer', async () => {
     const result = await flip(alice.page, 'tails', phone)
     const face = result.round.detail.face
-    expect(result.round).toMatchObject({ status: 'settled', stake: 10, detail: { call: 'tails' } })
+    expect(result.round).toMatchObject({ status: 'settled', stake: 25, detail: { call: 'tails' } })
     expect(face === 'heads' || face === 'tails').toBe(true)
     const won = face === 'tails'
-    expect(result.round.payout).toBe(won ? 19 : 0)
+    expect(result.round.payout).toBe(won ? 49 : 0)
     const words = won
       ? `Tails! ${seatAmount(result)}`
       : `${SIDE[face ?? 'heads']}. ${seatAmount(result)}`
@@ -93,7 +93,7 @@ test('two players flip and watch each other live', async ({ browser }, testInfo)
     )
     const won = (result.round.payout ?? 0) > result.round.stake
     await expect(bob.page.getByLabel('Latest results').getByRole('link').first()).toContainText(
-      won ? `won ${formatChips(9)}` : `lost ${formatChips(10)}`,
+      won ? `won ${formatChips(24)}` : `lost ${formatChips(25)}`,
     )
     const netWorth = formatChips(result.wallet.balance + result.wallet.vault)
     if (phone) {

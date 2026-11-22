@@ -111,7 +111,7 @@ These rules apply to every line of code in every lane. The foundation thread cop
 
 1. **The server decides everything.** The browser sends intents: bet 500, hit, cash out. It never sends an outcome, a balance, a multiplier or a card.
 2. **Chips are whole numbers.** Store them as `bigint`. No floats in chip math. Payouts round down to a whole chip.
-   _(Changed by Tyton, Nov 18, 2026, to hundredths of a chip with cents shown; changed back by Tyton, Nov 22, 2026, and the same day rescaled so a season starts with 1,000.)_ Chips are whole numbers, and a season starts with 1,000. Every amount is a `bigint` count of whole chips, and nothing shows decimals. Payouts, steals, fines, income and giveaway shares round down to a whole chip: a right call on a 10-chip coin flip pays 19, not 19.6.
+   _(Changed by Tyton, Nov 18, 2026, to hundredths of a chip with cents shown; changed back by Tyton, Nov 22, 2026, and the same day rescaled so a season starts with 1,000.)_ Chips are whole numbers, and a season starts with 1,000. Every amount is a `bigint` count of whole chips, and nothing shows decimals. Payouts, steals, fines, income and giveaway shares round down to a whole chip: a right call on a 30-chip coin flip pays 58, not 58.8.
 3. **Every balance change is one ledger row**, written in the same database transaction as the thing that caused it. A wallet's balance must always equal the sum of its ledger rows. A test checks this.
 4. **Lock before you spend.** Every transaction that moves chips locks the wallet row first (`SELECT ... FOR UPDATE`), then checks the balance. Two fast clicks must never spend the same chips twice.
 5. **Every chip-moving request is idempotent.** The browser sends a unique key with it. A repeated key returns the first result and changes nothing.
@@ -237,7 +237,7 @@ _(Rebalanced by Tyton, Nov 18, 2026, and rescaled by Tyton, Nov 22, 2026.)_ The 
 | `streak_step` / `streak_max` | +10 / 100 (+100 / 1,000) | Bonus grows by 10 per day in a row, up to 100. A missed day resets it |
 | `challenges_per_day` | 3 | Small goals, each worth 20 to 40 chips (150 to 400) |
 | `work_*` / `hustle_*` / `crime_*` | See Work and crime | _(Nov 18, 2026: the rebuy is removed. Work replaces it, see Work and crime.)_ |
-| `min_bet` | 10 (10) | Smallest bet in any game |
+| `min_bet` | 25 (10) | Smallest bet in any game. _(Tyton, Nov 22, 2026: 25, so a 1.96x coin flip pays a whole 49 at the smallest bet.)_ |
 | `max_bet_pct` | 100 | Largest bet as a share of the wallet. 100 means all-in is allowed |
 | `big_bet_pct` | 50 | A bet at or above this share of net worth is flagged as a big bet in the stream |
 
@@ -496,18 +496,18 @@ Stealing is the comeback tool: it pays most when a low-ranked player robs a high
 
 1. Each player gets `steal_attempts_per_day` attempts per game day.
 2. A target is chosen from the leaderboard or a profile. These targets are not selectable, and the reason is shown: yourself, a player under `steal_floor` net worth, a player with immunity, a player whose daily loss cap is used up, a player you already tried today, anyone during the final 24 hours.
-   _(Added Nov 22, 2026, with whole chips.)_ Nor is a player whose wallet is too small for the rate to take a whole chip ("Small wallet"). The attempt is not used.
+   _(Added Nov 22, 2026, with whole chips; raised by Tyton the same day to a smallest steal.)_ Nor is a player a success would take less than `steal_min_take` (10 chips) from: their wallet is too small for the rate ("Small wallet"), or what is left of their daily cap is ("Hit daily cap"). The attempt is not used.
 3. **Shield check.** If the target holds a shield charge, the steal is blocked. One charge is used, the attempt is used, no fine is paid, and the target gets immunity.
 4. **Roll.** Otherwise the steal succeeds with probability `steal_success_pct`.
 5. **Success.** Chips move from the target's wallet to the thief's wallet. The vault is never touched. The target gets immunity.
-6. **Failure.** The thief pays `steal_fine_pct` of the thief's own wallet to the target.
+6. **Failure.** The thief pays `steal_fine_pct` of the thief's own wallet to the target, at least `steal_min_fine` (10 chips), or the whole wallet if it holds less. _(The smallest fine: Tyton, Nov 22, 2026.)_
 7. Every attempt is saved and posted in the stream.
 
 **The amount.** `gap` is the thief's rank minus the target's rank, read at the moment of the attempt. A positive gap means the target is ahead.
 
 - If the gap is positive: `rate = min(steal_max_rate, steal_base_rate + steal_per_rank * gap)`.
 - If the target is behind the thief: `rate = steal_down_rate`.
-- `amount = floor(target wallet * rate)`, then limited to what is left of the target's daily cap.
+- `amount = floor(target wallet * rate)`, then limited to what is left of the target's daily cap. An amount under `steal_min_take` is not offered (rule 2).
 - The daily cap is `daily_loss_cap_pct` of the target's net worth at the last daily reset, minus what was already stolen from them today.
 
 The whole steal runs in one transaction that locks both wallets, lower player id first, so two steals can never deadlock or double-count.
@@ -522,8 +522,10 @@ The whole steal runs in one transaction that locks both wallets, lower player id
 | `steal_down_rate` | 0.5% | Rate when robbing someone ranked below you |
 | `daily_loss_cap_pct` | 4% | Most of your net worth you can lose to steals in a game day |
 | `steal_fine_pct` | 5% | Share of the thief's wallet paid to the target on a failed steal |
+| `steal_min_fine` | 10 (added Nov 22, 2026) | Smallest fine for a failed steal, or the thief's whole wallet if it holds less |
 | `immunity_hours` | 3 | Immunity after being robbed or after a shield block |
 | `steal_floor` | 250 (2,500; rebalanced Nov 18, 2026, rescaled Nov 22, 2026) | Players under this net worth cannot be robbed |
+| `steal_min_take` | 10 (added Nov 22, 2026) | Smallest steal. A player a success would take less from cannot be picked. Robbing someone ranked below you at 0.5% needs 2,000 in their wallet |
 | `final_freeze_hours` | 24 | No steals this close to the season end |
 
 **Worked example.** You are 10th with 4,000 chips. The leader has 60,000 in the wallet and nothing in the vault. The gap is 9, so the rate is the 4% maximum. A success moves 2,400 chips: you gain 60%, the leader loses 4%, gets 3 hours of immunity and has hit the daily cap. A failure costs you 200 chips, paid to the leader.

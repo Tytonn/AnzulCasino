@@ -36,29 +36,30 @@ Branch `claude/project-thread-gh6sj0`. Spec: Steal, shields and vault, Shop, and
 - **The top-bar buttons match the economy's** (merged PR #3 had wider pills with a STEALS or SHIELD caption, 62 to 102px): with seven buttons in the row, the shield was cut off at 1440. They now match the economy's sizes (PR #9: 3.1rem on desktop, 2.75rem on a phone), and the captions moved into the labels.
 - **Out of attempts, the extra attempt is offered only for a player it would let you rob.** Anyone you already tried today, or who is immune or too poor, shows that reason on their card, in the Rob list and in the steal dialog instead. The browser tests found it on a preview whose database an earlier run had left with Alice out of attempts.
 - **Opening the steal dialog closes the profile card and the panel** (stacked sheets would all close on one Escape). "Rob someone else" opens the panel again.
-- **A steal too small to take a whole chip is not offered** (since 2026-11-22, when chips became whole again). `checkTarget` refuses it as `too_little`, shown as "Small wallet" with a plain reason, and the attempt is not used. At the 0.5% down rate that is any target below you with under 200 chips in the wallet; at the 1.5% base rate, under 67. Vault amounts round down like bets, and a vault move under a chip says "Type at least 1 chip."
+- **A steal under the smallest steal is not offered** (a whole chip since 2026-11-22, when chips became whole again; 10 chips, `steal_min_take`, since Tyton's rounding fixes the same day). `checkTarget` refuses it as `too_little`, shown as "Small wallet" with "...too little in their wallet for a steal to take 10 chips", or as `cap` when what is left of the target's daily cap is under 10, and the attempt is not used. At the 0.5% down rate that is any target below you with under 2,000 chips in the wallet; at the 1.5% base rate, under 667. Vault amounts round down like bets, and a vault move under a chip says "Type at least 1 chip."
+- **A failed steal fines at least 10 chips** (`steal_min_fine`, Tyton, 2026-11-22), or the thief's whole wallet if it holds less, so a nearly broke thief no longer robs at no risk. `stealFine` takes both settings, and the steal dialog says "5% of yours", "the smallest fine" or "your whole wallet" beside the amount.
 
 ## Season simulation (1,000 seasons, seed 1, config defaults)
 
-_Rerun on 2026-11-22 at Tyton's 1,000-chip scale (every chip amount ten times the 100-chip values, percentages unchanged). Earlier runs: 2026-11-19 in hundredths, and 2026-11-22 in whole chips at the 100 start. The ratios held: amounts are about ten times larger and the shares moved by a point or two, mostly because bets and payouts lose less to rounding at the larger scale._
+_Rerun on 2026-11-22 at Tyton's 1,000-chip scale with the rounding fixes of the same day: a 25-chip smallest bet, a 10-chip smallest steal and a 10-chip smallest fine. Earlier runs: 2026-11-19 in hundredths, 2026-11-22 in whole chips at the 100 start, and 2026-11-22 at the 1,000 start before the fixes. The fixes moved little: the bots bet a bit more per game, so the tables moved more chips, and steals on small wallets below the thief are no longer offered._
 
-Ten bots: two steady grinders (small bets, vault, shields while top three), two all-in gamblers (15% of games all in), two constant thieves (every attempt plus the extra), a leader who stops logging in (gone once first on day 7 or later, or on day 12), a casual player, and two identical steady players of whom one buys every rank as early as possible and one never buys. About 2,000 games each a season (78 a day online), the three income buttons pressed whenever ready while online.
+Ten bots: two steady grinders (small bets, vault, shields while top three), two all-in gamblers (15% of games all in), two constant thieves (every attempt plus the extra), a leader who stops logging in (gone once first on day 7 or later, or on day 12), a casual player, and two identical steady players of whom one buys every rank as early as possible and one never buys. About 1,940 games each a season (75 a day online), the three income buttons pressed whenever ready while online.
 
 | Question | Result |
 | --- | --- |
-| The leader on day 20 wins the season | 49.3% (52.4% at the 100 start) |
-| A week's leader loses to steals that week | average 9.3%, 95th percentile 19.4%, worst 24.9% (robbed to the cap every day is 24.9%) |
-| A successful steal for a bottom-half player | median 56.5% of their net worth (middle half 17% to 212%: they are often nearly broke after an all-in) |
-| Steals against the tables | 57,798 chips moved by steals a season against 13.6M won and lost at the tables: 0.5%. Gambling stays far bigger |
-| Chip supply (median, end of day) | day 1: 17.2K, day 7: 37K, day 14: 59.1K, day 21: 80.3K, day 28: 100.7K, day 30: 102.3K |
-| Bonuses against winnings in week four | 409K paid in (rank income 230K, buttons 167K, streak and challenges 7.8K, drops 4.5K) against 2.08M won at the tables: 19.6%. Bonuses do not swamp winnings |
-| Where chips come from | work, slut and crime 56%, rank income 39%, streak and challenges 2.4%, chat drops 1.4%, starting balances 0.7% |
-| Early rank buyer against the same player who never buys | ahead in 64% of seasons; median finish 2.6K against 1.29K |
-| The leader who stops logging in | left in first place 14% of the time; then kept 54% of their net worth by the end (median, worst 42%) and still won 13% of those seasons |
+| The leader on day 20 wins the season | 49.9% (49.3% before the rounding fixes, 52.4% at the 100 start) |
+| A week's leader loses to steals that week | average 9.3%, 95th percentile 20.1%, worst 24.9% (robbed to the cap every day is 24.9%) |
+| A successful steal for a bottom-half player | median 64.9% of their net worth (middle half 18% to 277%: they are often nearly broke after an all-in) |
+| Steals against the tables | 79,579 chips moved by steals a season (and 4,716 in fines) against 17.3M won and lost at the tables: 0.5%. Gambling stays far bigger |
+| Chip supply (median, end of day) | day 1: 17.3K, day 7: 38K, day 14: 59.5K, day 21: 82.4K, day 28: 105.4K, day 30: 110.1K |
+| Bonuses against winnings in week four | 406K paid in (rank income 227K, buttons 167K, streak and challenges 7.8K, drops 4.5K) against 2.26M won at the tables: 17.9%. Bonuses do not swamp winnings |
+| Where chips come from | work, slut and crime 56%, rank income 40%, streak and challenges 2.4%, chat drops 1.4%, starting balances 0.7% |
+| Early rank buyer against the same player who never buys | ahead in 61% of seasons; median finish 2.47K against 1.57K |
+| The leader who stops logging in | left in first place 16% of the time; then kept 56% of their net worth by the end (median, worst 42%) and still won 16% of those seasons |
 
-Ranks: Bronze and Silver are bought on their unlock days (1 and 3) in every season, Gold in 90% (first on day 13, median), Platinum in 12% (day 21), Diamond in 1%, Crown never. At the end an average season has 6.3 Silver, 2.0 Gold and 0.1 Platinum holders. **Flag: Crown is bought by nobody in 1,000 seasons**, and Diamond almost never.
+Ranks: Bronze and Silver are bought on their unlock days (1 and 3) in every season, Gold in 91% (first on day 12, median), Platinum in 11% (day 22), Diamond in 0.7%, Crown once in 1,000 seasons. At the end an average season has 6.3 Silver, 2.1 Gold and 0.1 Platinum holders. **Flag: Crown is bought almost never**, and Diamond hardly more.
 
-Work, slut and crime against rank income: the buttons pay about 1,035 chips for an hour online a day, 1,708 for two hours and 3,415 for four (measured: 2,978 a day for a player online that day). Bronze's 150 a day is 0.14x an hour of buttons, Silver's 1,000 is about 1x, Gold's 10,000 is about 10x.
+Work, slut and crime against rank income: the buttons pay about 1,035 chips for an hour online a day, 1,708 for two hours and 3,415 for four (measured: 2,973 a day for a player online that day). Bronze's 150 a day is 0.14x an hour of buttons, Silver's 1,000 is about 1x, Gold's 10,000 is about 10x.
 
 What it suggests for the tuning session with Tyton (no config changed):
 

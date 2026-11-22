@@ -107,7 +107,11 @@ export async function attemptSteal(
     const now = await dbNow(tx)
     const cfg = await loadConfig(tx)
     const phase = seasonPhase(season, now, cfg.final_freeze_hours)
-    const context = { freezeHours: cfg.final_freeze_hours, floor: cfg.steal_floor }
+    const context = {
+      freezeHours: cfg.final_freeze_hours,
+      floor: cfg.steal_floor,
+      minTake: cfg.steal_min_take,
+    }
     if (phase !== 'open') {
       const reason = phase === 'final_day' ? 'freeze' : 'no_season'
       throw refused(reason, blockMessage(reason, context))
@@ -199,7 +203,7 @@ export async function attemptSteal(
       })
     } else {
       outcome = 'failed'
-      fine = stealFine(thiefWallet.balance, cfg.steal_fine_pct)
+      fine = stealFine(thiefWallet.balance, cfg)
     }
 
     const [saved] = await tx

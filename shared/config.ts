@@ -5,7 +5,7 @@
  * server reads the result through loadConfig() in server/lib/config.ts.
  *
  * Units:
- * - `chips`: whole chips, bigint in code. `min_bet` 10n is 10 chips.
+ * - `chips`: whole chips, bigint in code. `min_bet` 25n is 25 chips.
  * - `share`: basis points, where 100 is 1% and 10,000 is 100%. Every `_pct`
  *   and `_rate` key is a share. Use basisPoints() and formatShare() from
  *   shared/chips.ts.
@@ -448,6 +448,11 @@ export const CONFIG = {
     500,
     "Share of the thief's wallet paid to the target when a steal fails.",
   ),
+  steal_min_fine: chips(
+    'steals',
+    10,
+    "Smallest fine for a failed steal, or the thief's whole wallet if it holds less.",
+  ),
   immunity_hours: number(
     'steals',
     'hours',
@@ -456,6 +461,11 @@ export const CONFIG = {
     { max: 72 },
   ),
   steal_floor: chips('steals', 250, 'Players with less net worth than this cannot be robbed.'),
+  steal_min_take: chips(
+    'steals',
+    10,
+    'Smallest steal. A player a steal would take less from cannot be picked.',
+  ),
   extra_steal_price_pct: share(
     'steals',
     200,
@@ -492,7 +502,7 @@ export const CONFIG = {
   ),
 
   // Games
-  min_bet: chips('games', 10, 'Smallest bet in any game.', { min: 0 }),
+  min_bet: chips('games', 25, 'Smallest bet in any game.', { min: 0 }),
   max_bet_pct: share('games', 10_000, 'Largest bet as a share of the wallet. 100% allows all-in.', {
     min: 1,
   }),

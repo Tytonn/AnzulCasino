@@ -72,7 +72,7 @@ describe('changeConfig', () => {
     expect(audit).toEqual({
       action: 'config.changed',
       target: 'min_bet',
-      before: { value: 10 },
+      before: { value: 25 },
       after: { value: 50, effectiveAt: now.toISOString() },
       reason: 'Testing bigger bets',
     })

@@ -41,7 +41,7 @@ describe('config defaults', () => {
 
   it('use the spec values at the 1,000-chip scale', () => {
     expect(defaults.starting_balance).toBe(chips(1_000))
-    expect(defaults.min_bet).toBe(chips(10))
+    expect(defaults.min_bet).toBe(chips(25))
     expect(defaults.streak_step).toBe(chips(10))
     expect(defaults.streak_max).toBe(chips(100))
     expect([defaults.challenge_reward_min, defaults.challenge_reward_max]).toEqual([
@@ -49,6 +49,8 @@ describe('config defaults', () => {
       chips(40),
     ])
     expect(defaults.steal_floor).toBe(chips(250))
+    expect(defaults.steal_min_take).toBe(chips(10))
+    expect(defaults.steal_min_fine).toBe(chips(10))
     expect(defaults.shield_price_min).toBe(chips(30))
     expect(defaults.extra_steal_price_min).toBe(chips(30))
     expect(defaults.chat_drop_pot).toBe(chips(100))

@@ -100,10 +100,15 @@ Plan, approved by Tyton on 2026-11-22: https://claude.ai/artifact/Sj3mrj6zpw6mgh
   start) was ended and a fresh test season started at 1,000 (sample players 1,000,
   `test` and `test2` 10,000); then 52 browser tests passed and 4 skipped (the chat drop
   and the live-layer tests need the local relay).
-- Still rounding to 0 or 1 at the 1,000 scale, sent to Tyton with fixes (no change made
-  yet): a steal on someone ranked below you (0.5%) takes 1 chip from a 200 to 399
-  wallet; the failed-steal fine (5% of the thief's wallet) is 0 under 20 chips and 1
-  under 40. The 10-chip coin flip pays 19, not 19.6.
+- Still rounding to 0 or 1 at the 1,000 scale, sent to Tyton with fixes: a steal on
+  someone ranked below you (0.5%) took 1 chip from a 200 to 399 wallet; the failed-steal
+  fine (5% of the thief's wallet) was 0 under 20 chips and 1 under 40; the 10-chip coin
+  flip paid 19, not 19.6. Tyton took all three (2026-11-22), as config: `steal_min_take`
+  10 (a target a success would take less from cannot be picked, and says why),
+  `steal_min_fine` 10 (or the thief's whole wallet if it holds less), and `min_bet` 25
+  in every game. The spec, the lane guide (section 15: check every payout for rounding
+  at the smallest bet), the tests and the season simulation follow. The tests that bet
+  10 now bet 25 or more; the blackjack and coin flip lanes' tests changed amounts only.
 
 ## Not done yet
 

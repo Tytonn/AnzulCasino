@@ -205,10 +205,10 @@ describe('cards', () => {
 describe('GET /api/stream', () => {
   it('pages the newest items oldest first, each card with its round as it is now', async () => {
     const { client } = await player(100n)
-    const open = await client.post('/api/streamdice/start', { bet: '10' }, key())
+    const open = await client.post('/api/streamdice/start', { bet: '25' }, key())
     await client.post('/api/streamdice/settle', { payout: 2000 }, key())
     await client.post('/api/chat', { body: 'nice one' }, key())
-    await client.post('/api/streamdice/start', { bet: '10' }, key())
+    await client.post('/api/streamdice/start', { bet: '25' }, key())
     await client.post('/api/chat', { body: 'again' }, key())
 
     const newest = await client.get('/api/stream?limit=3')
@@ -217,11 +217,11 @@ describe('GET /api/stream', () => {
     expect(newest.body.more).toBe(true)
     expect(newest.body.items.map((m: ChatMessage) => [m.kind, m.body])).toEqual([
       ['player', 'nice one'],
-      ['card', 'Stream dice · 10'],
+      ['card', 'Stream dice · 25'],
       ['player', 'again'],
     ])
     // The open round's card has its round; nothing in the page holds the secret.
-    expect(newest.body.items[1].round).toMatchObject({ status: 'open', stake: 10 })
+    expect(newest.body.items[1].round).toMatchObject({ status: 'open', stake: 25 })
     expect(JSON.stringify(newest.body)).not.toContain(SECRET)
 
     const older = await client.get(`/api/stream?limit=3&before=${newest.body.items[0].id}`)
@@ -240,8 +240,9 @@ describe('GET /api/stream', () => {
     await client.post('/api/chat', { body: 'hello' }, key())
     await insertChatMessage(db(), { userId: id, kind: 'gif', body: 'a dancing cat', meta: {} })
     // A small loss: its card only. A 10x win: its card, and a big result post the card covers.
-    await client.post('/api/streamdice/instant', { bet: '10', times: 0 }, key())
-    await client.post('/api/streamdice/instant', { bet: '50', times: 1_000 }, key())
+    const loss = await client.post('/api/streamdice/instant', { bet: '25', times: 0 }, key())
+    const win = await client.post('/api/streamdice/instant', { bet: '50', times: 1_000 }, key())
+    expect([loss.status, win.status]).toEqual([200, 200])
     // A work line and a shared round's big result: games. An announcement: news.
     await systemPost(db(), 'filter_player · Work: You parked cars. +59', {
       tone: 'win',
@@ -282,9 +283,9 @@ describe('GET /api/stream', () => {
   it("lists the player's own open cards under any filter, for the pinned spot", async () => {
     const { id, client } = await player(100n)
     const other = await player(100n)
-    const open = await client.post('/api/streamdice/start', { bet: '10' }, key())
-    await client.post('/api/streamdice/instant', { bet: '10', times: 0 }, key())
-    await other.client.post('/api/streamdice/start', { bet: '10' }, key())
+    const open = await client.post('/api/streamdice/start', { bet: '25' }, key())
+    await client.post('/api/streamdice/instant', { bet: '25', times: 0 }, key())
+    await other.client.post('/api/streamdice/start', { bet: '25' }, key())
 
     const chatOnly = await client.get('/api/stream?filter=chat')
     expect(chatOnly.body.items).toEqual([])
