@@ -153,6 +153,10 @@ Plan, approved by Tyton on 2026-11-22: https://claude.ai/artifact/Sj3mrj6zpw6mgh
 
 ## Not done yet
 
+- Watch the coin flip card's browser test: on one phone-size run against the roulette
+  preview (Nov 22), the flip made with "Flip again" never showed in the pin within 10
+  seconds and both flips had folded into a run. It passed on the rerun, and the same code
+  passed every other run. If it comes back, run it with `--trace on` to see why.
 - The test logins are players; to flip the two Stream switches on a preview, Tyton needs
   the sample admin's login, or this thread.
 - Next, in order: heist on cards; economy cards (the chat drop with Grab, Daily in You);

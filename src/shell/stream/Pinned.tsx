@@ -3,7 +3,7 @@
  * yours sits here, in thumb reach, while its round is open and for a few
  * seconds after its result shows, so Space can deal again; then it lets go
  * and lives on in the stream. A shared card you have a bet on (a roulette
- * spin) pins the same way, through its countdown and its spin. A newer card
+ * round) pins the same way, through its countdown and its result. A newer card
  * takes the place of a finished one at once. Two open at once both pin, the
  * older one as its header only. Clicking a pinned card gives it the keys.
  *
@@ -67,7 +67,7 @@ function PinnedCard({ message, newest }: { message: ChatMessage; newest: boolean
   )
 }
 
-/** A shared card you have a bet on (a roulette spin): no keys, since the box takes more bets. */
+/** A shared card you have a bet on (a roulette round): no keys, since the box takes more bets. */
 function PinnedShared({ message, newest }: { message: ChatMessage; newest: boolean }) {
   const id = cardSharedRoundId(message)
   const shared = useSharedRound(id, message.sharedRound)
