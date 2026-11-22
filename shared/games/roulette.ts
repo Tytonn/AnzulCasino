@@ -1,9 +1,11 @@
 /**
  * Roulette (spec: Games > Roulette): a European wheel, 0 to 36 with a single
- * zero, one wheel and one table for everyone. The rules both sides share
- * live here: the table's spots, what each pays, the typed quick bets, the
- * clock every browser spins on, and the round's public detail. The number
- * itself is drawn on the server when betting closes (rule 7, draw late).
+ * zero, one wheel for everyone and never more than one round open on it. The
+ * first bet opens a round, every bet after it joins, and it closes a few
+ * seconds after the latest. The rules both sides share live here: the
+ * table's spots, what each pays, the typed bets, a round's public detail and
+ * its shared card's view. The number itself is drawn on the server only once
+ * betting has closed (rule 7, draw late).
  *
  * Every bet returns 36 times its stake divided by the count of numbers it
  * covers: a single number returns 36 (35 to 1), a split 18 (17 to 1), down
@@ -13,7 +15,8 @@
 import { z } from 'zod'
 
 import { parseBetAmount } from '../bet-amount.ts'
-import { BetText } from '../rounds.ts'
+import type { ChatMessage } from '../chat.ts'
+import { BetText, type PlayResult, type RoundView, type SharedRoundView } from '../rounds.ts'
 
 export const ROULETTE = 'roulette'
 
@@ -207,9 +210,9 @@ export interface RouletteBet {
  * once drawn, the number and the spots it won. Enough to replay it.
  */
 export interface RouletteDetail {
-  /** The spin these bets ride on. */
+  /** The spin these bets ride on: its round number in the season. */
   spin: number
-  /** One entry per spot, in the order first bet on. Empty after the bets are cleared. */
+  /** One entry per spot, in the order first bet on. */
   bets: RouletteBet[]
   /** The winning number, null until the spin is drawn. */
   number: number | null
@@ -236,19 +239,6 @@ export function addBets(
   return next
 }
 
-/** Takes `amount` off a spot (all of it when the amount covers it). */
-export function removeBet(
-  bets: readonly RouletteBet[],
-  spot: string,
-  amount: bigint,
-): RouletteBet[] {
-  return bets.flatMap((b) => {
-    if (b.spot !== spot) return [{ ...b }]
-    const left = BigInt(b.amount) - amount
-    return left > 0n ? [{ spot: b.spot, amount: Number(left) }] : []
-  })
-}
-
 /** Everything a round's bets return once `number` is drawn, and the spots that won. */
 export function settleBets(
   bets: readonly RouletteBet[],
@@ -266,88 +256,61 @@ export function settleBets(
   return { payout, wins }
 }
 
-// ---------------------------------------------------------------- the clock
+// ---------------------------------------------------------------- a round on the wheel
 
 /**
- * Rounds run on a fixed cycle (spec: Clock): betting, then the spin, then the
- * result. Times are epoch milliseconds, database time on the server and
- * serverNow() in the browser.
+ * What a spin keeps in its shared round's public result (shared_rounds.result):
+ * the number once it is drawn. There is nothing hidden to keep: the number
+ * does not exist until betting has closed. Rows saved while the card had a
+ * wheel also hold the wheel's spin time, which nothing reads now.
  */
-export interface SpinTiming {
-  bettingMs: number
-  spinMs: number
-  resultMs: number
-}
-
-export function timingFromConfig(config: {
-  roulette_betting_seconds: number
-  roulette_spin_seconds: number
-  roulette_result_seconds: number
-}): SpinTiming {
-  return {
-    bettingMs: config.roulette_betting_seconds * 1000,
-    spinMs: config.roulette_spin_seconds * 1000,
-    resultMs: config.roulette_result_seconds * 1000,
-  }
-}
-
-export function cycleMs(timing: SpinTiming): number {
-  return timing.bettingMs + timing.spinMs + timing.resultMs
-}
-
-/** One spin's times. */
-export interface SpinWindow {
-  spin: number
-  /** Betting opens. */
-  opensAt: number
-  /** Betting closes, the number is drawn and the wheel starts to spin. */
-  closesAt: number
-  /** The ball comes to rest. */
-  landsAt: number
-  /** The result has shown; the next spin opens. */
-  endsAt: number
-}
-
-export function spinWindow(spin: number, opensAt: number, timing: SpinTiming): SpinWindow {
-  const closesAt = opensAt + timing.bettingMs
-  const landsAt = closesAt + timing.spinMs
-  return { spin, opensAt, closesAt, landsAt, endsAt: landsAt + timing.resultMs }
+export interface RouletteResult {
+  /** The winning number, null until it is drawn. */
+  number: number | null
 }
 
 /**
- * Where the wheel's schedule stands: one spin whose times are known, after
- * which spins follow back to back at `timing`. With no spin saved yet this
- * season, the anchor is spin -1 ending at the season's start, so spin n opens
- * at start + n * cycle: the spec's floor((time - season start) / cycle). The
- * server anchors on the latest saved spin, so an admin changing the timings
- * mid-season moves the schedule forward from there instead of renumbering
- * spins that already ran.
+ * A round on the wheel as its one card in the stream draws it (spec: the
+ * card): its times, its number once drawn, and every player's bets on it,
+ * one round of theirs each.
  */
-export interface RouletteClock {
-  anchor: SpinWindow
-  timing: SpinTiming
+export type RouletteTable = SharedRoundView<RouletteDetail, RouletteResult>
+
+/** The number a spin landed on, once drawn. */
+export function tableNumber(table: Pick<RouletteTable, 'result' | 'settledAt'>): number | null {
+  const number = (table.result as Partial<RouletteResult> | null)?.number
+  return table.settledAt !== null && typeof number === 'number' ? number : null
 }
 
-/** The clock for a season with no spin saved yet. */
-export function seasonClock(startsAt: number, timing: SpinTiming): RouletteClock {
-  return { anchor: spinWindow(-1, startsAt - cycleMs(timing), timing), timing }
+/** Every chip on the table: each player's stake. */
+export function tableTotal(table: Pick<RouletteTable, 'rounds'>): number {
+  return table.rounds.reduce((sum, round) => sum + round.stake, 0)
 }
 
-/** The spin running at time `t`: in betting, spinning or showing its result. */
-export function spinAt(clock: RouletteClock, t: number): SpinWindow {
-  const { anchor, timing } = clock
-  if (t < anchor.endsAt) return anchor
-  const cycle = cycleMs(timing)
-  const k = Math.floor((t - anchor.endsAt) / cycle)
-  return spinWindow(anchor.spin + 1 + k, anchor.endsAt + k * cycle, timing)
+/** One player's part in a spin: their bets, and once drawn, what came back. */
+export interface TablePlayer {
+  userId: string
+  round: RoundView<RouletteDetail>
+  /** Payout minus stake, once the spin is drawn; null before. */
+  net: number | null
 }
 
-export type SpinPhase = 'betting' | 'spinning' | 'result'
-
-export function phaseAt(window: SpinWindow, t: number): SpinPhase {
-  if (t < window.closesAt) return 'betting'
-  if (t < window.landsAt) return 'spinning'
-  return 'result'
+/**
+ * The players on a spin. Before the draw, in the order they joined. After
+ * it, winners first, then anyone who broke even, then the losers (spec: the
+ * result lists every player with their net gain or loss, winners first):
+ * biggest win first and smallest loss first, and who joined first on a tie.
+ */
+export function tablePlayers(table: Pick<RouletteTable, 'rounds' | 'settledAt'>): TablePlayer[] {
+  const drawn = table.settledAt !== null
+  const players = table.rounds.map((round, joined) => ({
+    joined,
+    userId: round.userId,
+    round,
+    net: drawn && round.payout !== null ? round.payout - round.stake : null,
+  }))
+  if (drawn) players.sort((a, b) => (b.net ?? 0) - (a.net ?? 0) || a.joined - b.joined)
+  return players.map(({ joined: _joined, ...player }) => player)
 }
 
 // ---------------------------------------------------------------- the API
@@ -358,22 +321,17 @@ export const SpotId = z
   .max(24, 'That is not a place on the table.')
   .refine(isSpot, { error: 'That is not a place on the table.' })
 
-const SpinNo = z
-  .number({ error: 'Say which spin the bet is for.' })
-  .int('Say which spin the bet is for.')
-  .min(0, 'Say which spin the bet is for.')
-  .max(Number.MAX_SAFE_INTEGER, 'Say which spin the bet is for.')
-
-/** One request can carry every spot on the table: a repeat of a full table. */
+/** One request can carry a bet on every spot on the table. */
 export const MAX_BETS_PER_REQUEST = SPOTS.length
 
 /**
- * POST /api/roulette/bet: one or more bets on the spin taking bets now. Each
- * amount is typed text ("50", "2.5k", "half", "all"), resolved on the server
- * against what is left in the wallet as each bet goes down.
+ * POST /api/roulette/bet: one or more bets on the round open now, or the
+ * first bets of a new round when none is open (spec: a new .roulette joins
+ * the open round). Each amount is typed text ("50", "2.5k", "half", "all"),
+ * resolved on the server against what is left in the wallet as each bet
+ * goes down.
  */
 export const RouletteBetInput = z.strictObject({
-  spin: SpinNo,
   bets: z
     .array(z.strictObject({ spot: SpotId, bet: BetText }), { error: 'Place at least one bet.' })
     .min(1, 'Place at least one bet.')
@@ -381,76 +339,43 @@ export const RouletteBetInput = z.strictObject({
 })
 export type RouletteBetInput = z.infer<typeof RouletteBetInput>
 
-/** POST /api/roulette/remove: takes chips off one spot (all of them without an amount). */
-export const RouletteRemoveInput = z.strictObject({
-  spin: SpinNo,
-  spot: SpotId,
-  /** Chips. */
-  amount: z
-    .number()
-    .int('Take off a whole number of chips.')
-    .positive('Take off more than zero.')
-    .max(Number.MAX_SAFE_INTEGER)
-    .optional(),
-})
-export type RouletteRemoveInput = z.infer<typeof RouletteRemoveInput>
-
-/** POST /api/roulette/clear: takes every bet off the spin. */
-export const RouletteClearInput = z.strictObject({ spin: SpinNo })
+/**
+ * POST /api/roulette/bet: the player's round on the spin, their wallet, the
+ * spin as it stands with everyone's bets, and its card, so the player's
+ * browser shows the card at once without waiting for the live news.
+ */
+export interface RouletteBetResult {
+  round: RoundView<RouletteDetail>
+  wallet: PlayResult['wallet']
+  table: RouletteTable
+  card: ChatMessage & { sharedRound: RouletteTable }
+}
 
 /** POST /api/roulette/settle: draws a spin whose betting has closed, or reads its result. */
-export const RouletteSettleInput = z.strictObject({ spin: SpinNo })
-
-/** A spin's result, as saved and as browsers see it. */
-export interface SpinResult {
-  spin: number
-  number: number
-  /** Epoch ms when it was drawn. */
-  drawnAt: number
-}
-
-/** POST /api/roulette/settle */
-export type SettleResponse =
-  | { state: 'drawn'; result: SpinResult; window: SpinWindow }
-  /** Nobody bet: the wheel does not spin and nothing is saved. */
-  | { state: 'empty'; spin: number }
-  /** Betting is still open: try again at `closesAt`. */
-  | { state: 'open'; spin: number; closesAt: number }
-
-/** GET /api/roulette/table: the schedule and the last numbers. */
-export interface RouletteTable {
-  /** Null when no season has run yet. */
-  clock: RouletteClock | null
-  /** The latest results, newest first. */
-  recent: SpinResult[]
-}
-
-/** How many results the strip under the wheel shows (spec: the last 12 numbers). */
-export const RECENT_RESULTS = 12
+export const RouletteSettleInput = z.strictObject({
+  table: z
+    .number({ error: 'Say which round to settle.' })
+    .int('Say which round to settle.')
+    .positive('Say which round to settle.')
+    .max(Number.MAX_SAFE_INTEGER, 'Say which round to settle.'),
+})
+export type RouletteSettleInput = z.infer<typeof RouletteSettleInput>
 
 /**
- * `round.result` on room:roulette: the number for a spin, the moment it is
- * drawn, and the schedule from here on so every browser stays on the server's
- * clock. The wheel slows onto the number at `window.landsAt`.
+ * POST /api/roulette/settle: `drawn` with the number and everyone's payouts,
+ * or `open` when a later bet moved the close: ask again at its `closesAt`.
  */
-export interface RouletteResultEvent {
-  result: SpinResult
-  window: SpinWindow
-  clock: RouletteClock
-}
-
-declare module '../events.ts' {
-  interface RoomEvents {
-    /** Roulette: a spin's number is drawn. Version: the spin number. */
-    'round.result': RouletteResultEvent
-  }
+export interface SettleResponse {
+  state: 'drawn' | 'open'
+  table: RouletteTable
 }
 
 // ---------------------------------------------------------------- the quick-bet box
 
 /**
- * Spaces the quick-bet box understands (spec: Quick-bet box), with a few
- * friendly spellings. Splits, streets, corners and six lines are click-only.
+ * Spaces a typed bet understands (spec: Roulette > Spaces, as in
+ * UnbelievaBoat), with a few friendly spellings. Splits, streets, corners
+ * and six lines are not typed spaces.
  */
 const SPACE_WORDS: Record<string, string> = {
   red: 'red',
@@ -541,7 +466,7 @@ export function parseSpace(text: string): SpaceResult {
     if (spot && INSIDE_COMBOS.has(spot.kind)) {
       return {
         ok: false,
-        error: `Splits, streets, corners and six lines go down by clicking the table, between the numbers.`,
+        error: `A bet here takes one space, not a split, street, corner or six line. ${SPACE_HELP}`,
       }
     }
   }
@@ -556,7 +481,7 @@ export interface QuickBet {
 
 export type QuickBetResult =
   | { ok: true; bets: QuickBet[] }
-  /** Only an amount: the chip size for clicking the table. */
+  /** Only an amount, with no place for it. */
   | { ok: true; bets: []; amount: string }
   | { ok: false; error: string }
 
@@ -598,12 +523,12 @@ function parseOne(text: string): { ok: true; bet: QuickBet } | { ok: false; erro
 }
 
 /**
- * Reads the quick-bet box (spec: Quick-bet box): "<amount> <space>", such as
- * "200 odd", "600 2nd", "50 17" or "all red". Several bets can go in one line,
- * split by commas or semicolons: "50 red, 10 17". A lone number ("25",
- * "2.5k") sets the chip size for clicking; a lone place ("red") bets the chip
- * size there. Amounts stay as typed: the server resolves them against the
- * wallet.
+ * Reads what follows .roulette (spec: Roulette > Spaces): "<amount> <space>",
+ * such as "200 odd", "600 2nd", "50 17" or "all red". Several bets can go in
+ * one line, split by commas or semicolons: "50 red, 10 17". A lone amount
+ * ("25", "2.5k") and a place without an amount ("red") come back as they
+ * are, so the command can ask for what is missing. Amounts stay as typed:
+ * the server resolves them against the wallet.
  */
 export function parseQuickBet(text: string): QuickBetResult {
   const trimmed = text.trim()

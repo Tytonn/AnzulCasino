@@ -23,16 +23,14 @@
   --roulette-hover: rgb(255 255 255 / 0.16);
   --roulette-label: #c3c9d6;
 
-  /* The wheel: rim, ball track, frets and the turret in the middle. */
+  /* The Floor card's small wheel: rim, ball track, frets and the turret in the middle. */
   --roulette-rim: #1a1e29;
   --roulette-rim-edge: #39415a;
   --roulette-track: #0d1016;
   --roulette-fret: #b8c0d0;
   --roulette-metal: #c7cedb;
-  --roulette-metal-dark: #3d4456;
   --roulette-cone: #232838;
   --roulette-ball: #fbfcfe;
-  --roulette-ball-shade: #a7afbf;
   --roulette-shadow: rgb(0 0 0 / 0.45);
 
   /* The edge stripes of a chip, and the marker on the winning number. */

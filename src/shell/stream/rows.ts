@@ -2,11 +2,12 @@
  * The stream as it draws (spec: The stream): your private replies in their
  * places, a player's messages grouped under one header, your pinned cards
  * as a slim line, and a run of one player's folded cards joined into one
- * line while the stream_round_runs setting says so. Pure, so the unit tests
- * read it directly.
+ * line while the stream_round_runs setting says so. A shared round's card
+ * (a roulette spin) is everyone's and never joins a run. Pure, so the unit
+ * tests read it directly.
  */
 import type { ChatMessage } from '../../../shared/chat.ts'
-import type { CardState } from './fold.ts'
+import { type CardState, isSharedCard } from './fold.ts'
 import type { PrivateItem } from './private.ts'
 
 /** Messages from one player this close together share one header. */
@@ -56,12 +57,13 @@ export function buildRows(input: {
       const state = input.states.get(message.id) ?? 'live'
       if (input.pinned.has(message.id)) {
         rows.push({ kind: 'stub', message })
-      } else if (state === 'folded') {
+      } else if (state === 'folded' && !isSharedCard(message)) {
+        // A shared round's card (a roulette spin) is everyone's: it keeps its own line.
         const last = rows.at(-1)
         const lastUser =
           last?.kind === 'run'
             ? last.messages[0]?.userId
-            : last?.kind === 'card' && last.state === 'folded'
+            : last?.kind === 'card' && last.state === 'folded' && !isSharedCard(last.message)
               ? last.message.userId
               : undefined
         if (input.foldRuns && last && lastUser !== undefined && lastUser === message.userId) {

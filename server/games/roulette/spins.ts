@@ -1,41 +1,38 @@
 /**
- * Roulette's spins: one shared round for the whole table, saved in
- * shared_rounds (docs/LANE_GUIDE.md section 8), and each player's bets on it
- * in one game round of theirs.
+ * Roulette's spins (spec: Games > Roulette): one round on the wheel for the
+ * whole table, saved in shared_rounds (docs/LANE_GUIDE.md section 8), with
+ * each player's bets on it in one game round of theirs and one card in the
+ * stream for everyone.
  *
- * - A spin's row is created by its first bet, so a spin nobody bets on saves
- *   nothing and the wheel does not spin (spec: Empty rounds).
- * - Every bet locks the row (for share) and is refused unless the database
- *   clock is before its close, so a bet either lands before the draw or is
- *   refused.
- * - The first request after the close locks the row (for update), draws the
- *   number and pays every bet in the same transaction. Every later request
- *   finds the result saved and only reads it. The unique key on the spin
- *   number means one draw per spin.
+ * - There is no clock. A spin opens with its first bet, and every bet while
+ *   it is open joins it and moves its close to roulette_close_after_seconds
+ *   from now, but never past roulette_max_open_seconds after the first bet.
+ * - Every bet takes the table's lock first, so two first bets at once open
+ *   one spin, and only the season's latest spin can be open.
+ * - A bet joins a spin only while the database clock is before its close,
+ *   under the spin row's lock. The first request after the close (a
+ *   bettor's settle, the next bet, the lazy catch-up or the daily sweep)
+ *   locks the row, draws the number and pays every bet in one transaction.
+ *   Every later request finds the number saved and only reads it. The unique
+ *   key on season, game and round number means one row, and one draw, per
+ *   spin.
  *
- * Locks are always taken in the same order: the spin, then the players'
- * rounds, then their wallets in user id order. So a bet on the next spin and
- * the settle of the last one never wait on each other in a circle.
+ * Locks are always taken in the same order: the table (bets only), the
+ * spin, the players' rounds in user id order, then their wallets in user id
+ * order. Settling never takes the table's lock, so nothing waits in a circle.
  */
 import { and, desc, eq, sql } from 'drizzle-orm'
 
-import { gameRounds, seasons, sharedRounds } from '../../../db/schema/core.ts'
-import { roomChannel } from '../../../shared/events.ts'
+import { gameRounds, sharedRounds } from '../../../db/schema/core.ts'
+import type { ConfigValues } from '../../../shared/config.ts'
 import {
   numberName,
   ROULETTE,
-  type RouletteClock,
   type RouletteDetail,
-  type SpinResult,
-  type SpinTiming,
-  type SpinWindow,
+  type RouletteResult,
   settleBets,
-  spinAt,
-  timingFromConfig,
 } from '../../../shared/games/roulette.ts'
-import { db, dbNow, type Executor, rows, type Tx } from '../../lib/db.ts'
-import { ApiError } from '../../lib/errors.ts'
-import { liveEvent } from '../../lib/live.ts'
+import { db, rows, type Tx } from '../../lib/db.ts'
 import {
   defineServerGame,
   lockRound,
@@ -43,9 +40,9 @@ import {
   roundTransaction,
   settleRound,
 } from '../../lib/rounds.ts'
-import { requireBetsOpen } from '../../lib/seasons.ts'
+import { sharedRoundEvent, sharedRoundView } from '../../lib/shared-rounds.ts'
 import { lockWallets } from '../../lib/wallet.ts'
-import { clockFrom, drawNumber, savedWindow, type StoredSpin, windowOf } from './rules.ts'
+import { drawNumber } from './rules.ts'
 
 export const roulette = defineServerGame({ id: ROULETTE, name: 'Roulette' })
 
@@ -65,185 +62,125 @@ const spinColumns = {
 
 export type SpinRow = Pick<typeof sharedRounds.$inferSelect, keyof typeof spinColumns>
 
-function spinKey(seasonId: number, spin: number) {
-  return and(
-    eq(sharedRounds.seasonId, seasonId),
-    eq(sharedRounds.game, ROULETTE),
-    eq(sharedRounds.roundNo, spin),
+/** How long a spin stays open, from the settings in force, in seconds. */
+export function spinTimes(config: ConfigValues): { closeAfter: number; maxOpen: number } {
+  return {
+    closeAfter: config.roulette_close_after_seconds,
+    maxOpen: config.roulette_max_open_seconds,
+  }
+}
+
+/** The number a spin has drawn, or null. */
+function drawnNumber(row: SpinRow): number | null {
+  const number = (row.result as Partial<RouletteResult> | null)?.number
+  return row.settledAt !== null && typeof number === 'number' ? number : null
+}
+
+/**
+ * Takes the table's lock until the transaction ends: one bet at a time opens
+ * or joins the season's spin, so there is never more than one open.
+ */
+async function lockTable(tx: Tx, seasonId: number): Promise<void> {
+  await tx.execute(
+    sql`select pg_advisory_xact_lock(hashtextextended(${`${ROULETTE}:table:${seasonId}`}, 0))`,
   )
 }
 
-/** The season's latest saved spins, newest first. */
-export async function latestSpins(
-  executor: Executor,
-  seasonId: number,
-  limit: number,
-): Promise<SpinRow[]> {
-  return executor
-    .select(spinColumns)
+/** The season's latest spin, locked, and whether its betting has closed by the database clock. */
+async function lockLatestSpin(tx: Tx, seasonId: number) {
+  const [row] = await tx
+    .select({ ...spinColumns, due: sql<boolean>`now() >= ${sharedRounds.closesAt}` })
     .from(sharedRounds)
     .where(and(eq(sharedRounds.seasonId, seasonId), eq(sharedRounds.game, ROULETTE)))
     .orderBy(desc(sharedRounds.roundNo))
-    .limit(limit)
-}
-
-async function seasonStart(executor: Executor, seasonId: number): Promise<Date> {
-  const [season] = await executor
-    .select({ startsAt: seasons.startsAt })
-    .from(seasons)
-    .where(eq(seasons.id, seasonId))
-  if (!season) throw new ApiError(409, 'no_season', 'There is no season running right now.')
-  return season.startsAt
-}
-
-/** The wheel's schedule for a season, at the timings in force now. */
-export async function scheduleFor(
-  executor: Executor,
-  seasonId: number,
-  timing: SpinTiming,
-): Promise<RouletteClock> {
-  const [latest] = await latestSpins(executor, seasonId, 1)
-  return clockFrom(latest ?? null, await seasonStart(executor, seasonId), timing)
-}
-
-/** A drawn spin's result, from its row. */
-export function spinResult(row: SpinRow): SpinResult | null {
-  const number = (row.result as Partial<StoredSpin> | null)?.number
-  if (row.settledAt === null || typeof number !== 'number') return null
-  return { spin: row.roundNo, number, drawnAt: row.settledAt.getTime() }
-}
-
-/** Refused bets carry the schedule, so the browser puts itself right. */
-function spinClosed(clock: RouletteClock, early = false): ApiError {
-  return early
-    ? new ApiError(409, 'spin_not_open', 'That spin is not taking bets yet. Wait for the wheel.', {
-        clock,
-      })
-    : new ApiError(
-        409,
-        'spin_closed',
-        'Too late: betting on that spin has closed. Bet on the next one.',
-        { clock },
-      )
+    .limit(1)
+    .for('update')
+  return row ?? null
 }
 
 /**
- * The spin taking bets now, locked for share, created if this is its first
- * bet. Refuses a bet for any other spin (a browser whose clock ran behind or
- * ahead), after the close, and outside the season.
+ * The spin a bet goes on: the open one, its close moved to `closeAfter`
+ * seconds from now (never earlier than it was, and never past `maxOpen`
+ * seconds from its first bet), or a new one when none is open. A spin whose
+ * betting has closed but which nobody has settled yet is settled first, in
+ * the bet's transaction, so its bettors are paid before the next spin opens.
+ * Call it before touching the player's round or wallet.
  */
-export async function joinSpin(
-  tx: Tx,
+export async function joinOrOpenSpin(
+  rt: RoundTx,
   seasonId: number,
-  wanted: number,
-  timing: SpinTiming,
-): Promise<SpinRow> {
-  await requireBetsOpen(tx, seasonId)
-  const now = (await dbNow(tx)).getTime()
-  const clock = await scheduleFor(tx, seasonId, timing)
-  const window = spinAt(clock, now)
-  if (wanted > window.spin) throw spinClosed(clock, true)
-  if (wanted < window.spin || now >= window.closesAt) throw spinClosed(clock)
+): Promise<{ spin: SpinRow; opened: boolean }> {
+  const { tx } = rt
+  const times = spinTimes(rt.config)
+  await lockTable(tx, seasonId)
+  const latest = await lockLatestSpin(tx, seasonId)
 
-  if (clock.anchor.spin !== window.spin) {
-    const stored: StoredSpin = { timing, number: null }
-    await tx
-      .insert(sharedRounds)
-      .values({
-        seasonId,
-        game: ROULETTE,
-        roundNo: window.spin,
-        state: 'betting' satisfies SpinState,
-        opensAt: new Date(window.opensAt),
-        closesAt: new Date(window.closesAt),
-        result: stored,
+  if (latest && latest.settledAt === null && !latest.due) {
+    const [moved] = await tx
+      .update(sharedRounds)
+      .set({
+        closesAt: sql`greatest(${sharedRounds.closesAt}, least(
+          now() + make_interval(secs => ${times.closeAfter}),
+          ${sharedRounds.opensAt} + make_interval(secs => ${times.maxOpen})))`,
       })
-      .onConflictDoNothing()
+      .where(eq(sharedRounds.id, latest.id))
+      .returning(spinColumns)
+    if (!moved) throw new Error('The open spin went missing')
+    return { spin: moved, opened: false }
   }
-  return lockOpenSpin(tx, seasonId, window.spin, timing)
-}
 
-/** A spin still taking bets, locked for share. For changing bets on it. */
-export async function lockOpenSpin(
-  tx: Tx,
-  seasonId: number,
-  spin: number,
-  timing: SpinTiming,
-): Promise<SpinRow> {
-  const [row] = await tx
-    .select({ ...spinColumns, open: sql<boolean>`now() < ${sharedRounds.closesAt}` })
-    .from(sharedRounds)
-    .where(spinKey(seasonId, spin))
-    .for('share')
-  if (!row || row.settledAt !== null || row.state !== 'betting' || !row.open) {
-    throw spinClosed(await scheduleFor(tx, seasonId, timing))
-  }
-  return row
-}
-
-/**
- * Takes one player's bets one at a time, so two quick requests never both
- * try to open their round on a spin. Held until the transaction ends. A bet
- * takes it after locking the spin and before the player's round; settling
- * never asks for it, so it cannot close a circle of waits.
- */
-export async function lockPlayerBets(tx: Tx, userId: string): Promise<void> {
-  await tx.execute(
-    sql`select pg_advisory_xact_lock(hashtextextended(${`${ROULETTE}:${userId}`}, 0))`,
-  )
-}
-
-function storedTiming(row: { result: unknown }): SpinTiming | null {
-  return (row.result as Partial<StoredSpin> | null)?.timing ?? null
+  if (latest && latest.settledAt === null) await settleSpinIn(rt, latest.id)
+  const stored: RouletteResult = { number: null }
+  const [opened] = await tx
+    .insert(sharedRounds)
+    .values({
+      seasonId,
+      game: ROULETTE,
+      roundNo: (latest?.roundNo ?? 0) + 1,
+      state: 'betting' satisfies SpinState,
+      opensAt: sql`now()`,
+      closesAt: sql`now() + make_interval(secs => ${Math.min(times.closeAfter, times.maxOpen)})`,
+      result: stored,
+    })
+    .returning(spinColumns)
+  if (!opened) throw new Error('The spin was not saved')
+  return { spin: opened, opened: true }
 }
 
 // ---------------------------------------------------------------- the draw
 
 /** What settling a spin found or did. */
 export type SettleOutcome =
-  | { state: 'drawn'; result: SpinResult; window: SpinWindow; drew: boolean }
-  /** Betting is still open: try again at `closesAt`. */
-  | { state: 'open'; spin: number; closesAt: number }
-  /** No row: nobody bet on it (or its first bet has not committed yet). */
-  | { state: 'none'; spin: number }
+  | { state: 'drawn'; number: number; drew: boolean }
+  /** Betting is still open: a later bet moved the close. */
+  | { state: 'open'; closesAt: Date }
+  /** No roulette spin has that id. */
+  | { state: 'none' }
 
 /**
  * Draws a spin whose betting has closed and pays every bet on it, in the
- * caller's transaction, or reads the result if it is already drawn.
+ * caller's transaction, or reads the number if it is already drawn.
  */
-export async function settleSpinIn(
-  rt: RoundTx,
-  seasonId: number,
-  spin: number,
-): Promise<SettleOutcome> {
-  const timing = timingFromConfig(rt.config)
+export async function settleSpinIn(rt: RoundTx, id: number): Promise<SettleOutcome> {
   const [row] = await rt.tx
     .select({ ...spinColumns, due: sql<boolean>`now() >= ${sharedRounds.closesAt}` })
     .from(sharedRounds)
-    .where(spinKey(seasonId, spin))
+    .where(and(eq(sharedRounds.id, id), eq(sharedRounds.game, ROULETTE)))
     .for('update')
-  if (!row) return { state: 'none', spin }
-  const window = savedWindow(row, timing)
-  const saved = spinResult(row)
-  if (saved) return { state: 'drawn', result: saved, window, drew: false }
-  if (!row.due) return { state: 'open', spin, closesAt: window.closesAt }
+  if (!row) return { state: 'none' }
+  const saved = drawnNumber(row)
+  if (saved !== null) return { state: 'drawn', number: saved, drew: false }
+  if (row.settledAt !== null) return { state: 'none' }
+  if (!row.due) return { state: 'open', closesAt: row.closesAt }
 
   // Draw late: the number exists from this moment on, and no bet can join
-  // the spin any more (bets lock the row for share and check the close).
+  // the spin any more (a bet locks the row and checks the close first).
   const number = drawNumber()
-  const stored: StoredSpin = { timing: storedTiming(row) ?? timing, number }
-  const [drawn] = await rt.tx
+  const stored: RouletteResult = { number }
+  await rt.tx
     .update(sharedRounds)
     .set({ state: 'settled' satisfies SpinState, result: stored, settledAt: sql`now()` })
     .where(eq(sharedRounds.id, row.id))
-    .returning({ settledAt: sharedRounds.settledAt })
-  const drawnAt = drawn?.settledAt ?? new Date()
-  const result: SpinResult = { spin, number, drawnAt: drawnAt.getTime() }
-
-  // The number first, so the wheel can start slowing onto it, then each
-  // player's result, which the room shows when the ball lands.
-  const clock = await scheduleFor(rt.tx, seasonId, timing)
-  rt.emit(liveEvent(roomChannel(ROULETTE), 'round.result', { result, window, clock }, spin))
 
   const open = await rt.tx
     .select({ id: gameRounds.id })
@@ -251,13 +188,13 @@ export async function settleSpinIn(
     .where(and(eq(gameRounds.sharedRoundId, row.id), eq(gameRounds.status, 'open')))
     .orderBy(gameRounds.userId)
   const rounds = []
-  for (const { id } of open) {
-    const round = await lockRound<RouletteDetail>(rt.tx, id)
+  for (const { id: roundId } of open) {
+    const round = await lockRound<RouletteDetail>(rt.tx, roundId)
     if (round?.status === 'open') rounds.push(round)
   }
   await lockWallets(
     rt.tx,
-    seasonId,
+    row.seasonId,
     rounds.map((r) => r.userId),
   )
   for (const round of rounds) {
@@ -268,20 +205,42 @@ export async function settleSpinIn(
       summary: numberName(number),
     })
   }
-  return { state: 'drawn', result, window, drew: true }
+
+  // The card's news: the number and every player's result, which every
+  // screen shows once the ball lands.
+  const view = await sharedRoundView(rt.tx, row.id)
+  if (view) rt.emit(sharedRoundEvent(view))
+  return { state: 'drawn', number, drew: true }
 }
 
 /** Settles one spin in its own transaction. Its news goes out after the commit. */
 export function settleSpin(
   waitUntil: (promise: Promise<unknown>) => void,
-  seasonId: number,
-  spin: number,
+  id: number,
 ): Promise<SettleOutcome> {
-  return roundTransaction(waitUntil, (rt) => settleSpinIn(rt, seasonId, spin))
+  return roundTransaction(waitUntil, (rt) => settleSpinIn(rt, id))
 }
 
 /** How far back the lazy settle looks: a spin left unsettled is nearly always among the latest. */
 const DUE_LOOKBACK = 50
+
+async function settleEach(
+  waitUntil: (promise: Promise<unknown>) => void,
+  ids: readonly number[],
+  what: string,
+): Promise<number> {
+  let settled = 0
+  for (const id of ids) {
+    try {
+      const outcome = await settleSpin(waitUntil, id)
+      if (outcome.state === 'drawn' && outcome.drew) settled++
+    } catch (error) {
+      // One stuck spin must not keep everyone off the wheel.
+      console.error(`[roulette] ${what} could not settle spin ${id}`, error)
+    }
+  }
+  return settled
+}
 
 /**
  * Settles the season's spins whose betting has closed but which nobody has
@@ -292,11 +251,11 @@ export async function settleDueSpins(
   waitUntil: (promise: Promise<unknown>) => void,
   seasonId: number,
 ): Promise<number> {
-  const due = await rows<{ round_no: string }>(
+  const due = await rows<{ id: string }>(
     db(),
-    sql`select round_no from (
-          select ${sharedRounds.roundNo} as round_no, ${sharedRounds.settledAt} as settled_at,
-                 ${sharedRounds.closesAt} as closes_at
+    sql`select id from (
+          select ${sharedRounds.id} as id, ${sharedRounds.roundNo} as round_no,
+                 ${sharedRounds.settledAt} as settled_at, ${sharedRounds.closesAt} as closes_at
           from ${sharedRounds}
           where ${sharedRounds.seasonId} = ${seasonId} and ${sharedRounds.game} = ${ROULETTE}
           order by ${sharedRounds.roundNo} desc
@@ -305,17 +264,11 @@ export async function settleDueSpins(
         where settled_at is null and closes_at <= now()
         order by round_no`,
   )
-  let settled = 0
-  for (const { round_no } of due) {
-    try {
-      const outcome = await settleSpin(waitUntil, seasonId, Number(round_no))
-      if (outcome.state === 'drawn' && outcome.drew) settled++
-    } catch (error) {
-      // One stuck spin must not keep everyone out of the room.
-      console.error(`[roulette] could not settle spin ${round_no}`, error)
-    }
-  }
-  return settled
+  return settleEach(
+    waitUntil,
+    due.map((r) => Number(r.id)),
+    'the catch-up',
+  )
 }
 
 /**
@@ -326,7 +279,7 @@ export async function sweepUnsettledSpins(
   waitUntil: (promise: Promise<unknown>) => void,
 ): Promise<number> {
   const due = await db()
-    .select({ seasonId: sharedRounds.seasonId, roundNo: sharedRounds.roundNo })
+    .select({ id: sharedRounds.id })
     .from(sharedRounds)
     .where(
       and(
@@ -337,24 +290,9 @@ export async function sweepUnsettledSpins(
     )
     .orderBy(sharedRounds.closesAt)
     .limit(500)
-  let settled = 0
-  for (const { seasonId, roundNo } of due) {
-    try {
-      const outcome = await settleSpin(waitUntil, seasonId, roundNo)
-      if (outcome.state === 'drawn' && outcome.drew) settled++
-    } catch (error) {
-      console.error(`[roulette] sweep could not settle spin ${seasonId}/${roundNo}`, error)
-    }
-  }
-  return settled
-}
-
-/** The times of a spin on the current schedule, saved or not. Null for a spin before the anchor. */
-export async function spinTimes(
-  executor: Executor,
-  seasonId: number,
-  spin: number,
-  timing: SpinTiming,
-): Promise<SpinWindow | null> {
-  return windowOf(await scheduleFor(executor, seasonId, timing), spin)
+  return settleEach(
+    waitUntil,
+    due.map((r) => r.id),
+    'the sweep',
+  )
 }

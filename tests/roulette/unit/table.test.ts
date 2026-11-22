@@ -1,7 +1,8 @@
 /**
  * Roulette's table (spec: Games > Roulette): the 157 places to bet, what each
- * pays, the round's bets, and the house edge. The return to player is checked
- * exactly for every spot, then by a million real draws (spec: Quality bar).
+ * pays, a player's bets, the house edge, and a round as its card shows it.
+ * The return to player is checked exactly for every spot, then by a million
+ * real draws (spec: Quality bar).
  */
 import { describe, expect, it } from 'vitest'
 
@@ -13,14 +14,19 @@ import {
   paysTo,
   pocketColor,
   POCKETS,
-  removeBet,
+  type RouletteDetail,
+  type RouletteTable,
   settleBets,
   type SpotKind,
   SPOTS,
   spotById,
   spotReturn,
+  tableNumber,
+  tablePlayers,
+  tableTotal,
   WHEEL_ORDER,
 } from '../../../shared/games/roulette.ts'
+import { type RoundView, sharedRoundVersion } from '../../../shared/rounds.ts'
 import { drawNumber } from '../../../server/games/roulette/rules.ts'
 
 const kindCounts = (kind: SpotKind) => SPOTS.filter((s) => s.kind === kind).length
@@ -197,21 +203,6 @@ describe('a round of bets', () => {
     expect(betsTotal(bets)).toBe(850n)
   })
 
-  it('takes chips off one spot, and the spot goes when it is empty', () => {
-    const bets = [
-      { spot: 'red', amount: 750 },
-      { spot: '17', amount: 100 },
-    ]
-    expect(removeBet(bets, 'red', 250n)).toEqual([
-      { spot: 'red', amount: 500 },
-      { spot: '17', amount: 100 },
-    ])
-    expect(removeBet(bets, 'red', 750n)).toEqual([{ spot: '17', amount: 100 }])
-    expect(removeBet(bets, '17', 1_000n)).toEqual([{ spot: 'red', amount: 750 }])
-    // The input is left as it was.
-    expect(bets[0]?.amount).toBe(750)
-  })
-
   it('pays every winning bet in the round and names the spots that won', () => {
     const bets = [
       { spot: 'red', amount: 1_000 },
@@ -228,5 +219,103 @@ describe('a round of bets', () => {
     expect(settleBets(bets, 20)).toEqual({ payout: 3_600n + 1_500n, wins: ['19-20-21', '2nd12'] })
     // 0 beats them all.
     expect(settleBets(bets, 0)).toEqual({ payout: 0n, wins: [] })
+  })
+})
+
+describe('a round on the wheel', () => {
+  const AT = Date.parse('2026-11-22T12:00:00Z')
+  let nextId = 1
+  const round = (
+    userId: string,
+    stake: number,
+    payout: number | null,
+    bets: RouletteDetail['bets'] = [{ spot: 'red', amount: stake }],
+  ): RoundView<RouletteDetail> => ({
+    id: nextId++,
+    game: 'roulette',
+    userId,
+    status: payout === null ? 'open' : 'settled',
+    stake,
+    payout,
+    multiplier: 0,
+    detail: { spin: 3, bets, number: null, wins: [] },
+    summary: null,
+    bigBet: false,
+    allIn: false,
+    steps: 1,
+    startedAt: new Date(AT).toISOString(),
+    settledAt: payout === null ? null : new Date(AT + 20_000).toISOString(),
+  })
+  const table = (
+    rounds: RoundView<RouletteDetail>[],
+    settled: boolean,
+    number: number | null = null,
+  ): RouletteTable => ({
+    id: 9,
+    game: 'roulette',
+    roundNo: 3,
+    state: settled ? 'settled' : 'betting',
+    opensAt: new Date(AT).toISOString(),
+    closesAt: new Date(AT + 15_000).toISOString(),
+    settledAt: settled ? new Date(AT + 15_100).toISOString() : null,
+    result: { number },
+    rounds,
+    version: 0,
+  })
+
+  it('lists players in the order they joined until the draw, then winners first', () => {
+    const rounds = [
+      round('alice', 50, 0),
+      round('bob', 100, 200),
+      round('carol', 25, 25),
+      round('dave', 10, 360),
+      round('erin', 75, 0),
+    ]
+    const open = table(rounds, false)
+    expect(tablePlayers(open).map((p) => p.userId)).toEqual([
+      'alice',
+      'bob',
+      'carol',
+      'dave',
+      'erin',
+    ])
+    expect(tablePlayers(open).every((p) => p.net === null)).toBe(true)
+
+    const drawn = tablePlayers(table(rounds, true, 17))
+    // Biggest win first, then even, then the smallest loss, and who joined first on a tie.
+    expect(drawn.map((p) => [p.userId, p.net])).toEqual([
+      ['dave', 350],
+      ['bob', 100],
+      ['carol', 0],
+      ['alice', -50],
+      ['erin', -75],
+    ])
+  })
+
+  it('has its number only once drawn, and its total', () => {
+    const rounds = [round('alice', 50, null), round('bob', 125, null)]
+    expect(tableNumber(table(rounds, false, null))).toBeNull()
+    // A number in a row not yet settled is not shown.
+    expect(tableNumber(table(rounds, false, 17))).toBeNull()
+    expect(tableNumber(table(rounds, true, 0))).toBe(0)
+    expect(tableTotal(table(rounds, false))).toBe(175)
+    // A row saved while the card had a wheel also kept the wheel's spin time.
+    const saved = { number: 5, spinMs: 7_000 }
+    expect(tableNumber({ settledAt: new Date(AT).toISOString(), result: saved })).toBe(5)
+  })
+
+  it('counts a newer view of the round as newer: every bet and the draw', () => {
+    const one = [round('alice', 50, null)]
+    const open = sharedRoundVersion({ settledAt: null, rounds: one })
+    const raised = sharedRoundVersion({ settledAt: null, rounds: [{ ...one[0]!, steps: 2 }] })
+    const joined = sharedRoundVersion({ settledAt: null, rounds: [...one, round('bob', 25, null)] })
+    const drawn = sharedRoundVersion({
+      settledAt: new Date(AT).toISOString(),
+      rounds: [{ ...one[0]!, steps: 2 }, round('bob', 25, 0)],
+    })
+    expect(raised).toBeGreaterThan(open)
+    expect(joined).toBeGreaterThan(open)
+    // Settling adds a step to each round as well as the draw.
+    expect(drawn).toBeGreaterThan(Math.max(raised, joined))
   })
 })

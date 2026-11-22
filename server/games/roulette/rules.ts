@@ -1,18 +1,10 @@
 /**
- * Roulette's rules engine: the draw, the schedule and turning typed bets into
- * chips. The table's spots and payouts are shared with the browser
+ * Roulette's rules engine: the draw and turning typed bets into chips. The
+ * table's spots and payouts are shared with the browser
  * (shared/games/roulette.ts); the number itself is server randomness only.
  */
 import { type BetLimits, checkBetAmount, parseBetAmount } from '../../../shared/bet-amount.ts'
-import {
-  POCKETS,
-  type RouletteClock,
-  type SpinTiming,
-  type SpinWindow,
-  seasonClock,
-  spinWindow,
-  spotById,
-} from '../../../shared/games/roulette.ts'
+import { POCKETS, spotById } from '../../../shared/games/roulette.ts'
 import { randomBelow } from '../../lib/rng.ts'
 
 /**
@@ -22,48 +14,6 @@ import { randomBelow } from '../../lib/rng.ts'
  */
 export function drawNumber(): number {
   return randomBelow(POCKETS)
-}
-
-/** What a saved spin keeps in shared_rounds.result: its timings, and its number once drawn. */
-export interface StoredSpin {
-  timing: SpinTiming
-  number: number | null
-}
-
-/** The fields of a saved spin the schedule needs. */
-export interface SavedSpin {
-  roundNo: number
-  opensAt: Date
-  result: unknown
-}
-
-/** A saved spin's times, from the timings it was created with. */
-export function savedWindow(spin: SavedSpin, fallback: SpinTiming): SpinWindow {
-  const stored = spin.result as Partial<StoredSpin> | null
-  return spinWindow(spin.roundNo, spin.opensAt.getTime(), stored?.timing ?? fallback)
-}
-
-/**
- * The schedule: anchored on the season's latest saved spin, or on the
- * season's start when none is saved yet, with spins after it following the
- * timings in force now.
- */
-export function clockFrom(
-  latest: SavedSpin | null,
-  seasonStartsAt: Date,
-  timing: SpinTiming,
-): RouletteClock {
-  if (!latest) return seasonClock(seasonStartsAt.getTime(), timing)
-  return { anchor: savedWindow(latest, timing), timing }
-}
-
-/** The times of spin `spin` on this schedule, or null for a spin before its anchor. */
-export function windowOf(clock: RouletteClock, spin: number): SpinWindow | null {
-  const { anchor, timing } = clock
-  if (spin === anchor.spin) return anchor
-  if (spin < anchor.spin) return null
-  const cycle = timing.bettingMs + timing.spinMs + timing.resultMs
-  return spinWindow(spin, anchor.endsAt + (spin - anchor.spin - 1) * cycle, timing)
 }
 
 export type ResolvedBets =

@@ -3,8 +3,8 @@
  * Nov 22, 2026): two players in one stream; a hand of blackjack dealt from
  * the message box and pinned above it with the keys, which the other player
  * watches live and cannot touch; Deal again; finished hands folding to a
- * line that opens to the replay; a private hint for a command that does not
- * exist and a private reply to .help; .work posting its result for
+ * line that stays open to the replay; a private hint for a command that
+ * does not exist and a private reply to .help; .work posting its result for
  * everyone; and the filters. Screenshots land in tests/shell/screenshots.
  *
  * On a deploy preview the stream keeps what earlier runs posted, so every
@@ -268,7 +268,7 @@ test('a hand dealt from the message box plays live for everyone, then folds', as
     if ((await card.count()) > 0) await expect(card).toContainText(signed(second.first))
   })
 
-  await test.step('both hands fold, and their line opens to the replay', async () => {
+  await test.step('both hands fold to their replay, open, and the line closes it', async () => {
     const { config } = (await (await bob.page.request.get('/api/config')).json()) as {
       config: ConfigValues
     }
@@ -276,14 +276,18 @@ test('a hand dealt from the message box plays live for everyone, then folds', as
     const firstLine = log.locator(`[data-folded="${first.round.id}"]`)
     const nextLine = log.locator(`[data-folded="${second.next.round.id}"]`)
     if (config.stream_round_runs === 'fold') {
-      // One player's finished rounds in a row: one line for the run.
+      // One player's finished rounds in a row: one line for the run, open.
       const run = log.locator(
         `[data-rounds~="${first.round.id}"][data-rounds~="${second.next.round.id}"]`,
       )
       await expect(run).toBeVisible({ timeout: 20_000 })
       const toggle = run.getByRole('button', { name: /2 Blackjack hands/ })
-      await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+      await expect(toggle).toHaveAttribute('aria-expanded', 'true')
       await snap(bob.page, LANE, 'stream-folded', testInfo)
+      // Closed, the run is one line; opened again, its hands are back.
+      await toggle.click()
+      await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+      await expect(firstLine).toHaveCount(0)
       await toggle.click()
       await expect(toggle).toHaveAttribute('aria-expanded', 'true')
     }
@@ -292,8 +296,8 @@ test('a hand dealt from the message box plays live for everyone, then folds', as
     await expect(firstLine).toContainText(signed(second.first))
     await expect(nextLine).toContainText(signed(second.next))
 
+    // The result stays in view: the hand's line is open to its replay.
     const open = firstLine.getByRole('button').first()
-    await open.click()
     await expect(open).toHaveAttribute('aria-expanded', 'true')
     await expect(
       firstLine.getByRole('img', { name: firstCard(second.first) }).first(),

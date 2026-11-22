@@ -11,7 +11,9 @@
  * - `card`: a game in the stream (spec: The stream). Its `meta` points at the
  *   round it shows (CardMeta), and the round stays the truth: the stream API
  *   and the `chat.message` event send the round's public view with it. The
- *   round helper writes one with every round a player starts.
+ *   round helper writes one with every round a player starts. A round the
+ *   whole table shares, such as a roulette spin, has one card for everyone
+ *   instead (SharedCardMeta), sent with the shared round's view.
  *
  * The stream shows chat and games in one list, and its filters (Everything,
  * Chat only, Games only) ask the server for one `topic` or another; see
@@ -19,7 +21,7 @@
  */
 import { z } from 'zod'
 
-import type { RoundView } from './rounds.ts'
+import type { RoundView, SharedRoundView } from './rounds.ts'
 
 export const CHAT_KINDS = ['player', 'gif', 'system', 'card'] as const
 export type ChatKind = (typeof CHAT_KINDS)[number]
@@ -46,12 +48,24 @@ export interface ChatMessage {
    * room events, which win by their version.
    */
   round?: RoundView | null
+  /**
+   * A shared round's card: the shared round as it stands, with every
+   * player's round on it, never its secret. Newer news of it comes on the
+   * game's `shared.updated` event, which wins by its version.
+   */
+  sharedRound?: SharedRoundView | null
 }
 
 /** `meta` of a `card`: the game and the round it shows. */
 export interface CardMeta {
   game: string
   roundId: number
+}
+
+/** `meta` of a shared round's one `card`: the game and the shared round it shows. */
+export interface SharedCardMeta {
+  game: string
+  sharedRoundId: number
 }
 
 /**

@@ -139,6 +139,29 @@ export async function roundViewsById(
   return new Map(rows.map((row) => [row.id, roundView({ ...row, secret: null })]))
 }
 
+/**
+ * The public views of the rounds on some shared rounds, by shared round id,
+ * each list in the order the players joined. Never reads the secret column.
+ */
+export async function roundViewsOnShared(
+  executor: Executor,
+  sharedRoundIds: readonly number[],
+): Promise<Map<number, RoundOut[]>> {
+  const found = new Map<number, RoundOut[]>(sharedRoundIds.map((id) => [id, []]))
+  if (sharedRoundIds.length === 0) return found
+  const { secret: _secret, ...columns } = roundColumns
+  const rows = await executor
+    .select(columns)
+    .from(gameRounds)
+    .where(inArray(gameRounds.sharedRoundId, [...sharedRoundIds]))
+    .orderBy(gameRounds.id)
+  for (const row of rows) {
+    if (row.sharedRoundId === null) continue
+    found.get(row.sharedRoundId)?.push(roundView({ ...row, secret: null }))
+  }
+  return found
+}
+
 /** A round as browsers see it: no secret. Chip amounts become numbers on the wire. */
 export interface RoundOut<D = unknown> {
   id: number
@@ -339,7 +362,7 @@ export async function startRound<D, S = never>(
   })
   rt.emit(roomEvent('round.started', round), ...walletEvents(input.seasonId, input.userId, after))
   // A player's own round gets its card in the stream; a shared round's
-  // bets show on the shared round's one card instead.
+  // bets show on the shared round's one card instead (shared-rounds.ts).
   if (round.sharedRoundId === null) {
     const card = await cardPost(tx, input.game, round)
     rt.cards?.set(round.id, card.message)

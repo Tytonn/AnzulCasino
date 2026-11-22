@@ -9,7 +9,7 @@
  * night of a thousand hands. The SQL below and streamTopic() in
  * shared/chat.ts are the same rule; a test holds them together.
  */
-import { and, desc, eq, inArray, isNull, lt, type SQL, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNull, lt, or, type SQL, sql } from 'drizzle-orm'
 
 import { chatMessages, gameRounds, users } from '../../db/schema/core.ts'
 import {
@@ -19,6 +19,7 @@ import {
   LOOKUP_TOP,
   type LookupInput,
   type LookupSnapshot,
+  type SharedCardMeta,
   type StreamFilter,
   type StreamPage,
 } from '../../shared/chat.ts'
@@ -31,6 +32,7 @@ import { ApiError, badRequest, notFound } from '../lib/errors.ts'
 import type { Outgoing } from '../lib/live.ts'
 import { roundViewsById } from '../lib/rounds.ts'
 import { currentSeason, standings } from '../lib/seasons.ts'
+import { sharedRoundViews } from '../lib/shared-rounds.ts'
 
 const t = chatMessages
 /** A system post the stream leaves out: a round's big result, which its card shows. */
@@ -49,19 +51,19 @@ function filterWhere(filter: StreamFilter): SQL {
   }
 }
 
-/** The player's own cards whose rounds are still open: they pin above the box under any filter. */
+/**
+ * The player's own cards whose rounds are still open, and the cards of the
+ * shared rounds they have a bet on that are still open: they pin above the
+ * box under any filter.
+ */
 async function openCards(userId: string): Promise<ChatMessage[]> {
   const open = await db()
-    .select({ id: gameRounds.id })
+    .select({ id: gameRounds.id, sharedRoundId: gameRounds.sharedRoundId })
     .from(gameRounds)
-    .where(
-      and(
-        eq(gameRounds.userId, userId),
-        eq(gameRounds.status, 'open'),
-        isNull(gameRounds.sharedRoundId),
-      ),
-    )
+    .where(and(eq(gameRounds.userId, userId), eq(gameRounds.status, 'open')))
   if (open.length === 0) return []
+  const own = open.filter((r) => r.sharedRoundId === null).map((r) => String(r.id))
+  const shared = open.flatMap((r) => (r.sharedRoundId === null ? [] : [String(r.sharedRoundId)]))
   const found = await db()
     .select(chatMessageColumns)
     .from(chatMessages)
@@ -69,9 +71,9 @@ async function openCards(userId: string): Promise<ChatMessage[]> {
       and(
         eq(t.kind, 'card'),
         isNull(t.deletedAt),
-        inArray(
-          sql`${t.meta} ->> 'roundId'`,
-          open.map((r) => String(r.id)),
+        or(
+          own.length > 0 ? inArray(sql`${t.meta} ->> 'roundId'`, own) : undefined,
+          shared.length > 0 ? inArray(sql`${t.meta} ->> 'sharedRoundId'`, shared) : undefined,
         ),
       ),
     )
@@ -79,17 +81,31 @@ async function openCards(userId: string): Promise<ChatMessage[]> {
   return found.map(toChatMessage)
 }
 
-/** Each card with its round as it is now. */
+/** A card's id from its meta: the round's for a player's card, the shared round's for a table's. */
+function metaId(message: ChatMessage, key: 'roundId' | 'sharedRoundId'): number {
+  const meta = message.meta as Partial<CardMeta & SharedCardMeta> | null
+  const id = Number(meta?.[key])
+  return Number.isSafeInteger(id) && id > 0 ? id : 0
+}
+
+/** Each card with its round, or its shared round, as it is now. */
 async function withRounds(messages: ChatMessage[]): Promise<ChatMessage[]> {
-  const roundIds = messages
-    .filter((m) => m.kind === 'card')
-    .map((m) => Number((m.meta as Partial<CardMeta> | null)?.roundId))
-    .filter((id) => Number.isSafeInteger(id) && id > 0)
-  const rounds = await roundViewsById(db(), roundIds)
+  const cards = messages.filter((m) => m.kind === 'card')
+  const roundIds = cards.map((m) => metaId(m, 'roundId')).filter((id) => id > 0)
+  const sharedIds = cards.map((m) => metaId(m, 'sharedRoundId')).filter((id) => id > 0)
+  const [rounds, shared] = await Promise.all([
+    roundViewsById(db(), roundIds),
+    sharedRoundViews(db(), sharedIds),
+  ])
   return messages.map((m) => {
     if (m.kind !== 'card') return m
-    const id = Number((m.meta as Partial<CardMeta> | null)?.roundId)
-    return { ...m, round: (rounds.get(id) ?? null) as unknown as ChatMessage['round'] }
+    const sharedId = metaId(m, 'sharedRoundId')
+    if (sharedId > 0) {
+      const view = shared.get(sharedId) ?? null
+      return { ...m, sharedRound: view as unknown as ChatMessage['sharedRound'] }
+    }
+    const round = rounds.get(metaId(m, 'roundId')) ?? null
+    return { ...m, round: round as unknown as ChatMessage['round'] }
   })
 }
 

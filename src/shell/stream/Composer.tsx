@@ -594,6 +594,17 @@ interface Pick {
   on: boolean
 }
 
+/** "50 red" as an amount and a place: the amount is the word that reads as one, first or last. */
+function amountAndPlace(text: string): { amount: string; place: string } {
+  const words = text.split(/\s+/).filter(Boolean)
+  const reads = (word: string | undefined) => word !== undefined && parseBetAmount(word, 0n).ok
+  if (reads(words[0])) return { amount: words[0] ?? '', place: words.slice(1).join(' ') }
+  if (words.length > 1 && reads(words.at(-1))) {
+    return { amount: words.at(-1) ?? '', place: words.slice(0, -1).join(' ') }
+  }
+  return { amount: '', place: words.join(' ') }
+}
+
 /** The command typed so far: what it takes, what it does, and quick picks for an amount and a side. */
 function Usage({
   command,
@@ -616,21 +627,32 @@ function Usage({
   const split = splitChoice(args, spec.choices)
   const rest = split.ok ? split.rest : args
   const choice = split.ok ? split.choice : null
-  const amount = spec.needs === 'amount' && rest ? parseBetAmount(rest, BigInt(balance ?? 0)) : null
-  // An amount pick keeps the side typed, and a side pick keeps the amount.
-  const example = splitChoice(spec.example ?? '50', spec.choices)
-  const amounts =
-    spec.needs === 'amount' ? [example.ok && example.rest ? example.rest : '50', 'half', 'all'] : []
+  // With places to pick (roulette's red and black), the amount is one word and the place the rest.
+  const placed = spec.picks ? amountAndPlace(rest) : null
+  const typed = placed ? placed.amount : rest
+  const offersAmounts = spec.needs === 'amount' || spec.picks !== undefined
+  const amount = offersAmounts && typed ? parseBetAmount(typed, BigInt(balance ?? 0)) : null
+  // An amount pick keeps the side or place typed, and a side or place pick keeps the amount.
+  const example = placed
+    ? amountAndPlace(spec.example ?? '50').amount
+    : ((s) => (s.ok ? s.rest : ''))(splitChoice(spec.example ?? '50', spec.choices))
+  const amounts = offersAmounts ? [example || '50', 'half', 'all'] : []
+  const join = (...words: (string | null | undefined)[]) => words.filter(Boolean).join(' ')
   const groups: Pick[][] = [
     amounts.map((pick) => ({
       label: pick,
-      args: [pick, choice].filter(Boolean).join(' '),
-      on: rest === pick,
+      args: placed ? join(pick, placed.place) : join(pick, choice),
+      on: typed === pick,
     })),
     (spec.choices ?? []).map(([name]) => ({
       label: name,
-      args: [rest, name].filter(Boolean).join(' '),
+      args: join(rest, name),
       on: choice === name,
+    })),
+    (spec.picks ?? []).map((name) => ({
+      label: name,
+      args: join(placed?.amount, name),
+      on: placed?.place.toLowerCase() === name,
     })),
   ].filter((group) => group.length > 0)
   return (

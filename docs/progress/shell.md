@@ -132,13 +132,42 @@ Plan, approved by Tyton on 2026-11-22: https://claude.ai/artifact/Sj3mrj6zpw6mgh
   preview's browser tests passed, and both did. `main` now has the stream, the commands,
   blackjack's and the coin flip's cards, and the docs.
 
+- **Roulette as a card** (2026-11-22, Tyton: "Start roulette as a card. It works
+  differently from the current spec, to match UnbelievaBoat"). No clock: the first
+  `.roulette 50 red` opens a round with one shared card for everyone, every bet while it
+  is open joins it and starts its 15-second countdown again (60 at most from the first
+  bet), and the first settle after the close draws and pays everyone in one transaction.
+  The shell learned shared cards: `sharedCard` and `sharedReplay` in `GameManifest`
+  (`SharedCardProps`), a store of shared rounds in `src/kit/cards.ts`, `shared.updated`
+  on `room:<game>`, shared cards in `GET /api/stream` and in `mine` for their bettors,
+  pins for bettors with no keys, folding 8 seconds after the result, never in a run. A
+  card from the stream's page puts its round in the store, so a round opened mid-round
+  shows its result too. Tyton then swapped the card's spinning wheel for a result that
+  pops up at the close, on a ball of the number's color. The server pieces are
+  `server/lib/shared-rounds.ts`. Commands learned `picks` (red, black,
+  odd, even beside the amounts) and `check`. The roulette room, its remove and clear
+  endpoints and its clock are gone; the spec's roulette section and the lane guide's
+  sections 8, 19 and 20 say how it works now (`docs/progress/roulette.md`). Tests:
+  unit (typed bets, the result order, shared-card rows and folding), 15 integration
+  tests, and `tests/roulette/e2e/card.spec.ts` at 1440 and 375, all passing locally.
+
+- **Results stay open** (2026-11-22, Tyton: "can you make the results of games stay open
+  in chat instead of going small like they do now?"). A finished card still folds a few
+  seconds after its result, but to its line with the replay open under it, and a run's
+  line starts open too. Tapping a line closes it to the line alone. The live card's
+  timing, pins and big wins are unchanged (`src/shell/stream/CardItem.tsx`).
+
 ## Not done yet
 
+- Watch the coin flip card's browser test: on one phone-size run against the roulette
+  preview (Nov 22), the flip made with "Flip again" never showed in the pin within 10
+  seconds and both flips had folded into a run. It passed on the rerun, and the same code
+  passed every other run. If it comes back, run it with `--trace on` to see why.
 - The test logins are players; to flip the two Stream switches on a preview, Tyton needs
   the sample admin's login, or this thread.
-- Next, in order: roulette as one shared card per spin (shared-round cards in the round
-  helper); heist on cards; economy cards (the chat drop with Grab, Daily in You); remove
-  the classic interface (Floor, rooms, rail, ticker, the kit's room-only parts).
+- Next, in order: heist on cards; economy cards (the chat drop with Grab, Daily in You);
+  remove the classic interface (Floor, rooms, rail, ticker, the kit's room-only parts).
+  The classic Floor still lists roulette, and its link now opens the stream.
 - Under Chat only, your own `.work` result does not show (the public line is a game
   item). Consider a private echo if Tyton finds it confusing.
 

@@ -12,11 +12,11 @@
  *
  * A table game that settles every bettor at once (roulette, crash, race)
  * holds them all from the close, before any result can arrive, until the
- * wheel lands:
+ * result shows:
  *
  *   const release = holdReveal({ players: bettors })
  *   ...
- *   release(0)                                         // it has landed
+ *   release(0)                                         // the result is on show
  */
 
 interface Hold {

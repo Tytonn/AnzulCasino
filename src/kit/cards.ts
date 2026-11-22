@@ -4,7 +4,9 @@
  *
  * - Every card's round, kept in one store. Rounds come from the stream page,
  *   the card's live news, the room's events and your own answers; the newest
- *   version wins (roundVersion), whatever order they arrive in.
+ *   version wins (roundVersion), whatever order they arrive in. A shared
+ *   round's card (a roulette spin) keeps its shared round in a store of its
+ *   own the same way (sharedRoundVersion).
  * - When a card has shown its round's result, so the shell can fold it a
  *   few seconds later.
  * - Which card has the keys: after a command opens a card, H, S, D, P and
@@ -19,7 +21,12 @@
 import { create } from 'zustand'
 
 import type { ChatMessage } from '../../shared/chat.ts'
-import { type RoundView, roundVersion } from '../../shared/rounds.ts'
+import {
+  type RoundView,
+  roundVersion,
+  type SharedRoundView,
+  sharedRoundVersion,
+} from '../../shared/rounds.ts'
 
 interface CardRounds {
   /** Every round a card shows, by round id. */
@@ -77,6 +84,72 @@ export function useShownAt(roundId: number): number | null {
   return useCardRounds((s) => s.shown[roundId] ?? null)
 }
 
+// ---------------------------------------------------------------- shared rounds
+
+interface SharedRounds {
+  /** Every shared round a card shows, by shared round id. */
+  rounds: Readonly<Record<number, SharedRoundView>>
+  /** When each shared card finished showing its result, in epoch milliseconds. */
+  shown: Readonly<Record<number, number>>
+  /** Shared rounds this tab saw open, so their cards play the result out before they fold. */
+  seenOpen: Readonly<Record<number, true>>
+}
+
+export const useSharedRounds = create<SharedRounds>(() => ({
+  rounds: {},
+  shown: {},
+  seenOpen: {},
+}))
+
+/** Shared rounds kept; one is a few seconds of play, so the stream holds far fewer. */
+const KEEP_SHARED = 200
+
+/** Puts a shared round in the store, if it is newer than the one there. */
+export function putSharedRound(view: SharedRoundView): void {
+  useSharedRounds.setState((state) => {
+    const known = state.rounds[view.id]
+    const opened = view.settledAt === null && !state.seenOpen[view.id]
+    const seenOpen = opened ? { ...state.seenOpen, [view.id]: true as const } : state.seenOpen
+    if (known && sharedRoundVersion(view) <= sharedRoundVersion(known)) {
+      return opened ? { seenOpen } : state
+    }
+    const rounds = { ...state.rounds, [view.id]: view }
+    const ids = Object.keys(rounds)
+    if (ids.length > KEEP_SHARED) {
+      for (const id of ids
+        .map(Number)
+        .sort((a, b) => a - b)
+        .slice(0, ids.length - KEEP_SHARED)) {
+        delete rounds[id]
+      }
+    }
+    return { rounds, seenOpen }
+  })
+}
+
+/** The newest of the store's shared round and `fallback` (the one the card came with). */
+export function useSharedRound<D = unknown, R = unknown>(
+  id: number,
+  fallback: SharedRoundView | null | undefined,
+): SharedRoundView<D, R> | null {
+  const stored = useSharedRounds((s) => s.rounds[id])
+  const newest =
+    stored && (!fallback || sharedRoundVersion(stored) >= sharedRoundVersion(fallback))
+      ? stored
+      : fallback
+  return (newest ?? null) as SharedRoundView<D, R> | null
+}
+
+/** A shared card has shown its result: the shell folds it a few seconds after. */
+export function markSharedShown(id: number): void {
+  if (useSharedRounds.getState().shown[id]) return
+  useSharedRounds.setState((state) => ({ shown: { ...state.shown, [id]: Date.now() } }))
+}
+
+export function useSharedShownAt(id: number): number | null {
+  return useSharedRounds((s) => s.shown[id] ?? null)
+}
+
 // ---------------------------------------------------------------- showing a card
 
 let shower: ((card: ChatMessage) => void) | null = null
@@ -92,7 +165,9 @@ export function onShowCard(show: (card: ChatMessage) => void): () => void {
 /**
  * Shows a card your request just opened (PlayResult.card), without waiting
  * for its live echo: it goes in the stream, pins above the box and takes the
- * keys. Put its round in first (putRound).
+ * keys. Put its round in first (putRound). A shared round's card (one you
+ * just bet on) goes in and pins the same way, and leaves the keys with the
+ * message box.
  */
 export function showCard(card: ChatMessage): void {
   shower?.(card)

@@ -2,9 +2,10 @@
  * Your cards above the message box (spec: The stream > Pinned). A card of
  * yours sits here, in thumb reach, while its round is open and for a few
  * seconds after its result shows, so Space can deal again; then it lets go
- * and lives on in the stream. A newer card takes the place of a finished
- * one at once. Two open at once both pin, the older one as its header only.
- * Clicking a pinned card gives it the keys.
+ * and lives on in the stream. A shared card you have a bet on (a roulette
+ * round) pins the same way, through its countdown and its result. A newer card
+ * takes the place of a finished one at once. Two open at once both pin, the
+ * older one as its header only. Clicking a pinned card gives it the keys.
  *
  * While one of them is open, the online list says what you are playing.
  */
@@ -17,11 +18,14 @@ import {
   useCardKeys,
   useCardRound,
   useCardRounds,
+  useSharedRound,
+  useSharedRounds,
+  useSharedShownAt,
   useShownAt,
 } from '../../kit/cards.ts'
 import { usePlaying, usePresenceRoom } from '../../live/index.ts'
 import { CardItem, cardGame } from './CardItem.tsx'
-import { cardRoundId } from './fold.ts'
+import { cardRoundId, cardSharedRoundId, isSharedCard } from './fold.ts'
 import { PIN_HOLD_MS, unpinCard, usePins } from './pins.ts'
 
 /** A finished card whose result never says it has shown lets go this long after it ends. */
@@ -32,14 +36,14 @@ function letGo(message: ChatMessage) {
   if (useCardKeys.getState().roundId === cardRoundId(message)) returnKeys()
 }
 
-function PinnedCard({ message, newest }: { message: ChatMessage; newest: boolean }) {
-  const roundId = cardRoundId(message)
-  const round = useCardRound(roundId, message.round)
-  const shownAt = useShownAt(roundId)
-  const open = round?.status === 'open'
-
+/** How long a finished card stays, from when its result shows or, never shown, from now. */
+function useLetGo(
+  message: ChatMessage,
+  state: { gone: boolean; open: boolean; newest: boolean; shownAt: number | null },
+) {
+  const { gone, open, newest, shownAt } = state
   useEffect(() => {
-    if (!round) {
+    if (gone) {
       letGo(message)
       return
     }
@@ -52,7 +56,37 @@ function PinnedCard({ message, newest }: { message: ChatMessage; newest: boolean
     const until = shownAt !== null ? shownAt + PIN_HOLD_MS : Date.now() + UNSHOWN_HOLD_MS
     const timer = setTimeout(() => letGo(message), Math.max(0, until - Date.now()))
     return () => clearTimeout(timer)
-  }, [round, open, newest, shownAt, message])
+  }, [gone, open, newest, shownAt, message])
+}
+
+function PinnedCard({ message, newest }: { message: ChatMessage; newest: boolean }) {
+  return isSharedCard(message) ? (
+    <PinnedShared message={message} newest={newest} />
+  ) : (
+    <PinnedRound message={message} newest={newest} />
+  )
+}
+
+/** A shared card you have a bet on (a roulette round): no keys, since the box takes more bets. */
+function PinnedShared({ message, newest }: { message: ChatMessage; newest: boolean }) {
+  const id = cardSharedRoundId(message)
+  const shared = useSharedRound(id, message.sharedRound)
+  const shownAt = useSharedShownAt(id)
+  useLetGo(message, { gone: !shared, open: shared?.settledAt === null, newest, shownAt })
+  if (!shared) return null
+  return (
+    <div data-pinned-shared={id}>
+      <CardItem message={message} state="live" pinned collapsed={!newest} />
+    </div>
+  )
+}
+
+function PinnedRound({ message, newest }: { message: ChatMessage; newest: boolean }) {
+  const roundId = cardRoundId(message)
+  const round = useCardRound(roundId, message.round)
+  const shownAt = useShownAt(roundId)
+  const open = round?.status === 'open'
+  useLetGo(message, { gone: !round, open, newest, shownAt })
 
   if (!round) return null
   return (
@@ -71,11 +105,14 @@ function PinnedCard({ message, newest }: { message: ChatMessage; newest: boolean
 /** The game of your newest open card, for the online list. */
 function usePlayingGame(cards: readonly ChatMessage[]): string | null {
   const rounds = useCardRounds((s) => s.rounds)
+  const shared = useSharedRounds((s) => s.rounds)
   for (let i = cards.length - 1; i >= 0; i--) {
     const card = cards[i]
     if (!card) continue
-    const round = rounds[cardRoundId(card)] ?? card.round
-    if (round?.status === 'open') return cardGame(card)?.id ?? null
+    const open = isSharedCard(card)
+      ? (shared[cardSharedRoundId(card)] ?? card.sharedRound)?.settledAt === null
+      : (rounds[cardRoundId(card)] ?? card.round)?.status === 'open'
+    if (open) return cardGame(card)?.id ?? null
   }
   return null
 }

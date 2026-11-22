@@ -169,7 +169,7 @@ describe('config defaults', () => {
     expect(waitsForReset('work_lines')).toBe(false)
     expect(waitsForReset('hustle_name')).toBe(false)
     expect(waitsForReset('min_bet')).toBe(false)
-    expect(waitsForReset('roulette_betting_seconds')).toBe(false)
+    expect(waitsForReset('roulette_close_after_seconds')).toBe(false)
   })
 })
 
