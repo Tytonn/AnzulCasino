@@ -23,11 +23,61 @@ Plan, approved by Tyton on 2026-11-22: https://claude.ai/artifact/Sj3mrj6zpw6mgh
   switches, the server refusing a word that another command has, and a `config.changed`
   event on `feed` that makes open browsers fetch `/api/config` again. Tests in
   `tests/shell/`.
+- **The server side of the stream** (commit 9253b96): `play.start()` writes each round's
+  `card` message in the bet's transaction and the play response carries it
+  (`PlayResult.card`); `GET /api/stream` pages each filter with every card's round and
+  the player's open cards; work, slut and crime post a public one-line result
+  (`SystemMeta.income`); `.bal` and `.lb` post a snapshot when `stream_bal_lb` is public
+  (`/api/stream/lookup`); big-result posts on a player's own round carry `onCard` and the
+  stream leaves them out. One migration, `20261122002643_shell_stream_cards`.
+- **The new shell** (`src/shell/stream/`): `/` is the stream, with the board (leaderboard
+  and who is online with what each is doing) and You (wallet, vault, rank, timers,
+  pages) beside it on a desktop, You alone between 768 and 1100px with the board as a
+  drawer, and on a phone a strip (wallet, `stream-status` slot, Board, You, filter) with
+  both as sheets and the account actions in You. Every page opens as a panel over the
+  stream (`PagePanel`), and Escape goes back. The classic Floor, rooms, rail and ticker
+  are under `/classic` (`Shell`), untouched.
+- **The message box** (`Composer.tsx`, `commands.ts`): commands with their words from the
+  settings, the command list as you type, quick picks for amounts and players, `@`
+  mentions, a hint for the player alone for an unknown command or a missing amount, Up
+  and Down through what you sent, and type-to-focus that leaves the card's letters alone.
+- **Cards** (`CardItem.tsx`, `fold.ts`, `pins.ts`, `Pinned.tsx`, `src/kit/cards.ts`): one
+  store of every card's round, newest version wins; a card's header keeps the result
+  until the card has shown it; your card pins above the box while open and 5 seconds
+  after, a newer one takes the pin from a finished one; cards fold 4 seconds after the
+  result, 20 seconds after settling if never shown; big wins and all-ins stay open with a
+  glow; runs fold into one line by `stream_round_runs`; folded lines open to the replay.
+- **Blackjack's card** (`src/games/blackjack/StreamCard.tsx`, `commands.ts`, `stream.ts`):
+  `.bj 50`, H, S, D, P, Space or Enter to turn a slow card or deal again, the slow reveal,
+  sounds and celebrations for the player alone, and the reveal hold handed from the
+  command to the card.
+- **Commands for the economy and the heist** through their existing endpoints, and the
+  shell's own: `.bal`, `.lb`, `.shop`, `.help`, `.admin`, and stand-ins for games still to
+  come.
+- **Docs**: the spec's layout, room model, social layer, live events, manifests, lanes and
+  quality bar now say stream, cards and commands (dated Nov 22, 2026); the lane guide has
+  section 20 on cards and commands, and notes in sections 3, 6, 9, 13 and 19; one line in
+  `CLAUDE.md`.
+- **Tests**: unit tests for the parser, the cache, the rows, folding and the retold
+  lines; integration tests for card rows, the stream's filters and pages, and the income
+  lines; a browser test of the stream at 1440 and 375 (`tests/shell/e2e/stream.spec.ts`:
+  two players, the command list, a hint, a hand played from the pinned card and watched
+  live, Deal again, folding and the replay, `.help`, `.work`, the filters, the panels and
+  a page over the stream). The older browser tests open the classic rooms at `/classic`.
+- Merged `main` with the Admin lane (PR #18). Its settings save bar now sits at
+  `bottom-3`: the stream shell has no tab bar under the page.
 
 ## Not done yet
 
-- The stream, the command box, cards, the Blackjack card, the side panels and phone
-  sheets, the spec and lane guide changes. Next pull request, on the same branch.
+- Tyton tries the preview with `test` and `test2`; nothing merges before he approves it.
+- Then, in order: the coin flip as a card (and the lane guide's worked example, section
+  6); merge the shell; roulette as one shared card per spin (shared-round cards in the
+  round helper); heist on cards; economy cards (the chat drop with Grab, Daily in You);
+  remove the classic interface (Floor, rooms, rail, ticker, the kit's room-only parts).
+- With the coin flip step, make `room` optional in `GameManifest`, so lanes that start
+  after the merge build no room.
+- Under Chat only, your own `.work` result does not show (the public line is a game
+  item). Consider a private echo if Tyton finds it confusing.
 
 ## Decisions
 
@@ -35,6 +85,12 @@ Plan, approved by Tyton on 2026-11-22: https://claude.ai/artifact/Sj3mrj6zpw6mgh
   descriptions and checks (`/mnt/project-files/shell/admin-handoff.md`).
 - `/audit` stays readable by every player; only `/admin` is admins only.
 - The new shell keeps the `overlay` and `chat-message` slots mounted.
+- The `top-bar` slot's widgets draw in You with `compact` false; the phone strip gets one
+  short status from the new `stream-status` slot (economy's "Work 2:41").
+- The command list hides games still to come for the prefix alone, and shows them once
+  their word is typed (`soon`).
+- Pages open in the stream shell, so `/shop`, `/admin` and the rest have no classic
+  version; only the Floor and the rooms are under `/classic`.
 
 ## Open questions
 

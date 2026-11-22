@@ -226,7 +226,7 @@ function PhoneStrip() {
           <TrophyIcon className="size-3.5" />
           <span className="max-[26rem]:sr-only">Board</span>
         </HeaderButton>
-        <HeaderButton onClick={() => openPanel('you')} label="You: your chips, timers and pages">
+        <HeaderButton onClick={() => openPanel('you')} label="You: your wallet, timers and pages">
           <PersonIcon className="size-3.5" />
           <span className="max-[26rem]:sr-only">You</span>
         </HeaderButton>

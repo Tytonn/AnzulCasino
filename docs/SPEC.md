@@ -31,7 +31,7 @@ It replaces UnbelievaBoat in a Discord channel. That setup got one thing right, 
 Priorities, in order:
 
 1. **Fair and trusted.** Real money rides on the leaderboard. Every outcome is decided on the server and every chip movement is logged. The owner also plays, so nothing the owner does to chips or settings can be hidden.
-2. **Together by default.** Nobody plays alone. Every room shows everyone in it, live.
+2. **Together by default.** Nobody plays alone. Everyone plays in one shared stream and watches everyone else's games, live. _(Changed by Tyton, Nov 22, 2026: one stream instead of rooms.)_
 3. **Fast.** A blackjack hand takes no longer than typing `.bj all` did.
 4. **Polished.** Sleek, dark, animated, with sound. Two great games beat six flat ones.
 5. **Fun for 10th place, fair for 1st.** Comebacks are possible, and leading is not a punishment.
@@ -64,12 +64,12 @@ Netlify hosts the site, the API and the database. Ably carries the live updates.
 
 &#91;embedded content: request path · 4 parts, 4 steps\]
 
-The browser only asks. The function decides and saves, then tells Ably, and Ably tells every browser in the room.
+The browser only asks. The function decides and saves, then tells Ably, and Ably tells every browser watching.
 
 | Layer | Choice | Notes |
 | --- | --- | --- |
 | Code | Your GitHub repo, TypeScript everywhere | A pull request gets a preview site. `main` is the live site |
-| Frontend | React, Vite, single-page app | React Router. TanStack Query for server data. Zustand for live room state. Tailwind driven by theme tokens. Motion for animation. SVG or canvas for the wheel and plinko |
+| Frontend | React, Vite, single-page app | React Router. TanStack Query for server data. Zustand for live card and stream state. Tailwind driven by theme tokens. Motion for animation. SVG or canvas for the wheel and plinko |
 | API | Netlify Functions under `/api/*` | A Zod schema on every input |
 | Database | Netlify Database, managed Postgres, with Drizzle | Migrations live in the repo and run on every deploy. Each preview gets its own database branch |
 | Live updates | Ably | Functions publish, browsers subscribe. Presence powers the online list |
@@ -82,8 +82,8 @@ If the repo already uses a different tool for one of these jobs, the foundation 
 
 1. The browser sends an intent, such as hit, to the API with its session cookie and an idempotency key.
 2. The function checks the session and the input, opens a transaction, locks the wallet, applies the rules with server randomness, writes the round and ledger rows, and commits.
-3. The function publishes the public part to the room's channel and returns the full result to the caller.
-4. Every browser in the room animates the event. The caller animates from the response and does not wait for the echo.
+3. The function publishes the public part to the game's channel and returns the full result to the caller.
+4. Every browser showing the round's card animates the event. The caller animates from the response and does not wait for the echo.
 
 ### Why Ably and not Netlify Server
 
@@ -136,26 +136,30 @@ These rules apply to every line of code in every lane. The foundation thread cop
 
 ## Site layout and feel
 
-The game sits in the middle and the group wraps around it. It should feel like a room full of friends, not a chat log and not a solo app.
+_(Changed by Tyton, Nov 22, 2026: the site is one shared chat stream, and every game is a card in it, started by a command. This replaces the Floor, the room pages, the left rail, the separate chat panel and the ticker. Until every game has its card, the Floor and the rooms stay reachable under `/classic`. How cards and commands work is in Games > Cards and commands.)_
 
-### Desktop shell (1100px and wider)
+The stream is the table. Chat, every game and the casino's news share one ordered stream, and each game plays out on a live card in it that everyone watches. It should feel like a room full of friends at one table, not a chat log and not a solo app.
 
-- **Left rail.** Logo, then the rooms (Blackjack, Roulette, Crash, Mines, Plinko, Slots), each with a count of who is inside. Below: Floor, Leaderboard, Shop, History, Profile. Admin for admins.
-- **Top bar across the center.** Your wallet with an animated count, vault amount, shield charges as pips, steal attempts left, season countdown, sound toggle.
-- **Center.** The current room, or the Floor.
-- **Right sidebar, about 320px.** Compact leaderboard at the top, always visible: rank, avatar, name, net worth, an arrow when someone moves. Then who is online and where. Chat fills the rest.
-- **Ticker.** A thin strip of results from every room. Click one to open that round.
+### Desktop (1100px and wider)
 
-### The Floor (home page)
+- **Header.** The logo, the stream's filters over the stream (Everything, Chat only, Games only), the season clock, the sound toggle and the account menu.
+- **Left: the board.** The leaderboard, always visible: rank, avatar, name, net worth, an arrow when someone moves. Under it, who is online and what each is doing: "Bob · Blackjack", "Alice · chatting", "Carol · away".
+- **Center: the stream.** Chat messages, game cards and announcements in one list, newest at the bottom, with the message box under it. Your own active card is pinned just above the box.
+- **Right: You.** Your wallet and vault with animated counts, your rank and place, the features' buttons with their timers (work, slut, crime and Collect, shield charges as pips, steal attempts left), which can be pressed as well as typed, and links to every other page.
 
-A grid of room cards instead of a menu. Each card shows the avatars of who is inside and the last big result there. Click a card to walk in.
+### Between 768 and 1100px
+
+The stream and You. The board opens as a drawer from a button in the header.
 
 ### Phone (under 768px)
 
-- The room fills the screen. A bottom tab bar holds Floor, Chat, Leaderboard, Shop, Profile.
-- Chat and leaderboard open as sheets over the room.
-- Bet controls and action buttons sit within thumb reach. Every game must be fully playable one-handed.
-- Between 768px and 1100px, the right sidebar collapses to a button.
+- The stream fills the screen under a slim strip: your wallet, your next timer ("Work 2:41"), and buttons for the board, You and the filter.
+- The board and You open as sheets. On a phone You also holds the sound, log out and, for admins, setup.
+- Your pinned card sits right above the message box, within thumb reach. Every game must be fully playable one-handed.
+
+### Pages
+
+The Shop, History, Profile, the Hall of Fame, Admin and Audit open as a panel over the stream: between the board and You on a desktop, under the strip on a phone. Escape or Back to the stream closes it, and the stream keeps running underneath.
 
 ### Themes
 
@@ -169,18 +173,18 @@ A grid of room cards instead of a menu. Each card shows the avatars of who is in
 - Every state change animates. Cards deal and flip, chips slide, balances count up and down, leaderboard rows slide when ranks swap.
 - Interface motion runs 150 to 250ms. Reveals run up to 600ms. Chips and cards use spring easing.
 - Animation never blocks input. A fast player can act the moment the server answers, and running animations finish early.
-- Celebrations scale with the win. A small win gets a quick tick. A win of 10x the bet or more, or any won all-in, gets the full treatment: particles, sound, a post in chat.
+- Celebrations scale with the win. A small win gets a quick tick. A win of 10x the bet or more, or any won all-in, gets the full treatment: particles, sound, and its card stays open in the stream with a gold edge. _(Changed by Tyton, Nov 22, 2026: the card replaces the chat post in the stream; the classic chat keeps the post until it goes.)_
 - Honor `prefers-reduced-motion`.
 
 ### Sound and keys
 
 - Short sounds for deal, chip, win, loss, steal and shield block. One volume control and a mute, remembered per player.
-- Every game has keyboard shortcuts, shown as small hints on the buttons.
+- Every game has keyboard shortcuts, shown as small hints on its card's buttons. They work while your card has the keys (Games > Cards and commands).
 
 ### States
 
 - Loading shows skeletons shaped like the content, not spinners.
-- Empty states are designed: an empty room invites you to sit down.
+- Empty states are designed: an empty stream invites you to say hi or type a command.
 - Errors are toasts in plain words that say what to do next.
 - If the live connection drops, a small pill says reconnecting. The page recovers by itself.
 
@@ -235,7 +239,7 @@ _(Rebalanced by Tyton, Nov 18, 2026.)_ The season starts with 100 chips, so ever
 | `work_*` / `hustle_*` / `crime_*` | See Work and crime | _(Nov 18, 2026: the rebuy is removed. Work replaces it, see Work and crime.)_ |
 | `min_bet` | 1 (10) | Smallest bet in any game |
 | `max_bet_pct` | 100 | Largest bet as a share of the wallet. 100 means all-in is allowed |
-| `big_bet_pct` | 50 | A bet at or above this share of net worth is flagged as a big bet in the room |
+| `big_bet_pct` | 50 | A bet at or above this share of net worth is flagged as a big bet in the stream |
 
 ### Wallet
 
@@ -255,7 +259,7 @@ _(Rebalanced by Tyton, Nov 18, 2026.)_ The season starts with 100 chips, so ever
 _(Added by Tyton, Nov 18, 2026. Owner: economy lane.)_
 
 - Ranks replace the flat daily bonus. Every player has a rank that pays income. The streak bonus stays.
-- Income accrues continuously at the rank's daily rate and is claimed with a Collect button in the top bar. Uncollected income caps at 24 hours' worth. Compute it from saved timestamps against database time.
+- Income accrues continuously at the rank's daily rate and is claimed with Collect (`.collect`, or its button in You). Uncollected income caps at 24 hours' worth. Compute it from saved timestamps against database time.
 - Tiers (all config, for a starting balance of 100):
   - Base: free, income 5 per day
   - Bronze: unlocks day 1, costs 150, income 15 per day
@@ -266,7 +270,7 @@ _(Added by Tyton, Nov 18, 2026. Owner: economy lane.)_
   - Crown: unlocks day 18, costs 10,000,000, income 1,000,000 per day
 - A rank cannot be bought before its unlock day. A player can buy only the next rank up, and at most one per game day. The price is removed from the game and does not count toward net worth.
 - Ranks cannot be bought in the final 24 hours and cannot be stolen or sold.
-- Each rank gives a badge and name color shown in chat, the leaderboard, the online list and the player's seat.
+- Each rank gives a badge and name color shown in chat, the leaderboard, the online list and the player's cards.
 - Show a countdown to the next unlock in the shop and announce each unlock in chat.
 
 Naming note: in code these ranks are called **tiers** (`tier`), because "rank" already means a player's place on the leaderboard.
@@ -296,9 +300,9 @@ Still in force from the earlier versions:
 
 - Work works at a zero balance.
 - Do not scale these with rank. They are a lifeline for broke players, not a main income.
-- Put the buttons where they are reachable from every room without leaving the game, with the cooldown shown on the button.
+- Put the buttons where they are reachable from every room without leaving the game, with the cooldown shown on the button. _(Nov 22, 2026: they are the commands `.work`, `.slut` and `.crime`, and buttons in You with their timers.)_
 - Each shows a short random flavor line with the result. The lines are editable in the admin panel.
-- Work and crime never post in chat. They only show a result to the player who pressed the button. The one exception: a crime payout at the top of its range (23 chips or more at current settings) posts a short line. _(Answered by Tyton, Nov 18, 2026. With the final values the top of the range is 140 chips or more: the config value `crime_chat_min`.)_
+- _(Changed by Tyton, Nov 22, 2026: work, slut and crime results are public. Each posts as a compact one-line item in the stream with the player's name, the flavor line and the amount, such as "tyton worked as a mildly successful content creator and earned 59". They show under Everything and Games only, not under Chat only, and players can react to them. The rest of this bullet is replaced.)_ Work and crime never post in chat. They only show a result to the player who pressed the button. The one exception: a crime payout at the top of its range (23 chips or more at current settings) posts a short line. _(Answered by Tyton, Nov 18, 2026. With the final values the top of the range is 140 chips or more: the config value `crime_chat_min`.)_
 - Cooldowns are saved times checked against database time, shown as exact countdowns.
 - All amounts are config.
 
@@ -318,21 +322,66 @@ The season simulation in the steal section also reports the total chip supply da
 
 ## Games
 
-Every game is a shared room where each player plays their own rounds at their own speed and everyone sees everyone else's play live. Roulette and crash go one step further: one shared round for the whole table.
+Every game plays in the one shared stream: each player plays their own rounds at their own speed, each on its own card, and everyone sees everyone else's play live. Roulette and crash go one step further: one shared round, on one shared card, for everyone. _(Changed by Tyton, Nov 22, 2026: cards in the stream instead of rooms.)_
 
-_(Updated Nov 18, 2026.)_ Race also runs one shared round for the whole room. Russian roulette seats two to six players against each other at one table.
+_(Updated Nov 18, 2026.)_ Race also runs one shared round for everyone. Russian roulette seats two to six players against each other at one table.
 
-### The room model
+### Cards and commands
 
-- A room is a page, such as `/room/blackjack`. Entering it joins that room's live channel.
-- **Seats.** Each player in the room has a seat: avatar, name, current bet, live game state. Your own seat is large and central. The others are smaller around it. The layout handles 1 to 10 seats.
-- **No turns.** Nobody ever waits on another player. There is no separate solo mode either: alone, you sit at the same table with empty seats, and a friend who logs in appears next to you.
+_(Changed by Tyton, Nov 22, 2026: this replaces the room model. Room pages, seats and the ticker go. Each game's classic room stays under `/classic` until its card ships, and the last step of the change removes them.)_
+
+**Commands.** Anything typed after the prefix in the message box is a command; everything else is chat.
+
+- Typing the prefix at the start of the box opens the command list: each command with its aliases, what to type after it, and one line on what it does. It narrows as you type, and arrows and Tab complete. After the command it prompts the next part: an amount with quick picks (the example, half, all), or a player.
+- Amounts use the shared bet parser, resolved on the server against the locked wallet: `50`, `2.5k`, `5k`, `half`, `all`, `max`.
+- Only the prefix followed by a letter counts as a command, so `...` and `.5` stay chat.
+- A command that cannot run is never posted. Its text stays in the box, and a hint for that player alone shows just above it: "There is no .bjj. Did you mean .bj?" or ".bj needs a bet, like .bj 50 or .bj all." The server's refusals, such as too few chips or a cooldown, show the same way.
+- The command's text is never posted as a message; the card it makes is the post. Up arrow in an empty box brings back what you sent.
+- The prefix and every command's words are settings in the `commands` group, edited in the admin panel and taking effect at once. Each command is one list of words; the first is its name. The prefix is 1 to 3 symbols, never a letter, digit or space. The server refuses a change that gives two commands one word, or a word with spaces or symbols, in a plain sentence the editor shows.
+- Descriptions and what a command takes live in its game's or feature's manifest, not in settings. Games still to come already have their settings, so their lanes need no shared change; until then `.help` lists them as coming soon.
+
+| Command | Default words |
+| --- | --- |
+| Prefix | `.` |
+| Blackjack | bj, blackjack |
+| Roulette | roulette, rl |
+| Coin flip | flip, coinflip, cf |
+| Work | work, w |
+| Slut | slut |
+| Crime | crime |
+| Collect | collect |
+| Rob | rob, steal |
+| Deposit, Withdraw | dep, deposit; with, withdraw |
+| Balance | bal, balance |
+| Leaderboard | lb, leaderboard, top |
+| Shop | shop, store |
+| Help | help, commands |
+| Admin | admin |
+| Games to come | mines, plinko, crash, slots, rr, race |
+
+`shared/config.ts` holds the defaults; the admin panel shows what is set now.
+
+**Cards.**
+
+- **Every round gets a card.** The round helper writes a `card` chat message in the same transaction as the bet, so every game, present and future, lands in the stream with no chat code of its own. A shared round (roulette, crash, race, a lobby) posts one card when it is created.
+- **Everyone watches.** A card shows the player, the game, the bet and the game itself as it plays, with the same animations as the game's table. Only its player gets the buttons; everyone else sees "Their move…". An ALL IN or BIG BET tag glows on it until the outcome shows.
+- **Live.** Opening the site loads the last 100 items of the stream with each card's round in one request. Cards then move on the round events the server already publishes. Nothing polls, and no card payload or event carries a round's secret.
+- **The result waits for the card.** A card's header and glow show the result only once the card has played it out. Its player's wallet, the leaderboard and any big-result post wait for it too.
+- **Pinned.** Your active card sits just above the message box while it is open and for a few seconds after its result, and its place in the stream shows a slim "pinned below" line. A newer card of yours takes the pin from a finished one at once; an older one still open stays pinned, folded to its header, under the newer.
+- **Keys.** The card a command opens takes the keys: for blackjack H, S, D and P, and Space or Enter to turn a slow card, finish an animation, or deal again at the same bet once the hand is over. A click in the box, Escape, or any key the card does not use goes back to typing.
+- **Folding.** A finished card shows its result for a few seconds, then folds to one line ("Bob · Blackjack 50 · 18 beats 14 −50") that opens to the replay. A run of one player's finished rounds folds into one line ("Bob · 6 Blackjack hands · +45"), or each keeps its own line: the setting `stream_round_runs`.
+- **Big moments.** A big win (`big_win_times` the stake or more) and any all-in stay open, with a gold or red edge and, for their player, the full celebration. The card replaces the big-result chat post in the stream.
+- **Filters.** Everything, Chat only and Games only each ask the server for their own list, so Chat only still loads 100 messages on a busy night. Announcements such as drops, season news and rank unlocks show under all three; work, slut and crime results under Everything and Games only.
+- **Private replies.** `.help`, hints, and `.bal` and `.lb` while the setting `stream_bal_lb` says so, appear at the bottom of the player's own stream, marked "Only you", and are never stored. With `stream_bal_lb` set to public, `.bal` and `.lb` post for everyone, with who asked and what they showed then.
+- **Lobbies.** Russian roulette and Race follow the same model: a lobby card others join by its button or the command, then the game plays out on that card.
+
+**Rounds.** These hold for every game, as they did for rooms.
+
+- **No turns.** Nobody ever waits on another player. There is no separate solo mode either.
   _(Nov 18, 2026: russian roulette is the one deliberate exception. It is turn-based, player against player, and has a solo mode against the house when nobody joins.)_
-- **Public events drive the other seats:** bet placed, card dealt, tile opened, result. Hidden information is never in a public event.
-- **Big bets get noticed.** An all-in, or a bet at or above `big_bet_pct` of net worth, makes that seat glow with a tag before the outcome shows.
-- **Results travel.** Every settled round goes to the ticker. Big wins and big losses also post in chat.
-- **Same bet controls everywhere:** amount box, half, double, max, repeat last bet. Enter or Space confirms.
-- **Bets are typed, not clicked.** _(Added by Tyton, Nov 18, 2026.)_ The shared bet box accepts a number or shorthand: "all", "half", "5k", "2.5k". After a round ends the cursor is already in the box, so a player can type an amount and press Enter without touching the mouse. Chips are only an animation after the bet is placed.
+- **Public events drive everyone else's view of a card:** bet placed, card dealt, tile opened, result. Hidden information is never in a public event.
+- **Big bets get noticed.** An all-in, or a bet at or above `big_bet_pct` of net worth, gets the tag above before the outcome shows.
+- **Bets are typed, not clicked.** _(Added by Tyton, Nov 18, 2026; Nov 22, 2026: in the message box.)_ The bet after a command accepts a number or shorthand: "all", "half", "5k", "2.5k". After a round ends the box takes typing again, so a player can type the next command and press Enter without touching the mouse. Chips are only an animation after the bet is placed.
 - **Same round lifecycle everywhere:** `start` takes the stake, zero or more `action` calls follow, `settle` pays out. One open round per player per game.
 - **Abandoned rounds settle safely.** If a player leaves mid-round, the server finishes it by the safest rule after a timeout: blackjack stands, mines cashes out. A refresh mid-round resumes the round where it was.
 
@@ -353,9 +402,10 @@ The edges for mines, plinko, crash and slots are config values. So are the russi
 
 - **Rules.** Six decks, shuffled fresh for every hand. Dealer stands on all 17s. Blackjack pays 3 to 2. Double on any first two cards. Split once, double after split allowed, split aces get one card each. No surrender, no insurance. The dealer checks for blackjack when showing an ace or a ten-value card. A push returns the stake.
 - **Dealing.** Cards are drawn one at a time from what is left of the six decks. The hole card is drawn at the reveal, except when the peek needs it at the deal.
+- **Command.** `.bj 50` (or `.blackjack`, with `half`, `all`, `5k`) deals a hand on a card in the stream. _(Nov 22, 2026.)_
 - **Speed.** Chips move the instant you confirm. Cards animate when the server answers. From a result, one key deals the next hand at the same bet.
-- **Keys.** H hit, S stand, D double, P split, M set bet to max, Space deal or rebet.
-- **Other seats** show each card as it lands, the hand total and the result.
+- **Keys.** H hit, S stand, D double, P split, and Space or Enter to deal again at the same bet. _(Nov 22, 2026: M for the largest bet stays in the classic room; in the stream, type `.bj all`.)_
+- **Everyone else** sees each card land on the hand's card, the hand total and the result.
 - **Tests.** Every rule above, payouts for every outcome, and a simulation of basic strategy over a few million hands that lands near the expected edge.
 
 ### Roulette
@@ -364,7 +414,7 @@ The edges for mines, plinko, crash and slots are config values. So are the russi
 - **Clock.** Rounds run on a fixed cycle: 20 seconds of betting, 7 of spin, 3 of result. Round number is `floor((server time - season start) / cycle)`, so every browser is in the same round by definition. The times are config.
 - **Bets and payouts.** Single number 35 to 1, split 17, street 11, corner 8, six line 5, dozen and column 2, red or black, odd or even, high or low 1 to 1. Several bets per round. Chips leave the wallet when placed. Bets can be cleared until betting closes.
 - **The number.** It is drawn with `crypto.randomInt(37)` by the first request that arrives after betting closes, and saved in that round's row. A unique constraint on the round number means only one draw can win. Nobody, including the owner, can know it earlier, because it does not exist earlier.
-- **Settlement.** The same transaction that saves the number pays every bet in the round. Browsers in the room all call settle at the close time; the first one does the work and the rest read the saved result. A scheduled function sweeps any round left unsettled.
+- **Settlement.** The same transaction that saves the number pays every bet in the round. Browsers showing the round all call settle at the close time; the first one does the work and the rest read the saved result. A scheduled function sweeps any round left unsettled.
 - **Empty rounds.** If nobody has a bet down at the close, the wheel does not spin and nothing is saved.
 - **The table** shows every player's chips on the felt in their color. The wheel starts spinning at the close time on every screen and slows onto the number when it arrives.
 - **Keys.** Click to place, right-click to remove, R repeat last round's bets, C clear. A strip shows the last 12 numbers.
@@ -375,7 +425,7 @@ The edges for mines, plinko, crash and slots are config values. So are the russi
 - A 5 by 5 grid. The player picks 1 to 24 mines and a stake, then opens tiles. Each safe tile raises the multiplier. Cash out any time. A mine loses the stake.
 - **Multiplier** after `k` safe tiles with `m` mines: `(1 - edge)` times the product, for `i` from 0 to `k - 1`, of `(25 - i) / (25 - m - i)`.
 - **Draw late.** No mine layout is stored. Each opened tile is a mine with probability `m / (25 - k)`. When the round ends, the remaining mines are placed at random on unopened tiles for the reveal.
-- Other seats show the grid filling in. The full layout shows to everyone only after the round ends.
+- Everyone watching the card sees the grid fill in. The full layout shows to everyone only after the round ends.
 
 ### Plinko
 
@@ -397,24 +447,24 @@ The edges for mines, plinko, crash and slots are config values. So are the russi
 - Five reels, three rows, ten fixed paylines, weighted reel strips, a wild and a scatter. Keep the first version simple: no bonus rounds.
 - Target return is 96%. A test proves it by enumerating the reel strips or by a ten-million-spin simulation, within half a percent.
 - Symbols and art come from the theme, so the Vegas skin can swap them.
-- The room is a row of machines. You see your neighbors' reels spin and stop live.
+- Each spin is a card. Everyone sees the reels spin and stop live. _(Nov 22, 2026: cards instead of a row of machines in a room.)_
 
 ### Russian roulette
 
-_(Added by Tyton, Nov 18, 2026. Owner: russian-roulette lane. Turn-based player against player: the one deliberate exception to "No turns" in the room model.)_
+_(Added by Tyton, Nov 18, 2026. Owner: russian-roulette lane. Turn-based player against player: the one deliberate exception to "No turns" in Cards and commands.)_
 
 - A player opens a lobby by typing an ante. Others have 20 seconds to join at the same ante. Two to six players.
 - Players take turns pulling the trigger on a six-chamber revolver, in seat order. A player who gets the bullet is out and loses the ante. Reload and continue until one player is left, who takes the whole pot. No house cut.
 - Each pull is decided on the server at the moment of the pull. A turn timer pulls automatically after 10 seconds.
 - If nobody joins, it becomes a solo game against the house: each survived pull raises a multiplier, and the player can cash out or keep going. House edge is config, starting at 2%.
-- Everyone in the room watches every pull. Make the tension the point: slow the animation before each result.
+- Everyone in the stream watches every pull on the lobby card. Make the tension the point: slow the animation before each result.
 - Ante cap is config, starting at 20% of the player's net worth, so two players cannot use it to pass chips to each other. Report in the simulation notes if you see a better guard.
 
 ### Race
 
 _(Added by Tyton, Nov 18, 2026. Owner: race lane.)_
 
-- One race for the whole room on a fixed clock, about every 75 seconds: a betting window, then the race, then the result.
+- One race for everyone, on one shared card, on a fixed clock, about every 75 seconds: a betting window, then the race, then the result.
 - Six runners with names and colors. Each has posted odds, and the payouts carry a 5% house edge. Favorites win more often and pay less.
 - Race odds change every race. Each race draws a new field of six runners from a larger pool of named runners, each with their own strength, so there is a different favorite and a different long shot every time. Keep the house edge at 5% whatever the field. _(Answered by Tyton, Nov 18, 2026.)_
 - Bets are typed like roulette: `<amount> <runner number>`, for example "200 3" or "all 5".
@@ -424,7 +474,7 @@ _(Added by Tyton, Nov 18, 2026. Owner: race lane.)_
 
 ### Coin flip
 
-_(Decided by Tyton, Nov 19, 2026: the reference game stays on the Floor. Owner: foundation.)_
+_(Decided by Tyton, Nov 19, 2026: the reference game stays on the Floor. Owner: foundation. Nov 22, 2026: it becomes the first card after blackjack, `.flip 50 heads`, and the worked example in `docs/LANE_GUIDE.md`.)_
 
 - Call heads or tails and type a bet. One request takes the bet and flips the coin, which the server draws after the stake is taken.
 - A right call pays twice the bet less a 2% house edge (1.96x). The edge is config (`coinflip_edge_pct`).
@@ -449,7 +499,7 @@ Stealing is the comeback tool: it pays most when a low-ranked player robs a high
 4. **Roll.** Otherwise the steal succeeds with probability `steal_success_pct`.
 5. **Success.** Chips move from the target's wallet to the thief's wallet. The vault is never touched. The target gets immunity.
 6. **Failure.** The thief pays `steal_fine_pct` of the thief's own wallet to the target.
-7. Every attempt is saved, posted in chat and shown in the ticker.
+7. Every attempt is saved and posted in the stream.
 
 **The amount.** `gap` is the thief's rank minus the target's rank, read at the moment of the attempt. A positive gap means the target is ahead.
 
@@ -481,7 +531,7 @@ The whole steal runs in one transaction that locks both wallets, lower player id
 - A shield is a **charge**, not a timer. One charge blocks one steal and then starts the immunity window.
 - Hold at most `shield_max_charges` (2). Buy at most `shield_weekly_limit` (3) per season week.
 - Price is 2% of the buyer's wallet, with a minimum of 300 chips. The chips are removed from the game. _(Rebalanced Nov 18, 2026: the minimum is 3 chips.)_
-- The top bar shows charges as pips and immunity as an exact countdown.
+- You shows charges as pips and immunity as an exact countdown.
 - Shields cannot be bought in the final 24 hours.
 
 ### Vault
@@ -521,13 +571,13 @@ _(Added Nov 18, 2026, from Tyton's work and crime and russian roulette additions
 
 ## Social layer
 
-The social layer is what makes ten separate players feel like one room: who is here, what just happened, and a record of all of it.
+The social layer is what makes ten separate players feel like one table: who is here, what just happened, and a record of all of it.
 
-- **Online list.** Who is online, which room they are in, their rank, and a status such as in a hand or idle. Away after 5 minutes without input. Click a name for a profile card with stats and a Steal button.
-- **Chat.** One channel for everyone. Messages are plain text, up to 300 characters, limited to 5 per 10 seconds. The last 100 load on open and scrolling up loads more. Emoji reactions from a small set. A mention highlights for the person named. Admins can delete.
-- **System posts in chat,** styled apart from player messages: big wins and losses, steals and shield blocks, a new player in first place, a bonus streak milestone.
-- **Seat reactions.** Click a seat to float a quick emote over it. Rate-limited and not saved.
-- **Ticker.** Every settled round from every room: player, game, stake, result.
+- **Online list.** Who is online, what they are playing, their rank, and a status such as in a hand, chatting or away. Away after 5 minutes without input. Click a name for a profile card with stats and a Steal button.
+- **Chat.** One channel for everyone: the stream. Messages are plain text, up to 300 characters, limited to 5 per 10 seconds. The last 100 load on open and scrolling up loads more. Emoji reactions from a small set. A mention highlights for the person named. Admins can delete.
+- **System posts in the stream,** styled apart from player messages: big wins and losses, steals and shield blocks, a new player in first place, a bonus streak milestone.
+- **Reactions** on messages, cards and results, from the same small set as chat. _(Nov 22, 2026: replaces seat reactions.)_
+- **Ticker.** _(Removed by Tyton, Nov 22, 2026: the stream does its job.)_
 - **History.** A global page of rounds with filters for player, game, win or loss, and size. Each round opens a replay built from its saved detail: the cards in order, the roulette number and bets, the mines grid, the crash curve. Each game supplies its own replay view.
 - **Profiles.** Net worth over the season as a line, biggest win and loss, win rate per game, total wagered, steals made and suffered, bonus streak, trophies from past seasons.
 - **Leaderboard page.** The full table, everyone's net worth over time on one chart, and rank changes in the last 24 hours.
@@ -617,8 +667,8 @@ The database is the truth and live events are only the news of it. A browser tha
 
 | Channel | Who can listen | Carries |
 | --- | --- | --- |
-| `presence` | Everyone | Who is online, their room and status |
-| `chat` | Everyone | `chat.message`, `chat.deleted`, `chat.reaction` |
+| `presence` | Everyone | Who is online, what they are playing and their status |
+| `chat` | Everyone | `chat.message` (chat, news and cards), `chat.deleted`, `chat.reaction` |
 | `feed` | Everyone | `round.settled` summaries, `steal.result`, `rank.changed`, `season.state` |
 | `room:<game>` | Everyone | `round.started`, `round.action` (public part only), `round.settled`, `seat.emote` |
 | `room:roulette` | Everyone | Also `bet.placed`, `bet.cleared`, `round.closed`, `round.result` |
@@ -631,9 +681,10 @@ Rules:
 - **Tokens.** The browser gets a short-lived token from `/api/live/token`. It limits the private channel to that player.
 - **Publish after the commit,** never before. If publishing fails, the request still succeeds.
 - **Self-contained events.** Each carries an id, the server time, a version number and enough data to draw it without a fetch. The types live in `shared/events.ts` and both sides use them.
-- **Recovery.** On connect, reconnect and tab focus, the browser refetches room state, wallet and leaderboard. Events older than the fetched state are dropped.
+- **Recovery.** On connect, reconnect and tab focus, the browser refetches the stream, the open cards' rounds, wallet and leaderboard. Events older than the fetched state are dropped.
 - **No per-frame data.** The crash multiplier and the roulette spin are computed in the browser from a start time.
 - **No waiting on your own echo.** The player who acted animates from the API response.
+- **Cards listen to their games.** _(Nov 22, 2026.)_ The `room:<game>` channels keep their names. A browser listens to the channel of every game whose open card it shows, and a card's round updates from its events whatever order they arrive in.
 
 ## Build plan
 
@@ -650,11 +701,11 @@ server/lib/                wallet, ledger, auth, config, rng, live publish, roun
 server/games/<game>/       pure rules engines
 server/features/<name>/    feature logic
 netlify/functions/         API endpoints, files named <lane>-*.ts
-src/shell/                 layout, routing, top bar, sidebar
+src/shell/                 layout, routing, the stream, the message box, the panels
 src/kit/                   shared game components and hooks
 src/live/                  live client wrapper
 src/theme/                 tokens and themes
-src/games/<game>/          room UI and manifest.ts
+src/games/<game>/          the card, commands, replay and manifest.ts
 src/features/<name>/       pages and manifest.ts
 scripts/                   season simulation and tools
 tests/<lane>/              unit, integration and browser tests
@@ -664,8 +715,8 @@ The foundation thread may adjust this to fit what is already in the repo. It rec
 
 ### Manifests: how lanes plug in without touching shared code
 
-- Each game exports `src/games/<game>/manifest.ts` with its id, name, icon, room component, Floor card, replay view and how-to-play text.
-- Each feature exports `src/features/<name>/manifest.ts` with its routes, nav items, top-bar widgets and profile-card actions.
+- Each game exports `src/games/<game>/manifest.ts` with its id, name, icon, card component, commands, replay view and how-to-play text. _(Nov 22, 2026: the card and commands replace the room component and Floor card, which stay for the classic rooms until they go.)_
+- Each feature exports `src/features/<name>/manifest.ts` with its routes, nav items, commands, widgets for You (the `top-bar` slot) and the phone's strip (`stream-status`), and profile-card actions.
 - The shell discovers manifests with `import.meta.glob`. Adding a game or a feature means adding a folder. No shared file changes.
 
 ### Stage 1: Foundation (one thread, branch `foundation`)
@@ -690,22 +741,22 @@ A lane owns everything named after it: `src/games/<name>/` or `src/features/<nam
 
 | Lane | Branch | Builds | Owns the names |
 | --- | --- | --- | --- |
-| Blackjack | `lane/blackjack` | The blackjack room | `blackjack` |
-| Roulette | `lane/roulette` | The shared-wheel roulette room | `roulette` |
+| Blackjack | `lane/blackjack` | The blackjack card | `blackjack` |
+| Roulette | `lane/roulette` | The shared-wheel roulette card | `roulette` |
 | Heist | `lane/heist` | Steal, shields, vault, shop, season simulation | `heist`, plus `scripts/simulate-season.ts` |
 | Economy | `lane/economy` | Daily bonus, streaks, challenges, work, slut and crime _(replaced the rebuy, Nov 18, 2026)_, final day, podium, Hall of Fame | `economy`, `season` |
 | Arcade | `lane/arcade` | Mines, then Plinko _(Crash moved to its own lane, Nov 18, 2026)_ | `mines`, `plinko` |
-| Slots | `lane/slots` | The slots room | `slots` |
+| Slots | `lane/slots` | The slots card | `slots` |
 | Social | `lane/social` | Chat upgrades, reactions, notifications, history and replays, profiles, leaderboard page | `social`, `history`, `profile` |
 | Admin | `lane/admin` | Admin panel, config editor, Audit page | `admin` |
-| Crash _(added Nov 18, 2026)_ | `lane/crash` | The shared-multiplier crash room | `crash` |
-| Russian roulette _(added Nov 18, 2026)_ | `lane/russian-roulette` | The player-against-player russian roulette room, with its solo mode | `russian-roulette` |
-| Race _(added Nov 18, 2026)_ | `lane/race` | The shared race room | `race` |
+| Crash _(added Nov 18, 2026)_ | `lane/crash` | The shared-multiplier crash card | `crash` |
+| Russian roulette _(added Nov 18, 2026)_ | `lane/russian-roulette` | The player-against-player russian roulette lobby card, with its solo mode | `russian-roulette` |
+| Race _(added Nov 18, 2026)_ | `lane/race` | The shared race card | `race` |
 
 _(Updated Nov 18, 2026.)_ Changes to the lanes above:
 
-- **Crash gets its own lane** in the second wave: branch `lane/crash`, builds the crash room, owns the name `crash`. Arcade keeps Mines and Plinko and owns `mines` and `plinko`.
-- **Economy** also builds Ranks and chat drops (see Economy > Ranks and Giveaways), and work, slut and crime in place of the rebuy (see Economy > Work and crime). The buttons plug into the top bar through the economy manifest, so they are reachable from every room.
+- **Crash gets its own lane** in the second wave: branch `lane/crash`, builds the crash card, owns the name `crash`. Arcade keeps Mines and Plinko and owns `mines` and `plinko`.
+- **Economy** also builds Ranks and chat drops (see Economy > Ranks and Giveaways), and work, slut and crime in place of the rebuy (see Economy > Work and crime). The buttons plug into You through the economy manifest, and their commands into the message box.
 - **Russian roulette** and **Race** are new lanes in the second wave (see Games > Russian roulette and Race).
 - **Heist** also owns the Shop page and the new simulation report (see Steal, shields and vault > Shop and Tune it before the first season).
 - **Admin** also builds admin giveaways (see Economy > Giveaways), and editing the work and crime names and lines (see Admin panel).
@@ -721,9 +772,9 @@ _(Updated Nov 18, 2026.)_ Changes to the lanes above:
 
 ### Stage 3: Integration (one thread, branch `integration`)
 
-1. **Consistency pass.** Open every room side by side. Make spacing, motion, sound levels and wording match.
+1. **Consistency pass.** Play every card side by side in the stream. Make spacing, motion, sound levels and wording match.
 2. **Phone pass.** Play every game one-handed at 375px wide.
-3. **Speed pass.** Load each room lazily, check bundle size, check that server round trips stay quick.
+3. **Speed pass.** Load each card lazily, check bundle size, check that server round trips stay quick.
 4. **Security pass.** For every endpoint: session, validation, rate limit, no hidden data in responses or events. Try to cheat from the browser console and with replayed and parallel requests.
 5. **Tuning.** Run the season simulation with the owner and set the final config.
 6. **Full run-through.** A browser test that plays a three-player mini-season from signup to podium.
@@ -781,17 +832,17 @@ Keep docs/progress/[LANE].md current. When you are done, give me a summary, the 
 
 | Lane | Branch | Spec sections | Owns |
 | --- | --- | --- | --- |
-| blackjack | `lane/blackjack` | Games: the room model, Blackjack | `blackjack` |
-| roulette | `lane/roulette` | Games: the room model, Roulette | `roulette` |
+| blackjack | `lane/blackjack` | Games: cards and commands, Blackjack | `blackjack` |
+| roulette | `lane/roulette` | Games: cards and commands, Roulette | `roulette` |
 | heist | `lane/heist` | Steal, shields and vault | `heist`, `scripts/simulate-season.ts` |
 | economy | `lane/economy` | Economy; Accounts and seasons | `economy`, `season` |
-| arcade | `lane/arcade` | Games: the room model, Mines, Plinko _(Crash moved to its own lane, Nov 18, 2026)_ | `mines`, `plinko` |
-| slots | `lane/slots` | Games: the room model, Slots | `slots` |
+| arcade | `lane/arcade` | Games: cards and commands, Mines, Plinko _(Crash moved to its own lane, Nov 18, 2026)_ | `mines`, `plinko` |
+| slots | `lane/slots` | Games: cards and commands, Slots | `slots` |
 | social | `lane/social` | Social layer | `social`, `history`, `profile` |
 | admin | `lane/admin` | Admin and trust | `admin` |
-| crash | `lane/crash` | Games: the room model, Crash _(added Nov 18, 2026)_ | `crash` |
-| russian-roulette | `lane/russian-roulette` | Games: the room model, Russian roulette _(added Nov 18, 2026)_ | `russian-roulette` |
-| race | `lane/race` | Games: the room model, Race _(added Nov 18, 2026)_ | `race` |
+| crash | `lane/crash` | Games: cards and commands, Crash _(added Nov 18, 2026)_ | `crash` |
+| russian-roulette | `lane/russian-roulette` | Games: cards and commands, Russian roulette _(added Nov 18, 2026)_ | `russian-roulette` |
+| race | `lane/race` | Games: cards and commands, Race _(added Nov 18, 2026)_ | `race` |
 
 ### Integration thread
 
@@ -804,12 +855,12 @@ Work through the Stage 3 list in order. For each item, write what you found and 
 
 Do not add features. Fix, align, harden and tune. If something in the spec was never built or was built differently, list it for me instead of quietly building it.
 
-You are done when every item in "Quality bar" holds for every room and feature, and the full run-through test passes on the deploy preview.
+You are done when every item in "Quality bar" holds for every card and feature, and the full run-through test passes on the deploy preview.
 ```
 
 ## Quality bar
 
-A room or feature is done only when every line here is true.
+A card or feature is done only when every line here is true.
 
 - **Correct.** The rules match this spec. Unit tests cover them. Where there is a house edge, a test proves the return is within tolerance.
 - **Safe.** Parallel requests cannot overdraw a wallet. A replayed request changes nothing. No response or live event contains hidden data, and a test checks the payloads. Every endpoint needs a session, validates input and is rate-limited.
@@ -817,8 +868,8 @@ A room or feature is done only when every line here is true.
 - **Fast.** Something on screen responds within 100ms of any input. Server round trips are under half a second for 95% of requests. Nothing jumps as content loads.
 - **Polished.** Every state change animates. Sounds play. Buttons have hover, pressed and disabled looks. Loading, empty and error states are designed. Keyboard shortcuts work. Reduced motion is honored.
 - **Phone-ready.** Fully playable one-handed at 375px wide.
-- **Clear.** A new player understands the room without help. Payouts and odds are visible. Each game has a short how-to-play card.
-- **On the record.** The round is saved with full detail, shows in the ticker and History, and replays correctly.
+- **Clear.** A new player understands the card without help, and its command is in `.help` with one line on what it does. Payouts and odds are visible. Each game has a short how-to-play card.
+- **On the record.** The round is saved with full detail, shows in the stream and History, folds to its line, and replays correctly.
 
 ## Sources
 

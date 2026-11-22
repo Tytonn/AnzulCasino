@@ -55,6 +55,7 @@ Copied from `docs/SPEC.md`. They apply to every line of code in every lane.
 
 ## Conventions that are easy to miss
 
+- **Games are cards started by commands, never rooms.** _(Tyton, Nov 22, 2026.)_ The site is one chat stream, and every game plays on a card in it, started by a command typed in the message box (`docs/LANE_GUIDE.md`, section 20). The classic Floor and rooms under `/classic` stay only until every game has its card: never build a new room.
 - **Chips are hundredths.** Every amount in code, the database and the API is a `bigint` count of hundredths. Convert and format only with `shared/chips.ts`.
 - **"Tier" in code, "Rank" on screen.** `rank` means a player's leaderboard place. The spec's purchasable Ranks are `tier` in code.
 - **Database safety.** Never run `drizzle-kit push`, never run `drizzle-kit migrate` against a hosted database, and never run DDL through a direct connection. Migrations reach Netlify only as committed files that Netlify applies on deploy. The scripts in `scripts/db/` refuse any database that is not on localhost.

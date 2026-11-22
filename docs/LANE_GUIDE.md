@@ -4,6 +4,8 @@ How this repo fits together, and how to add a game or a feature without touching
 
 Read `docs/SPEC.md` first, then this guide, then every file in `docs/progress/`. Where this guide and the spec's folder map (Build plan > Folder map) differ, this guide wins. For everything else the spec is the source of truth. If either is unclear or looks wrong, ask Tyton instead of guessing.
 
+_(Nov 22, 2026: Tyton moved the site to one chat stream. Every game is now a card in the stream, started by a command typed in the message box, never a room. Read section 20 before you build a game. The classic Floor and rooms stay under `/classic` until every game has its card, so sections 6 to 8 still show a room beside the server code that stays the same.)_
+
 ## Contents
 
 1. [Start here](#1-start-here)
@@ -25,6 +27,7 @@ Read `docs/SPEC.md` first, then this guide, then every file in `docs/progress/`.
 17. [Environment variables](#17-environment-variables)
 18. [Commands](#18-commands)
 19. [Notes for each lane](#19-notes-for-each-lane)
+20. [The stream: cards and commands](#20-the-stream-cards-and-commands)
 
 ## 1. Start here
 
@@ -99,13 +102,15 @@ server/
   games/<game>/api.ts                    a game's routes (that lane)
   features/<name>/                       a feature's logic and routes (that lane)
 src/
-  shell/                                 layout, routing, top bar, sidebar, manifests, slots, placeholders (Foundation)
+  shell/                                 layout, routing, manifests, slots, placeholders, the classic top bar and sidebar (Foundation)
+  shell/stream/                          the stream, the message box, the pinned card, the panels and the shell's commands (Foundation)
   kit/                                   the game kit and the shared UI pieces (Foundation)
   live/                                  the live client (Foundation)
   theme/midnight.css                     the theme's tokens (Foundation)
   theme/games/<game>.css                 a game's own colors (that lane)
   theme/features/<name>.css              a feature's own colors (that lane)
-  games/<game>/manifest.ts, Room.tsx     a game's manifest, room and its parts (that lane)
+  games/<game>/manifest.ts, StreamCard.tsx, commands.ts
+                                         a game's manifest, its card, its commands and their parts, and its classic Room.tsx until rooms go (that lane)
   features/<name>/manifest.ts, ...       a feature's manifest, pages and slot components (that lane)
 scripts/                                 local databases, the dev server, the token check (Foundation); simulate-season.ts (heist)
 tests/
@@ -170,6 +175,8 @@ The rules in `CLAUDE.md` apply to every line. Most of them are built into the to
 ## 6. Adding a game: the coin flip, step by step
 
 The coin flip is the template. It uses each piece of the kit once. Copy its files and rename.
+
+_(Nov 22, 2026: steps 1 to 4, 7 and 8 hold for every game. Steps 5 and 6 still build the classic room: build your game's card and command as section 20 shows instead. The coin flip's own card comes next after blackjack's, and this section then walks through it.)_
 
 | Step | Coin flip's file | What it holds |
 | --- | --- | --- |
@@ -435,13 +442,14 @@ export default defineFeature({
 
 | Slot | Where | Props | Meant for |
 | --- | --- | --- | --- |
-| `top-bar` | The top bar, every page, desktop and phone | `{ compact }`: true on a phone, and on desktop while the bar is short of room, so it should only make a widget smaller. On desktop the widgets sit beside the wallet. When they do not fit, the bar tightens first (compact widgets and clock, the sound toggle in the account menu), and only then moves them to a second line under the header; a phone always gives them that second line. A row too narrow for them scrolls sideways with a faded edge, so keep each widget small (about 2.75 to 3.1rem) | Work, slut and crime, shield pips, steal attempts |
+| `top-bar` | You, beside the stream on a desktop and in the You sheet on a phone, with `compact` false. In the classic rooms, the top bar | `{ compact }`: true on a phone, and on desktop while the bar is short of room, so it should only make a widget smaller. On desktop the widgets sit beside the wallet. When they do not fit, the bar tightens first (compact widgets and clock, the sound toggle in the account menu), and only then moves them to a second line under the header; a phone always gives them that second line. A row too narrow for them scrolls sideways with a faded edge, so keep each widget small (about 2.75 to 3.1rem) | Work, slut and crime, shield pips, steal attempts |
 | `profile-actions` | A player's profile card, not your own | `{ player }` | Steal |
 | `profile-sections` | A player's profile card | `{ player }` | Season stats |
 | `chat-composer` | Beside the chat box | `{ sent(message) }`: call it with what the server saved | The GIF picker |
-| `chat-message` | Under each chat message | `{ message }` | Reactions |
+| `chat-message` | Under each chat message, result line and card in the stream | `{ message }` | Reactions |
 | `seat` | On every seat in every room | `{ game, userId, me }`; the seat is `relative`, so draw inside it | Seat emotes |
-| `banner` | Above the page in the center column | none | The final-day banner |
+| `banner` | Above the stream, or above a page's panel | none | The final-day banner |
+| `stream-status` | The phone's strip, after the wallet | none | One short status, such as "Work 2:41" |
 | `overlay` | Mounted once for the session | none | Notification toasts, celebrations |
 | `shop-items` | The Shop page (heist's) | none | Shields, ranks, the extra steal attempt |
 
@@ -627,6 +635,7 @@ One import: `import { ... } from '../../kit/index.ts'`. Icons come from `src/kit
 | `usePlay()` | `send(path, body, { revealMs })` and `busy` |
 | `holdReveal({ players })`, `afterReveal(player, fn)` | The reveal hold. News about the players it names (their seats, the top bar, the leaderboard, the ticker, chat posts about their results) waits until it is released. `usePlay` holds your own; a shared round holds its bettors from the close until the wheel lands |
 | `applyRound`, `roomKey` | Put a round into the room's cache; the room's query key |
+| `putRound`, `useCardRound`, `markShown`, `showCard`, `holdForCard`, `takeCardHold`, `claimKeys`, `CommandRefusal` | Cards in the stream, from `src/kit/cards.ts` (section 20): the card store, the moment a result has shown, showing your new card at once, the hold your command hands its card, the keys your card answers to, and a command's refusal |
 | `RoomLayout` | The room: header, how-to-play, other seats, your seat with the table, controls |
 | `BetBox` | The typed bet box, with ½, 2× and Max, and `children` for your own controls |
 | `closedReason(season)` | Why bets are closed, or null |
@@ -735,6 +744,8 @@ Secrets live in Netlify only, never in the repo or in browser code. The server r
 
 Starting points, not rules. Your spec sections decide.
 
+- **Every game.** A card and a command first (section 20), with the rules, routes and tests of sections 6 to 8. Your command's setting is already in `shared/config.ts`.
+
 - **Blackjack.** A multi-move round (section 7). Draw each card when it is dealt, from what is left of the six decks (the dealt cards are in the detail). Only a hole card the peek needs waits in `secret`. A double down or a split takes more stake with `play.raise`, and a split's two hands live in one round's detail. Pick the safe rule for `finishIdleRounds` and write it in your progress file. The slow reveal's threshold and timings are config (`blackjack_slow_reveal_pct`, `blackjack_slow_lift_ms`, `blackjack_slow_flip_ms`), and since a hand's reveal runs its own length, pass `useRoom` a `revealMs` function of the round.
 - **Roulette.** A shared round on the clock (section 8). The quick-bet box parses amounts with `parseBetAmount` from `shared/bet-amount.ts`. A player's bets on one spin share one game round: `start` the first, `raise` the rest after checking each with `checkBetAmount`. Clearing every bet before the close fits `play.refund`, and taking one bet off fits `play.lower`. At the close, hold the spin's bettors with `holdReveal({ players })` until the wheel lands (section 8).
 - **Crash.** A shared round with its crash point in `shared_rounds.secret`, drawn with `randomUnit()` by the formula in the spec. Cash-outs are decided by the server's receive time against the round's start, in SQL. The browser draws the curve from the start time and `serverNow()`, and the crash reveals everyone still in at once, so hold them with `holdReveal({ players })` until the curve has crashed on screen. The spec's runner is a Background Function: check the current Netlify docs for its limits.
@@ -742,8 +753,118 @@ Starting points, not rules. Your spec sections decide.
 - **Slots.** One request per spin, like the coin flip. The return-to-player test is the heart of it.
 - **Russian roulette.** Chips between players use the `pvp_ante` and `pvp_pot` ledger reasons through `wallet.ts`. The solo mode and a cancelled lobby use the round helper like any game (`bet`, `payout`, `refund`). If you want the round helper to write the player-against-player reasons too, so those rounds reach the ticker and History by themselves, ask for it as a shared change. A turn timer that runs out is acted on by the next request after the deadline, like a roulette close.
 - **Race.** A shared round on the clock, about every 75 seconds. Draw the field of six when the race is created and the winner with `pickWeighted` when betting closes, never earlier. Typed bets work like roulette's, and so does holding the bettors' news until the finish line (section 8).
-- **Economy.** Work, slut and crime are `top-bar` slot widgets (`compact` on a phone). Their cooldowns are the `*_ready_at` columns on the wallet, compared with `now()`. The daily bonus, streaks, challenges and the rank purchase use `daily_state`. Challenge progress comes from querying settled rounds, so no game needs challenge code. The final-day banner is a `banner` slot, and `/hall-of-fame` replaces its placeholder. The full flavor-line pools the lane wrote are the config defaults (`shared/config-lines.ts`), and `SystemMeta.drop` in `shared/chat.ts` types a chat drop's system post.
-- **Heist.** Steal from the `profile-actions` slot, the Shop page at `/shop` drawing the `shop-items` slot, the vault through `moveBetweenAccounts`, and shields in their core tables. `net_worth_at_reset` can be worked out from the ledger as of the reset. `scripts/simulate-season.ts` can import `shared/config.ts` and the rules directly.
+- **Economy.** Work, slut and crime are `top-bar` slot widgets (`compact` on a phone), and commands in `src/features/economy/commands.ts` (`.work`, `.slut`, `.crime`, `.collect`); each result posts a public line (spec: Work and crime). Their cooldowns are the `*_ready_at` columns on the wallet, compared with `now()`. The daily bonus, streaks, challenges and the rank purchase use `daily_state`. Challenge progress comes from querying settled rounds, so no game needs challenge code. The final-day banner is a `banner` slot, and `/hall-of-fame` replaces its placeholder. The full flavor-line pools the lane wrote are the config defaults (`shared/config-lines.ts`), and `SystemMeta.drop` in `shared/chat.ts` types a chat drop's system post.
+- **Heist.** `.rob`, `.dep` and `.with` are in `src/features/heist/commands.ts`. Steal from the `profile-actions` slot, the Shop page at `/shop` drawing the `shop-items` slot, the vault through `moveBetweenAccounts`, and shields in their core tables. `net_worth_at_reset` can be worked out from the ledger as of the reset. `scripts/simulate-season.ts` can import `shared/config.ts` and the rules directly.
   - **Steals in the ticker** (Steal rules, rule 7). `steal.result` is a core feed event, and its types `StealView` and `StealResult` are in `shared/steals.ts`, so the shell's ticker can listen before heist merges. Publish it after each attempt's commit, versioned by the steal id. `GET /api/ticker` reads the `steals` table, so a page load shows the latest attempts among the rounds. The ticker adds a live attempt after the thief's reveal (`afterReveal(thiefId, ...)`), so hold the thief, and the target if you like, with `holdReveal` while the steal plays. Clicking a steal in the ticker opens the thief's profile card, where the Rob button is. `MaskIcon` in `src/kit/icons.tsx` is a thief's mask.
 - **Social.** The GIF picker is a `chat-composer` slot and reactions a `chat-message` slot. Seat emotes are a `seat` slot that publishes `seat.emote` through your API. History and replays find each game's `replay` with `gameById(id)?.manifest?.replay` from `src/shell/registry.ts`. The pages `/leaderboard`, `/history`, `/history/:roundId`, `/profile` and `/players/:username` replace their placeholders.
 - **Admin.** `/admin` and `/audit` replace their placeholders. The config editor uses `changeConfig` and `pendingConfigChanges`, every action writes `writeAudit`, and the existing `/api/invites` and `/api/seasons` endpoints cover invite codes and seasons. The foundation's stopgap page `/setup` can go once the panel covers it (a shared change at integration).
+
+## 20. The stream: cards and commands
+
+_(Added Nov 22, 2026, with Tyton's move to one chat stream: spec, Site layout and feel, and Games > Cards and commands.)_ Every game is a card in the stream, started by a command typed in the message box. The server side of a game does not change: the round helper puts every round in the stream by itself. What a lane builds for the browser is a command and a card.
+
+Blackjack is the first card and the one to copy until the coin flip's card takes over as the worked example in section 6.
+
+| Piece | Blackjack's file | What it holds |
+| --- | --- | --- |
+| The command | `src/games/blackjack/commands.ts` | `.bj 50`: the setting that holds its words, what it takes, one line for the list, and what it runs |
+| The request | `src/games/blackjack/stream.ts` | Deals the hand, shows its card at once, and holds the player's news until the card has dealt it |
+| The card | `src/games/blackjack/StreamCard.tsx` | The game at stream size for everyone, with buttons and keys for its player |
+| The manifest | `src/games/blackjack/manifest.ts` | `card`, `commands` and `roundName`, beside `replay` and `howToPlay` |
+| The server | nothing new | The round helper writes the card with the round |
+
+### The server: nothing to add
+
+`play.start()` writes the round's card, a `chat_messages` row of kind `card` with `{ game, roundId }` as its meta (`CardMeta` in `shared/chat.ts`), in the same transaction as the bet, and publishes it on `chat` with the round's public view. The answer to the request that started the round carries it as `PlayResult.card`, with the round as it stands, so the player's browser shows the card without waiting for the echo. Later moves reach every card on the room events your game already publishes, and the newest version wins (`roundVersion`).
+
+- `GET /api/stream?filter=all|chat|games` gives the newest 100 items of a filter with each card's round, and `before=<id>` pages back. The newest page also lists the player's own open cards (`mine`), so they pin again after a reload.
+- A round's `detail` is on show to the whole stream, as it was to the whole room: never put anything there you would not show everyone. Hidden things stay in `secret`.
+- A big win or a big loss still writes its system post (spec: Results travel). For a player's own round the post carries `onCard: true`, and the stream leaves it out, since the card shows the result.
+- A shared round (roulette, crash, race, a lobby) gives no card to each bet. Its one shared card comes with the roulette conversion, which adds it to section 8's pattern.
+
+### The command
+
+```ts
+// src/games/blackjack/commands.ts
+export const BLACKJACK_COMMANDS: readonly CommandSpec[] = [
+  {
+    key: 'command_blackjack', // the setting with its words: bj, blackjack
+    args: 'bet', // what the list shows after the word
+    example: '50', // the first quick pick, and the example in hints
+    needs: 'amount', // refused in the box, before anything is sent, without one
+    description: 'Deal a hand of blackjack at your bet.',
+    run: ({ queryClient, me, args }) => dealHand(queryClient, me.id, args),
+  },
+]
+```
+
+- **The words are settings.** Every game in the spec already has its `command_<id>` setting in `shared/config.ts` (`command_russian_roulette` for `russian-roulette`), so the admin panel renames it with no code. A feature asks for a new key as a shared change. Until a game's manifest has commands, the shell lists a stand-in that says the game is coming soon.
+- **Send what was typed.** `args` is the text after the word, such as `50`, `half` or `2.5k`. Send it as typed and let the server resolve it against the locked wallet with `parseBetAmount`, as the bet box did.
+- **Refusing.** Throw a `CommandRefusal` (`src/kit/cards.ts`) with a sentence, or let an `ApiError` through: the text stays in the box and the sentence shows just above it, for that player alone. Nothing is posted.
+- **Answering privately.** `context.reply({ label, content })` puts an "Only you" item at the bottom of the player's own stream. It is never stored.
+- **Nothing else to post.** The command's text is never posted; the card is the post.
+- `needs: 'player'` makes the box offer players after the word, as `.rob` does. `adminOnly` hides a command from players, and the server still refuses them.
+
+### The request
+
+```ts
+// src/games/blackjack/stream.ts
+export async function dealHand(queryClient: QueryClient, me: string, bet: string) {
+  const release = holdReveal({ players: [me] }) // the wallet, the leaderboard and posts about you wait
+  let handed = false
+  try {
+    const result = await api.post<PlayResult<BlackjackDetail>>(
+      '/api/blackjack/deal',
+      { bet },
+      { key: requestKey() },
+    )
+    putRound(result.round) // the card store has the round before the card draws
+    if (result.card) {
+      holdForCard(result.round.id, release) // the card lets go once the cards are down
+      handed = true
+      showCard(result.card) // into the stream, pinned above the box, with the keys
+    }
+    afterReveal(me, () => {
+      applyRound(queryClient, result.round)
+      applyWallet(queryClient, result.wallet)
+    })
+  } finally {
+    if (!handed) release(0)
+  }
+}
+```
+
+### The card
+
+The stream draws each card's header (the player, the game, the bet, an ALL IN or BIG BET tag, and the result once it has shown) and hands the rest to your `card` component, loaded the first time one shows:
+
+```ts
+export interface CardProps<D = unknown> {
+  round: RoundView<D> // the newest version: the page, the live events and your own answers
+  message: ChatMessage // the card's chat row
+  mine: boolean // your round: its buttons work for you
+  pinned: boolean // above the message box, in thumb reach
+  keys: boolean // it has the keyboard: its shortcuts work and the box waits
+}
+```
+
+What blackjack's card does, and every card must:
+
+- **Draw the game for everyone.** Reuse your table's parts at stream size (blackjack reuses `Table.tsx` and its timeline). Only `mine` gets working buttons; everyone else watches the game play, with a word such as "Their move…". Sounds and celebrations are for `mine` alone: ten hands at once would be noise.
+- **Play each new version.** The card renders again with each newer `round`. Animate from what is on screen to the new version. A round that ended a while ago (blackjack uses 8 seconds) and never showed in this tab shows as it ended.
+- **Say when the result has shown.** Call `markShown(round.id)` once the result is on screen. The header and the glow show the result only from then, the stream folds the card a few seconds later, and its pin lets go. A card that never calls it folds at the latest 20 seconds after its round settles.
+- **Release the hold.** On first show, `takeCardHold(round.id)` gives you the hold your command left. Release it (`release(0)`) once the cards are down, so the player's news lands with the reveal and not before.
+- **Send moves as the room did.** A move is `api.post(path, body, { key: requestKey() })` inside `holdReveal`, then `putRound(result.round)` and the animation: see `send()` in `StreamCard.tsx`.
+- **Keys.** With `keys && mine`, give your shortcuts to `useShortcuts(map, { enabled: keys && mine })` and name the letters you use with `claimKeys(['h', 's', 'd', 'p'])`: any other letter goes back to typing in the box. Space and Enter are the card's too: turn a slow card, finish an animation, or play again. Escape and a click in the box take the keys back.
+- **Play again.** While `pinned` and the round is over, offer the same bet again ("Deal again · 50", with Space). It calls the same request as the command.
+- **Fit.** A card is at most 42rem wide, 375px on a phone, and pinned it sits above the box: keep the game short (blackjack's felt is 11 to 15rem tall) and the buttons in one row. The card's `article` is a size container, so use container queries (`@max-[24rem]:`) rather than screen sizes.
+
+Without a `card`, the stream shows a plain card with the bet and the result.
+
+### Folding, runs and big moments
+
+The shell does these from `round`, `markShown` and the settings. A finished card folds to one line a few seconds after its result shows, a run of one player's finished rounds folds into one line (`stream_round_runs`), and a big win or an all-in stays open with a gold or red edge. A folded line opens to your manifest's `replay`, so every game needs one, and `roundName: ['hand', 'hands']` names the rounds in a run's line ("6 Blackjack hands").
+
+### Testing a card
+
+Write a browser test like `tests/shell/e2e/stream.spec.ts`: one player types the command and plays from the pinned card (keys on a desktop, taps on a phone), a second watches the same card live without its buttons, and the finished card folds to its line and opens to the replay. On a preview the stream keeps what earlier runs posted, so find your own items by round id: `[data-round="<id>"]` is a live card, `[data-folded="<id>"]` its folded line, and `[data-rounds~="<id>"]` a run's line that holds it. The message box is the combobox named "Message or command", the stream the log named "The stream: Everything", and a pinned card sits in the region named "Your game".
