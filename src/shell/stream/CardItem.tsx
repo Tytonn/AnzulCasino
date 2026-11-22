@@ -11,6 +11,9 @@
  * the line. A run of them by one player gathers under one line ("Bob · 6
  * hands · +45") while the stream_round_runs setting says so, also open.
  *
+ * Every card and line is its own stacking context (isolate), so a game's
+ * z-index stays inside it and nothing floats over a page or the box.
+ *
  * A round the whole table shares (a roulette spin) has one card for
  * everyone: its frame names the game, the round, the players and the chips
  * on it, and the game's `sharedCard` draws the rest. It folds to its own
@@ -186,7 +189,7 @@ function RoundCardItem({ message, state, pinned = false, collapsed = false }: Ca
       data-round={round.id}
       data-status={round.status}
       aria-label={`${game?.name ?? 'A game'}, ${formatChips(round.stake)}`}
-      className={`@container relative overflow-hidden rounded-lg border bg-surface-1 ${edge}`}
+      className={`@container relative isolate overflow-hidden rounded-lg border bg-surface-1 ${edge}`}
     >
       <header className="flex min-h-11 items-center gap-2 px-3 py-2 text-sm">
         <Owner userId={message.userId} />
@@ -267,7 +270,7 @@ function SharedCardItem({ message, pinned = false, collapsed = false }: CardItem
       data-shared={shared.id}
       data-status={shared.settledAt === null ? 'open' : 'settled'}
       aria-label={`${game?.name ?? 'A game'}, round ${shared.roundNo}`}
-      className={`@container relative overflow-hidden rounded-lg border bg-surface-1 ${pinned ? 'border-accent/55 shadow-pop' : 'border-border'}`}
+      className={`@container relative isolate overflow-hidden rounded-lg border bg-surface-1 ${pinned ? 'border-accent/55 shadow-pop' : 'border-border'}`}
     >
       <header className="flex min-h-11 items-center gap-2 px-3 py-2 text-sm">
         <span className="flex min-w-0 shrink items-center gap-1.5">
@@ -358,7 +361,10 @@ function SharedFoldedLine({ message }: { message: ChatMessage }) {
   const facts = shared ? sharedFacts(shared, me.id) : null
 
   return (
-    <div data-folded-shared={id} className="rounded-md border border-border/70 bg-surface-1/60">
+    <div
+      data-folded-shared={id}
+      className="isolate rounded-md border border-border/70 bg-surface-1/60"
+    >
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -402,7 +408,10 @@ function RoundFoldedLine({ message, owner = true }: { message: ChatMessage; owne
   const Replay = game ? REPLAYS[game.id] : undefined
 
   return (
-    <div data-folded={roundId} className="rounded-md border border-border/70 bg-surface-1/60">
+    <div
+      data-folded={roundId}
+      className="isolate rounded-md border border-border/70 bg-surface-1/60"
+    >
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -477,7 +486,7 @@ export const RunLine = memo(function RunLine({ messages }: { messages: readonly 
   return (
     <div
       data-rounds={messages.map(cardRoundId).join(' ')}
-      className="rounded-md border border-border/70 bg-surface-1/60"
+      className="isolate rounded-md border border-border/70 bg-surface-1/60"
     >
       <button
         type="button"

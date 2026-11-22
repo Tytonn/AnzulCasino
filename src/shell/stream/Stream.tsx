@@ -166,7 +166,7 @@ export function Stream() {
 
   const admin = me.role === 'admin'
   return (
-    <div className="relative min-h-0 flex-1">
+    <div className="relative isolate min-h-0 flex-1">
       <div
         ref={list}
         onScroll={onScroll}

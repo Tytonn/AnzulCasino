@@ -125,7 +125,7 @@ export function Pinned() {
 
   if (cards.length === 0) return null
   return (
-    <section aria-label="Your game" className="shrink-0 px-2 pb-1.5 md:px-4">
+    <section aria-label="Your game" className="isolate shrink-0 px-2 pb-1.5 md:px-4">
       <div className="mx-auto w-full max-w-3xl space-y-1.5">
         {cards.map((card, i) => (
           <PinnedCard key={card.id} message={card} newest={i === cards.length - 1} />

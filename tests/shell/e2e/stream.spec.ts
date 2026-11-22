@@ -3,9 +3,10 @@
  * Nov 22, 2026): two players in one stream; a hand of blackjack dealt from
  * the message box and pinned above it with the keys, which the other player
  * watches live and cannot touch; Deal again; finished hands folding to a
- * line that stays open to the replay; a private hint for a command that
- * does not exist and a private reply to .help; .work posting its result for
- * everyone; and the filters. Screenshots land in tests/shell/screenshots.
+ * line that stays open to the replay, which a page over the stream hides; a
+ * private hint for a command that does not exist and a private reply to
+ * .help; .work posting its result for everyone; and the filters. Screenshots
+ * land in tests/shell/screenshots.
  *
  * On a deploy preview the stream keeps what earlier runs posted, so every
  * check looks for this run's own items: its chat lines, its rounds by id.
@@ -149,6 +150,60 @@ function firstCard(hand: Hand): string {
   const card = hand.round.detail.hands[0]?.cards[0]
   if (!card) throw new Error('The hand has no cards.')
   return cardName(card)
+}
+
+/** Opens the Shop over the stream: from the You panel on a desktop, its sheet on a phone. */
+async function openShop(page: Page, phone: boolean) {
+  if (phone) {
+    await page.getByRole('button', { name: /^You: / }).click()
+    await page.getByRole('dialog', { name: 'You' }).getByRole('link', { name: 'Shop' }).click()
+  } else {
+    await page
+      .getByRole('complementary', { name: 'You' })
+      .getByRole('link', { name: 'Shop' })
+      .click()
+  }
+  await expect(page).toHaveURL(/\/shop$/)
+  await expect(
+    page.getByRole('region', { name: 'Shop' }).getByRole('heading', { level: 1, name: 'Shop' }),
+  ).toBeVisible()
+}
+
+/**
+ * What of the stream, the pinned cards or the box shows through the page
+ * over them (Tyton, Nov 22, 2026: a blackjack replay's "Win" and "Bust"
+ * pills floated over the Leaderboard). Pills and effects let clicks through,
+ * so for this look everything under the page takes them, and every spot
+ * where one of them is the top thing is a leak.
+ */
+function throughThePage(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const panel = document.querySelector('[data-page-panel]')
+    const column = panel?.parentElement
+    if (!panel || !column) throw new Error('No page is open over the stream.')
+    const look = document.createElement('style')
+    look.textContent = 'main * { pointer-events: auto !important; }'
+    document.head.append(look)
+    try {
+      const area = panel.getBoundingClientRect()
+      const leaks = new Set<string>()
+      for (const under of column.querySelectorAll('*')) {
+        if (panel.contains(under)) continue
+        const box = under.getBoundingClientRect()
+        if (box.width === 0 || box.height === 0) continue
+        const x = box.left + box.width / 2
+        const y = box.top + box.height / 2
+        if (x <= area.left || x >= area.right || y <= area.top || y >= area.bottom) continue
+        const top = document.elementFromPoint(x, y)
+        if (top && column.contains(top) && !panel.contains(top)) {
+          leaks.add((top.textContent ?? '').trim().slice(0, 40) || top.tagName)
+        }
+      }
+      return [...leaks]
+    } finally {
+      look.remove()
+    }
+  })
 }
 
 // A failure mid-hand would leave Alice's hand open, and every later test that deals
@@ -312,6 +367,15 @@ test('a hand dealt from the message box plays live for everyone, then folds', as
     )
   })
 
+  await test.step('a page over the stream hides the replays under it', async () => {
+    const replay = stream(bob.page).locator(`[data-folded="${first.round.id}"]`)
+    await expect(replay.getByRole('button').first()).toHaveAttribute('aria-expanded', 'true')
+    await openShop(bob.page, phone)
+    expect(await throughThePage(bob.page)).toEqual([])
+    await bob.page.keyboard.press('Escape')
+    await expect(bob.page).toHaveURL(/\/$/)
+  })
+
   await alice.close()
   await bob.close()
 })
@@ -434,18 +498,8 @@ test('the panels beside the stream, and a page over it', async ({ browser }, tes
   })
 
   await test.step('the Shop opens over the stream, and Escape goes back to it', async () => {
-    if (phone) {
-      await page.getByRole('button', { name: /^You: / }).click()
-      await page.getByRole('dialog', { name: 'You' }).getByRole('link', { name: 'Shop' }).click()
-    } else {
-      await page
-        .getByRole('complementary', { name: 'You' })
-        .getByRole('link', { name: 'Shop' })
-        .click()
-    }
-    await expect(page).toHaveURL(/\/shop$/)
+    await openShop(page, phone)
     const panel = page.getByRole('region', { name: 'Shop' })
-    await expect(panel.getByRole('heading', { level: 1, name: 'Shop' })).toBeVisible()
     expect(await overflows(page)).toBe(false)
     await snap(page, LANE, 'stream-page', testInfo)
     await page.keyboard.press('Escape')

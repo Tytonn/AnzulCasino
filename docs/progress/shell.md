@@ -156,6 +156,15 @@ Plan, approved by Tyton on 2026-11-22: https://claude.ai/artifact/Sj3mrj6zpw6mgh
   seconds after its result, but to its line with the replay open under it, and a run's
   line starts open too. Tapping a line closes it to the line alone. The live card's
   timing, pins and big wins are unchanged (`src/shell/stream/CardItem.tsx`).
+- **Nothing shows through a page** (2026-11-22, Tyton: "when you click to another page,
+  the things are still appearing like the win and bust things"). Blackjack's result and
+  dealer pills sit at `z-20` inside the card, and with replays now open in the stream
+  they painted over a page opened on top of it (the page panel is `z-10`). Every card,
+  folded line and run line, and the stream and pinned areas as a whole, is now its own
+  stacking context (`isolate`), so a game's z-index stays inside its card. The stream's
+  browser test opens the Shop over open replays and checks that nothing under the page
+  is the top thing anywhere on it; without the fix it finds the "Lose" and "Dealer"
+  pills.
 
 ## Not done yet
 
