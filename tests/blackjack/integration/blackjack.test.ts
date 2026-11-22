@@ -249,6 +249,10 @@ describe('POST /api/blackjack/deal', () => {
 
   it('never deals two hands at once, or spends a chip twice', async () => {
     const { id, client } = await player(10n)
+    // A hand that stays open (14 against a 7), so every other deal meets it. Random cards
+    // could settle it at the deal, on a dealer blackjack, and free the table for a second
+    // hand, after which the rest are refused for the chips left instead.
+    stack('9s', '7h', '5d')
     const responses = await Promise.all(Array.from({ length: 8 }, () => deal(client, '4')))
     for (const res of responses.filter((r) => r.status !== 200)) {
       expect(res.status, JSON.stringify(res.body)).toBe(409)
