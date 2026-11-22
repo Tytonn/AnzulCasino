@@ -12,6 +12,7 @@ import {
   describePending,
   joinPeople,
   plainText,
+  startsLater,
 } from '../../../src/features/admin/audit-text.ts'
 
 function person(id: string, name: string): AuditPerson {
@@ -132,6 +133,33 @@ describe('settings', () => {
     expect(read(describeEntry(later))).toBe(
       'Ada changed Steal attempts per day from 2 to 5 | At the daily reset, Mon, Nov 23, 4:00 AM CT',
     )
+  })
+
+  it('tells a change that waits for the reset from one that started at once', () => {
+    // Saved and started in the same moment; it can reach a page between two
+    // ticks of its clock, and must not read as one still to come.
+    const atOnce = entry({
+      action: 'config.changed',
+      kind: 'config',
+      target: 'stream_round_runs',
+      at: '2026-11-22T01:24:31.053Z',
+      before: { value: 'fold' },
+      after: { value: 'separate', effectiveAt: '2026-11-22T01:24:31.048Z' },
+    })
+    expect(startsLater(atOnce)).toBeNull()
+    expect(read(describeEntry(atOnce))).toBe(
+      'Ada changed Finished rounds from Fold into one line to One line per round',
+    )
+    const later = entry({
+      action: 'config.changed',
+      kind: 'config',
+      target: 'work_pay_max',
+      at: '2026-11-22T01:24:31.053Z',
+      before: { value: 600 },
+      after: { value: 900, effectiveAt: '2026-11-22T10:00:00Z' },
+    })
+    expect(startsLater(later)).toEqual(new Date('2026-11-22T10:00:00Z'))
+    expect(startsLater(entry({ after: { effectiveAt: '2026-11-22T10:00:00Z' } }))).toBeNull()
   })
 
   it('names the third button by its name now', () => {

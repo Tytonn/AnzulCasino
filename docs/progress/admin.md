@@ -6,7 +6,7 @@ Last updated: 2026-11-22 by the Admin thread.
 
 ## Status
 
-Built and tested locally: the whole server side, the admin panel, the public Audit page, and their unit, integration and browser tests. Started 2026-11-22, after Tyton's direction change to a chat-first site. The shell thread ("Rebuild site as a game chat", branch `claude/project-thread-d4tv4f`) owns the new stream and the command settings (merged in PR #17); its handoff is in the project files (`shell/admin-handoff.md`). Both pages stand alone, so they work in the classic shell today and as a panel over the stream later.
+Built and tested locally, and up for review as PR #18: the whole server side, the admin panel, the public Audit page, and their unit, integration and browser tests. Started 2026-11-22, after Tyton's direction change to a chat-first site. The shell thread ("Rebuild site as a game chat", branch `claude/project-thread-d4tv4f`) owns the new stream and the command settings (merged in PR #17); its handoff is in the project files (`shell/admin-handoff.md`). Both pages stand alone, so they work in the classic shell today and as a panel over the stream later.
 
 ## Done
 
@@ -39,13 +39,13 @@ Every audit row also goes out live as `audit.logged` on the feed channel. Invite
 
 ### Tests
 
-- Unit (38, `tests/admin/unit`): giveaway shares, every chat post and note, the input schemas, the settings editor (sections cover every key, names and descriptions in words, every unit typed and read back), and the Audit page sentence for every action.
+- Unit (47, `tests/admin/unit`): giveaway shares, every chat post and note, the input schemas, the settings editor (sections cover every key, names and descriptions in words, every unit typed and read back), the Audit page sentence for every action, and its live list (an entry lands once and in order, and a refresh read before an entry was saved never drops it).
 - Integration (37, `tests/admin/integration`): every route against a real Postgres, as listed above.
 - Browser (6 tests at 1440 and 375, `tests/admin/e2e`): a chip added and taken back while another player watches the Audit page, a giveaway reaching its player, a setting flipped, refused words caught, the leave warning, saved and put back, an invite code made and copied, the end-season dialog opened and cancelled, and a player kept out of the panel. Each leaves the chips and settings as it found them, so it runs again on a preview.
 
 ## Not done
 
-- Testing on the deploy preview (needs `E2E_ADMIN_CODE` the first time, to sign up the sample admin).
+- Nothing in the lane. On PR #18's deploy preview the first browser run passed 11 of 12; the twelfth caught the Audit page race described under Decisions, fixed with its unit tests in the commit that adds this note. The rerun is recorded on the pull request.
 
 ## Decisions
 
@@ -55,6 +55,8 @@ Every audit row also goes out live as `audit.logged` on the feed channel. Invite
 - **An admin can adjust their own chips**, in public like any other adjustment ("took 1 chip from their own wallet").
 - **Config changes do not post in chat** (the spec lists them on the Audit page, ahead of time when they wait for the reset). Chip adjustments, giveaways and an early end do.
 - **The invite message carries the code**, since the sign-up page does not read one from its address yet.
+- **Live Audit entries survive a refresh already on its way.** A setting change refreshes the open Audit page (for the changes waiting for the reset), and on the preview a second save half a second later arrived live, then vanished when the first refresh came back without it. Each tab now keeps the newest 100 entries it heard live, and every first page fetched takes back any it missed (`withHeard` in `data.ts`); a setting change also restarts a refresh in flight, so the waiting list includes it.
+- **"Starts at the reset" is decided by when a change was made, not by the page's clock** (`startsLater` in `audit-text.ts`): only a change that starts more than a second after it was saved waits. The page's clock ticks every 30 seconds, so a change that started at once used to read "Starts at the reset, in 0:03" until the next tick. The countdowns tick each second, and only while something waits.
 - **The settings save bar sits above the classic shell's phone tab bar**, the way the kit's room layout does (`sticky bottom-[calc(3.6rem+…)]`). In the chat shell's panel it can sit at the bottom.
 
 ## Shared changes that would help (optional)

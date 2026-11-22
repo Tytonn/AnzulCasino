@@ -82,6 +82,20 @@ function lineChanges(before: unknown, after: unknown): string[] {
   return details
 }
 
+/**
+ * When a setting change starts, if it waited for the daily reset: null for
+ * one that started as it was saved. Measured from when it was made, never
+ * from the clock, so a change that arrives live between two ticks of the
+ * page's clock does not read as one still to come.
+ */
+export function startsLater(entry: AuditEntryView): Date | null {
+  if (entry.action !== 'config.changed' || !isRecord(entry.after)) return null
+  const effectiveAt = entry.after.effectiveAt
+  if (typeof effectiveAt !== 'string') return null
+  const starts = new Date(effectiveAt)
+  return starts.getTime() > Date.parse(entry.at) + 1_000 ? starts : null
+}
+
 function describeConfig(entry: AuditEntryView, actor: Part, hustle?: string): Described {
   const key = entry.target ?? ''
   const before = isRecord(entry.before) ? entry.before.value : undefined
@@ -91,13 +105,8 @@ function describeConfig(entry: AuditEntryView, actor: Part, hustle?: string): De
   }
   const label = settingLabel(key as ConfigKey, hustle)
   const details: string[] = []
-  const effectiveAt = after.effectiveAt
-  if (
-    typeof effectiveAt === 'string' &&
-    new Date(effectiveAt).getTime() > Date.parse(entry.at) + 1_000
-  ) {
-    details.push(`At the daily reset, ${when(effectiveAt)}`)
-  }
+  const starts = startsLater(entry)
+  if (starts) details.push(`At the daily reset, ${centralWhen(starts)}`)
   if (sameWire(before, after.value)) {
     return {
       parts: [actor, ' took back the change waiting for ', { strong: label }],

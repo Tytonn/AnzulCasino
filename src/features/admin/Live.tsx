@@ -10,7 +10,7 @@ import { type InfiniteData, useQueryClient } from '@tanstack/react-query'
 import type { AuditPage } from '../../../shared/features/admin.ts'
 import { queryKeys, useMe } from '../../kit/queries.ts'
 import { useLiveEvent, useResync } from '../../live/index.ts'
-import { addEntry, adminKeys } from './data.ts'
+import { addEntry, adminKeys, hearEntry } from './data.ts'
 
 export function AdminLive() {
   const me = useMe()
@@ -18,6 +18,7 @@ export function AdminLive() {
   const admin = me.role === 'admin'
 
   useLiveEvent('feed', 'audit.logged', (entry) => {
+    hearEntry(entry)
     const lists = queryClient.getQueriesData<InfiniteData<AuditPage, number | undefined>>({
       queryKey: adminKeys.audit,
     })
@@ -28,10 +29,9 @@ export function AdminLive() {
         addEntry(old, entry),
       )
     }
-    // A setting change may add or take back one waiting for the reset.
-    if (entry.kind === 'config') {
-      void queryClient.invalidateQueries({ queryKey: adminKeys.audit }, { cancelRefetch: false })
-    }
+    // A setting change may add or take back one waiting for the reset. A
+    // refresh already on its way may predate this change, so start it over.
+    if (entry.kind === 'config') void queryClient.invalidateQueries({ queryKey: adminKeys.audit })
     if (entry.action === 'player.disabled' || entry.action === 'player.enabled') {
       void queryClient.invalidateQueries({ queryKey: queryKeys.players })
       void queryClient.invalidateQueries({ queryKey: queryKeys.leaderboard })

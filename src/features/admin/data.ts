@@ -61,19 +61,30 @@ export function useInvites() {
 export function useAuditLog(kind: AuditKind | null) {
   return useInfiniteQuery({
     queryKey: auditKey(kind),
-    queryFn: ({ pageParam }) => {
+    queryFn: async ({ pageParam }) => {
       const params = new URLSearchParams()
       if (pageParam !== undefined) params.set('before', String(pageParam))
       if (kind) params.set('kind', kind)
       const query = params.toString()
-      return api.get<AuditPage>(`/api/admin/audit${query ? `?${query}` : ''}`)
+      const page = await api.get<AuditPage>(`/api/admin/audit${query ? `?${query}` : ''}`)
+      return pageParam === undefined ? withHeard(page, kind) : page
     },
     initialPageParam: undefined as number | undefined,
     getNextPageParam: (last) => (last.more ? last.entries.at(-1)?.id : undefined),
   })
 }
 
-/** Puts a new entry at the top of a loaded Audit list, once. */
+/** Whether an entry belongs in the list of one kind (null: every kind). */
+export function inList(entry: AuditEntryView, kind: AuditKind | null): boolean {
+  return kind === null || entry.kind === kind
+}
+
+/** Newest first, as the server lists them. */
+function newestFirst(entries: AuditEntryView[]): AuditEntryView[] {
+  return entries.sort((a, b) => b.id - a.id)
+}
+
+/** Puts a new entry in a loaded Audit list, once, in its place at the top. */
 export function addEntry(
   old: InfiniteData<AuditPage, number | undefined> | undefined,
   entry: AuditEntryView,
@@ -83,6 +94,40 @@ export function addEntry(
   if (old.pages.some((page) => page.entries.some((e) => e.id === entry.id))) return old
   return {
     ...old,
-    pages: [{ ...first, entries: [entry, ...first.entries] }, ...old.pages.slice(1)],
+    pages: [{ ...first, entries: newestFirst([entry, ...first.entries]) }, ...old.pages.slice(1)],
   }
+}
+
+/**
+ * The newest entries live news brought to this tab. A fetch of the list that
+ * was read before one of them was saved comes back without it, and would
+ * wipe it off the page: an admin who saved twice within a second saw the
+ * second save vanish while the first one's refresh was on its way. So every
+ * first page fetched takes them back in (withHeard).
+ */
+const heard = new Map<number, AuditEntryView>()
+const HEARD_KEPT = 100
+
+/** Notes an entry that arrived live. */
+export function hearEntry(entry: AuditEntryView) {
+  heard.delete(entry.id)
+  heard.set(entry.id, entry)
+  if (heard.size > HEARD_KEPT) {
+    const oldest = heard.keys().next()
+    if (!oldest.done) heard.delete(oldest.value)
+  }
+}
+
+/** A first page as fetched, with the entries heard live that it missed and that belong on it. */
+export function withHeard(
+  page: AuditPage,
+  kind: AuditKind | null,
+  live: Iterable<AuditEntryView> = heard.values(),
+): AuditPage {
+  const known = new Set(page.entries.map((e) => e.id))
+  // An entry older than the page's last one belongs to a page further down.
+  const below = page.more ? (page.entries.at(-1)?.id ?? 0) : 0
+  const missed = [...live].filter((e) => !known.has(e.id) && e.id > below && inList(e, kind))
+  if (missed.length === 0) return page
+  return { ...page, entries: newestFirst([...page.entries, ...missed]) }
 }

@@ -26,6 +26,7 @@ import {
   describePending,
   type Part,
   plainText,
+  startsLater,
 } from './audit-text.ts'
 import { useAuditLog } from './data.ts'
 import { CalendarIcon, GearIcon, GiftIcon, HourglassIcon } from './icons.tsx'
@@ -113,16 +114,24 @@ function KindIcon({ kind }: { kind: AuditKind | null }) {
   )
 }
 
-function waitsUntil(entry: AuditEntryView): Date | null {
-  const after = entry.after as { effectiveAt?: unknown } | null
-  if (entry.action !== 'config.changed' || typeof after?.effectiveAt !== 'string') return null
-  return new Date(after.effectiveAt)
+/** A setting change still waiting for the reset, counting down each second until it starts. */
+function WaitBadge({ until }: { until: Date }) {
+  const now = useNow(1_000)
+  if (until <= now) return null
+  return (
+    <p className="mt-1.5">
+      <Badge tone="gold">
+        Starts at the reset, in{' '}
+        <span className="tabular-nums">{formatCountdown(until.getTime() - now.getTime())}</span>
+      </Badge>
+    </p>
+  )
 }
 
 function Entry({ entry, now, hustle }: { entry: AuditEntryView; now: Date; hustle?: string }) {
   const said: Described = useMemo(() => describeEntry(entry, hustle), [entry, hustle])
   const at = new Date(entry.at)
-  const waits = waitsUntil(entry)
+  const waits = startsLater(entry)
   const giveaway = entry.action.startsWith('giveaway.')
   return (
     <div className="flex gap-3 py-3">
@@ -145,13 +154,7 @@ function Entry({ entry, now, hustle }: { entry: AuditEntryView; now: Date; hustl
             ))}
           </ul>
         )}
-        {waits && waits > now && (
-          <p className="mt-1.5">
-            <Badge tone="gold">
-              Starts at the reset, in {formatCountdown(waits.getTime() - now.getTime())}
-            </Badge>
-          </p>
-        )}
+        {waits && waits > now && <WaitBadge until={waits} />}
       </div>
       <time
         dateTime={entry.at}
@@ -173,8 +176,11 @@ function Pending({
   nextReset: string
   hustle?: string
 }) {
-  const now = useNow(30_000)
+  // Only drawn while something waits, so its countdown can tick each second.
+  const now = useNow(1_000)
   const at = new Date(nextReset)
+  // Once the reset passes they are in force, and nothing is left to wait for.
+  if (at <= now) return null
   return (
     <section
       aria-labelledby="audit-pending"
@@ -185,9 +191,9 @@ function Pending({
         Coming at the next reset
       </h2>
       <p className="mt-1 text-sm text-muted">
-        Changes to the economy and steals start at the daily reset, {centralWhen(at)}
-        {at > now ? `, in ${formatCountdown(at.getTime() - now.getTime())}` : ''}. They are listed
-        here first so nobody is caught out.
+        Changes to the economy and steals start at the daily reset, {centralWhen(at)}, in{' '}
+        <span className="tabular-nums">{formatCountdown(at.getTime() - now.getTime())}</span>. They
+        are listed here first so nobody is caught out.
       </p>
       <ul className="mt-3 divide-y divide-border/70">
         {pending.map((change) => {
