@@ -71,10 +71,19 @@ Plan, approved by Tyton on 2026-11-22: https://claude.ai/artifact/Sj3mrj6zpw6mgh
   at the deal on a dealer blackjack, which frees the table for a second hand, so the
   rest were refused for the chips left instead of the open hand. The test now stacks a
   hand that stays open (reproduced with a stacked dealer blackjack first).
+- **On the deploy preview** (PR #19): every browser test passes at both sizes, with the
+  chat drop and live-layer tests skipped there by design. The first run caught phone cards
+  still saying "Your keys" (half of a polish commit had never landed), and its rerun met
+  the hand that failure left open, so the stream test now stands on any open hand of its
+  player first. Tried by hand with `test` at 1440 and `test2` at 375. The phone strip's
+  status now shows whole or not at all, instead of "Work read" at 375.
 
 ## Not done yet
 
-- Tyton tries the preview with `test` and `test2`; nothing merges before Tyton approves it.
+- Tyton tries the preview with `test` and `test2` (link sent 2026-11-22); nothing merges
+  before Tyton approves it. The test logins are players, and this branch's preview
+  database already used the admin code on PR #17's preview, so Tyton needs the sample
+  admin's login, or this thread, to flip the two Stream switches there.
 - Then, in order: the coin flip as a card (and the lane guide's worked example, section
   6); merge the shell; roulette as one shared card per spin (shared-round cards in the
   round helper); heist on cards; economy cards (the chat drop with Grab, Daily in You);
