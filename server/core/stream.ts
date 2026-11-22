@@ -9,12 +9,13 @@
  * night of a thousand hands. The SQL below and streamTopic() in
  * shared/chat.ts are the same rule; a test holds them together.
  */
-import { and, desc, eq, isNull, lt, type SQL, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNull, lt, type SQL, sql } from 'drizzle-orm'
 
-import { chatMessages, users } from '../../db/schema/core.ts'
+import { chatMessages, gameRounds, users } from '../../db/schema/core.ts'
 import {
   CHAT_PAGE_SIZE,
   type CardMeta,
+  type ChatMessage,
   LOOKUP_TOP,
   type LookupInput,
   type LookupSnapshot,
@@ -48,12 +49,59 @@ function filterWhere(filter: StreamFilter): SQL {
   }
 }
 
-/** A page of the stream: the newest items of one filter, or those before `before`. */
-export async function streamPage(input: {
-  filter: StreamFilter
-  before?: number
-  limit?: number
-}): Promise<StreamPage> {
+/** The player's own cards whose rounds are still open: they pin above the box under any filter. */
+async function openCards(userId: string): Promise<ChatMessage[]> {
+  const open = await db()
+    .select({ id: gameRounds.id })
+    .from(gameRounds)
+    .where(
+      and(
+        eq(gameRounds.userId, userId),
+        eq(gameRounds.status, 'open'),
+        isNull(gameRounds.sharedRoundId),
+      ),
+    )
+  if (open.length === 0) return []
+  const found = await db()
+    .select(chatMessageColumns)
+    .from(chatMessages)
+    .where(
+      and(
+        eq(t.kind, 'card'),
+        isNull(t.deletedAt),
+        inArray(
+          sql`${t.meta} ->> 'roundId'`,
+          open.map((r) => String(r.id)),
+        ),
+      ),
+    )
+    .orderBy(t.id)
+  return found.map(toChatMessage)
+}
+
+/** Each card with its round as it is now. */
+async function withRounds(messages: ChatMessage[]): Promise<ChatMessage[]> {
+  const roundIds = messages
+    .filter((m) => m.kind === 'card')
+    .map((m) => Number((m.meta as Partial<CardMeta> | null)?.roundId))
+    .filter((id) => Number.isSafeInteger(id) && id > 0)
+  const rounds = await roundViewsById(db(), roundIds)
+  return messages.map((m) => {
+    if (m.kind !== 'card') return m
+    const id = Number((m.meta as Partial<CardMeta> | null)?.roundId)
+    return { ...m, round: (rounds.get(id) ?? null) as unknown as ChatMessage['round'] }
+  })
+}
+
+/**
+ * A page of the stream: the newest items of one filter, or those before
+ * `before`. The newest page also lists the player's cards still open, under
+ * any filter, so they pin above the box after a reload.
+ */
+export async function streamPage(
+  userId: string,
+  input: { filter: StreamFilter; before?: number; limit?: number },
+): Promise<StreamPage> {
   const limit = input.limit ?? CHAT_PAGE_SIZE
   const found = await db()
     .select(chatMessageColumns)
@@ -68,20 +116,10 @@ export async function streamPage(input: {
     .orderBy(desc(t.id))
     .limit(limit + 1)
   const more = found.length > limit
-  const messages = found.slice(0, limit).reverse().map(toChatMessage)
-
-  const roundIds = messages
-    .filter((m) => m.kind === 'card')
-    .map((m) => Number((m.meta as Partial<CardMeta> | null)?.roundId))
-    .filter((id) => Number.isSafeInteger(id) && id > 0)
-  const rounds = await roundViewsById(db(), roundIds)
-  const items = messages.map((m) => {
-    if (m.kind !== 'card') return m
-    const id = Number((m.meta as Partial<CardMeta> | null)?.roundId)
-    return { ...m, round: rounds.get(id) ?? null }
-  })
+  const items = await withRounds(found.slice(0, limit).reverse().map(toChatMessage))
+  const mine = input.before === undefined ? await withRounds(await openCards(userId)) : []
   // The rounds' chip amounts are bigint until the response is written.
-  return { filter: input.filter, items, more } as unknown as StreamPage
+  return { filter: input.filter, items, more, mine } as unknown as StreamPage
 }
 
 function ordinal(n: number): string {

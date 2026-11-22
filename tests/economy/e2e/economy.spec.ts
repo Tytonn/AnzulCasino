@@ -27,7 +27,7 @@ test('work, slut and crime pay from the top bar, then cool down', async ({ brows
   const phone = onPhone(testInfo)
   const player = await openAs(browser, playerFor(phone))
   const { page } = player
-  await page.goto('/')
+  await page.goto('/classic')
 
   const jobs = page.getByRole('group', { name: /^Work, .+ and crime$/ })
   await expect(jobs).toBeVisible()
@@ -95,7 +95,7 @@ test('Collect pays the rank income and the streak bonus', async ({ browser }, te
   const phone = onPhone(testInfo)
   const player = await openAs(browser, playerFor(phone))
   const { page } = player
-  await page.goto('/')
+  await page.goto('/classic')
 
   const button = page.getByRole('button', { name: /^Collect/ })
   await expect(button).toBeVisible()
@@ -130,7 +130,7 @@ test('the Daily panel shows the challenges, the streak and the next rank', async
   const phone = onPhone(testInfo)
   const player = await openAs(browser, playerFor(phone))
   const { page } = player
-  await page.goto('/')
+  await page.goto('/classic')
 
   const daily = page.getByRole('button', { name: /^Daily: / })
   await expect(daily).toBeVisible()
@@ -207,8 +207,8 @@ test('a chat drop lands, and the first players to grab it split the pot, live', 
 
   const alice = await openAs(browser, 'alice')
   const bob = await openAs(browser, 'bob')
-  await alice.page.goto('/')
-  await bob.page.goto('/')
+  await alice.page.goto('/classic')
+  await bob.page.goto('/classic')
 
   const alicePill = alice.page.getByRole('status', { name: 'Chat drop' })
   const bobPill = bob.page.getByRole('status', { name: 'Chat drop' })

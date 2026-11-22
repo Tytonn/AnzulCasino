@@ -269,8 +269,8 @@ export const coreRoutes = [
     path: '/api/stream',
     auth: 'user',
     input: StreamListInput,
-    async run({ input }) {
-      return streamPage(input)
+    async run({ user, input }) {
+      return streamPage(user.id, input)
     },
   }),
   route({

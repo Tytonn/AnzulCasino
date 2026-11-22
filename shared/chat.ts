@@ -147,6 +147,55 @@ export function streamTopic(message: Pick<ChatMessage, 'kind' | 'meta'>): Stream
   return meta.category === 'game' ? 'game' : 'news'
 }
 
+/** Words after "you" that make it the subject of its clause ("you were", "you paid"). */
+const SUBJECT_NEXT = new Set(
+  (
+    'was were are am could would should might must can will may had have has did do does ' +
+    'thought paid got went made lost found took saw said kept left won ran sat sold told felt ' +
+    'fell caught bought brought spent sent put cut hit let set heard held stood knew threw drew ' +
+    'wore tore broke spoke woke chose rose drove rode wrote ate gave forgot began sang rang swam ' +
+    'drank came became met led fed fled slept swept dealt meant built lent bent sank shook stole ' +
+    'froze hid bit lit slid spun stuck struck hung dug swung shot'
+  ).split(' '),
+)
+/** A verb that changes once the name is its subject: "you were" is "tyton was". */
+const NAMED_VERB: Record<string, string> = { were: 'was', are: 'is', have: 'has', do: 'does' }
+
+/**
+ * A flavor line, written to the player ("You parked cars for the high
+ * rollers."), retold about them for everyone ("tyton parked cars for the high
+ * rollers."): the first "you" or "your" becomes their name, and the rest
+ * become they, them and their. Work, slut and crime results post this way
+ * (Tyton, Nov 22, 2026). `name` can be a placeholder to split on.
+ */
+export function retellLine(line: string, name: string): string {
+  let named = false
+  return line.replace(
+    /\b(you're|you've|you'd|yourself|yours|your|you)\b(\s+([A-Za-z']+))?/gi,
+    (_match, word: string, rest: string | undefined, next: string | undefined, at: number) => {
+      const lower = word.toLowerCase()
+      const starts = at === 0 || /[.!?]\s*$/.test(line.slice(0, at))
+      const cap = (text: string) => (starts ? text[0]?.toUpperCase() + text.slice(1) : text)
+      const tail = rest ?? ''
+      const first = !named
+      named = true
+      if (lower === 'yourself') return cap('themselves') + tail
+      if (lower === 'yours') return (first ? `${name}'s` : cap('theirs')) + tail
+      if (lower === 'your') return (first ? `${name}'s` : cap('their')) + tail
+      if (lower === "you're") return (first ? `${name} is` : cap("they're")) + tail
+      if (lower === "you've") return (first ? `${name} has` : cap("they've")) + tail
+      if (lower === "you'd") return (first ? `${name}'d` : cap("they'd")) + tail
+      const after = (next ?? '').toLowerCase()
+      const subject = starts || SUBJECT_NEXT.has(after) || after.endsWith('ed')
+      if (first) {
+        const verb = subject && next ? NAMED_VERB[after] : undefined
+        return verb ? `${name}${tail.slice(0, tail.length - next!.length)}${verb}` : name + tail
+      }
+      return cap(subject ? 'they' : 'them') + tail
+    },
+  )
+}
+
 /** The stream's filters: Everything, Chat only, Games only. */
 export const STREAM_FILTERS = ['all', 'chat', 'games'] as const
 export type StreamFilter = (typeof STREAM_FILTERS)[number]
@@ -221,6 +270,8 @@ export interface StreamPage {
   filter: StreamFilter
   items: ChatMessage[]
   more: boolean
+  /** On the newest page: your own cards whose rounds are still open, under any filter. */
+  mine: ChatMessage[]
 }
 
 /** How many players a posted leaderboard shows. */

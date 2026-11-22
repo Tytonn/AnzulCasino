@@ -33,7 +33,7 @@
 import { and, desc, eq, gt, inArray, lt, or, sql } from 'drizzle-orm'
 
 import { gameRounds, users } from '../../db/schema/core.ts'
-import type { CardMeta, SystemMeta } from '../../shared/chat.ts'
+import type { CardMeta, ChatMessage, SystemMeta } from '../../shared/chat.ts'
 import { formatChips, formatMultiplier } from '../../shared/chips.ts'
 import type { ConfigValues } from '../../shared/config.ts'
 import { checkBetAmount, parseBetAmount } from '../../shared/bet-amount.ts'
@@ -197,6 +197,8 @@ export interface RoundTx {
   config: ConfigValues
   /** Queues events to publish after the commit. Never published if the transaction fails. */
   emit(...events: Outgoing[]): void
+  /** The stream cards this transaction wrote, by round id, so the response can carry them. */
+  cards?: Map<number, ChatMessage>
 }
 
 /**
@@ -224,7 +226,7 @@ export async function roundTx(tx: Tx, afterCommit: AfterCommit): Promise<RoundTx
   const config = await loadConfig(tx)
   const queued: Outgoing[] = []
   afterCommit(() => publish(latestWalletNews(queued)))
-  return { tx, config, emit: (...events) => void queued.push(...events) }
+  return { tx, config, emit: (...events) => void queued.push(...events), cards: new Map() }
 }
 
 /**
@@ -338,7 +340,11 @@ export async function startRound<D, S = never>(
   rt.emit(roomEvent('round.started', round), ...walletEvents(input.seasonId, input.userId, after))
   // A player's own round gets its card in the stream; a shared round's
   // bets show on the shared round's one card instead.
-  if (round.sharedRoundId === null) rt.emit(await cardPost(tx, input.game, round))
+  if (round.sharedRoundId === null) {
+    const card = await cardPost(tx, input.game, round)
+    rt.cards?.set(round.id, card.message)
+    rt.emit(card.event)
+  }
   return { round, wallet: after }
 }
 
@@ -352,7 +358,7 @@ async function cardPost(
   executor: Executor,
   game: ServerGame,
   round: Round<unknown, unknown>,
-): Promise<Outgoing> {
+): Promise<{ message: ChatMessage; event: Outgoing }> {
   const meta: CardMeta = { game: round.game, roundId: round.id }
   const message = await insertChatMessage(executor, {
     userId: round.userId,
@@ -360,7 +366,13 @@ async function cardPost(
     body: `${game.name} · ${formatChips(round.stake)}`,
     meta: { ...meta },
   })
-  return liveEvent('chat', 'chat.message', { ...message, round: roundView(round) }, message.id)
+  const event = liveEvent(
+    'chat',
+    'chat.message',
+    { ...message, round: roundView(round) },
+    message.id,
+  )
+  return { message, event }
 }
 
 // ---------------------------------------------------------------- finding rounds
@@ -730,6 +742,8 @@ export async function refundRound<D, S = never>(
 export interface PlayOut<D = unknown> {
   round: RoundOut<D>
   wallet: { seasonId: number; balance: bigint; vault: bigint; version: number }
+  /** The round's card in the stream, on the request that opened the round. */
+  card?: Omit<ChatMessage, 'round'> & { round: RoundOut<D> }
 }
 
 /**
@@ -845,14 +859,17 @@ export class Play {
       if (!read) throw new Error('The player has no wallet')
       wallet = { balance: read.balance, vault: read.vault, tier: read.tier, ledgerId: read.version }
     }
+    const view = roundView(round)
+    const card = this.rt.cards?.get(round.id)
     return {
-      round: roundView(round),
+      round: view,
       wallet: {
         seasonId: this.seasonId,
         balance: wallet.balance,
         vault: wallet.vault,
         version: wallet.ledgerId,
       },
+      ...(card ? { card: { ...card, round: view } } : {}),
     }
   }
 }

@@ -208,5 +208,9 @@ export const PLANNED_PAGES: readonly PlannedPage[] = [
   },
 ]
 
-/** The Floor's own link, first on the rail. */
-export const FLOOR_NAV = { to: '/', label: 'Floor', icon: FloorIcon, order: 0 }
+/**
+ * The Floor's own link, first on the classic rail. The stream took the
+ * home page, so the Floor and its rooms live under /classic until the last
+ * game has its card (Tyton, Nov 22, 2026).
+ */
+export const FLOOR_NAV = { to: '/classic', label: 'Floor', icon: FloorIcon, order: 0 }

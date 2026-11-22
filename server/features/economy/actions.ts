@@ -10,6 +10,7 @@
 import { and, eq, sql } from 'drizzle-orm'
 
 import { wallets } from '../../../db/schema/core.ts'
+import { retellLine } from '../../../shared/chat.ts'
 import { chipCount, formatChips } from '../../../shared/chips.ts'
 import { type ConfigValues, tierSettings } from '../../../shared/config.ts'
 import { userChannel } from '../../../shared/events.ts'
@@ -159,20 +160,14 @@ const READY_AT = {
 } as const
 
 /**
- * The result as everyone sees it in the stream (Tyton, Nov 22, 2026): the
- * player, the command, the flavor line and the amount, such as "Alice ·
- * Work: You parked cars for the high rollers. +4". The stream draws it from
+ * A work, slut or crime result as everyone reads it (Tyton, Nov 22, 2026):
+ * the flavor line retold about the player, then the amount, such as
+ * "tyton parked cars for the high rollers. +4". The stream draws it from
  * the post's `income` meta; this text is what the classic chat shows.
  */
-export function incomePostText(
-  name: string,
-  commandLabel: string,
-  line: string,
-  paid: boolean,
-  amount: bigint,
-): string {
+export function incomePostText(name: string, line: string, paid: boolean, amount: bigint): string {
   const sign = paid ? '+' : '−'
-  return `${name} · ${commandLabel}: ${line} ${sign}${formatChips(amount)}`
+  return `${retellLine(line, name)} ${sign}${formatChips(amount)}`
 }
 
 /**
@@ -232,9 +227,8 @@ export function pressButton(ctx: EconomyRequest, command: IncomeCommand) {
       .returning({ readyAt: column })
 
     const posted = command === 'crime' && paid && amount >= e.config.crime_chat_min
-    const label = commandName(command, e.config.hustle_name)
     e.emit(
-      await systemPost(e.tx, incomePostText(e.displayName, label, line, paid, amount), {
+      await systemPost(e.tx, incomePostText(e.displayName, line, paid, amount), {
         tone: paid ? 'win' : 'loss',
         userId: e.userId,
         category: 'game',

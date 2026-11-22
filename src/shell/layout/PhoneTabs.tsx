@@ -41,7 +41,7 @@ export function PhoneTabs() {
   const linkTab = (to: string, label: string, Icon: typeof ChatIcon) => (
     <NavLink
       to={to}
-      end={to === '/'}
+      end={to === '/classic'}
       onClick={() => openSheet(null)}
       className={({ isActive }) => `${tab} ${isActive && !sheet ? 'text-text' : 'text-muted'}`}
     >
@@ -55,7 +55,7 @@ export function PhoneTabs() {
       aria-label="Main"
       className="fixed inset-x-0 bottom-0 z-30 flex border-t border-border bg-surface-1 pb-[env(safe-area-inset-bottom)]"
     >
-      {linkTab('/', 'Floor', FloorIcon)}
+      {linkTab('/classic', 'Floor', FloorIcon)}
       {sheetTab('chat', 'Chat', ChatIcon, unread)}
       {sheetTab('leaderboard', 'Leaderboard', TrophyIcon)}
       {linkTab('/shop', 'Shop', BagIcon)}

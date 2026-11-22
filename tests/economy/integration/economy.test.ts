@@ -10,6 +10,7 @@ import { randomUUID } from 'node:crypto'
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
+import { retellLine } from '../../../shared/chat.ts'
 import { CHIP } from '../../../shared/chips.ts'
 import type {
   ChallengeClaimResponse,
@@ -305,7 +306,11 @@ describe('POST /api/economy/hustle and /crime', () => {
     const posts = capture.events.filter((e) => e.name === 'chat.message')
     expect(posts).toHaveLength(1)
     const post = posts[0]?.envelope.data as { body: string; meta: Record<string, unknown> }
-    expect(post.body).toMatch(/ · Crime: .+ \+150$/)
+    // The flavor line retold about the player, then the amount.
+    const name = (
+      await testDb.query<{ n: string }>(`select display_name as n from users where id = $1`, [id])
+    )[0]?.n
+    expect(post.body).toBe(`${retellLine(res.body.result.line, name ?? '')} +150`)
     expect(post.meta).toEqual({
       tone: 'win',
       userId: id,
@@ -342,7 +347,8 @@ describe('POST /api/economy/hustle and /crime', () => {
       body: string
       meta: Record<string, unknown>
     }
-    expect(post.body).toContain(`Crime: ${res.body.result.line} −`)
+    expect(post.body).toMatch(/ −\d[\d,.]*$/)
+    expect(post.body).not.toMatch(/\byour?\b/i)
     expect(post.meta).toMatchObject({
       tone: 'loss',
       userId: id,

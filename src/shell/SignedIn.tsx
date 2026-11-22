@@ -1,9 +1,10 @@
 /**
  * Everything behind the sign-in: one live client per player, the caches kept
- * current, and the shell around the page.
+ * current, and the layout the route asks for around the page: the stream's,
+ * or the classic rooms'.
  */
 import { useEffect, useState } from 'react'
-import { Navigate, useLocation } from 'react-router'
+import { Navigate, Outlet, useLocation } from 'react-router'
 
 import type { Me } from '../../shared/accounts.ts'
 import { syncClock } from '../kit/clock.ts'
@@ -11,7 +12,6 @@ import { LogoMark } from './Logo.tsx'
 import { useSession } from '../kit/queries.ts'
 import { useSound } from '../kit/sound.ts'
 import { createBrowserLiveClient, LiveProvider } from '../live/index.ts'
-import { Shell } from './layout/Shell.tsx'
 import { LiveSync } from './LiveSync.tsx'
 
 function Boot({ retry }: { retry?: () => void }) {
@@ -55,7 +55,7 @@ function Session({ me }: { me: Me }) {
   return (
     <LiveProvider client={client}>
       <LiveSync me={me} />
-      <Shell />
+      <Outlet />
     </LiveProvider>
   )
 }

@@ -148,6 +148,15 @@ describe('cards', () => {
       },
     ])
 
+    // The response carries the card too, so the player's stream shows it at once.
+    expect(res.body.card).toMatchObject({
+      id: cards[0]?.id,
+      kind: 'card',
+      userId: id,
+      meta: { game: 'streamdice', roundId: round.id },
+      round,
+    })
+
     await client.settle()
     const sent = chatEvents().filter((e) => e.data.kind === 'card')
     expect(sent).toHaveLength(1)
@@ -162,7 +171,8 @@ describe('cards', () => {
     expect(JSON.stringify(capture.events)).not.toContain(SECRET)
 
     // Moving the round on does not write another card: the room's events carry it.
-    await client.post('/api/streamdice/settle', { payout: 5000 }, key())
+    const settled = await client.post('/api/streamdice/settle', { payout: 5000 }, key())
+    expect(settled.body.card).toBeUndefined()
     expect(await cardsFor(round.id)).toHaveLength(1)
   })
 
@@ -267,6 +277,26 @@ describe('GET /api/stream', () => {
       'a dancing cat',
       'The season ends tomorrow',
     ])
+  })
+
+  it("lists the player's own open cards under any filter, for the pinned spot", async () => {
+    const { id, client } = await player(100n)
+    const other = await player(100n)
+    const open = await client.post('/api/streamdice/start', { bet: '10' }, key())
+    await client.post('/api/streamdice/instant', { bet: '1', times: 0 }, key())
+    await other.client.post('/api/streamdice/start', { bet: '10' }, key())
+
+    const chatOnly = await client.get('/api/stream?filter=chat')
+    expect(chatOnly.body.items).toEqual([])
+    expect(chatOnly.body.mine).toHaveLength(1)
+    expect(chatOnly.body.mine[0]).toMatchObject({
+      kind: 'card',
+      userId: id,
+      round: { id: open.body.round.id, status: 'open' },
+    })
+    expect(JSON.stringify(chatOnly.body)).not.toContain(SECRET)
+    const older = await client.get(`/api/stream?before=${chatOnly.body.mine[0].id + 1}`)
+    expect(older.body.mine).toEqual([])
   })
 
   it('refuses a filter it does not know', async () => {
