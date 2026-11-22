@@ -25,11 +25,11 @@ describe('config defaults', () => {
       expect(s.description, key).toMatch(/^[A-Z].*\.$/)
       expect(CONFIG_GROUPS, key).toContain(s.group)
       expect(key, 'snake_case keys').toMatch(/^[a-z][a-z0-9_]*$/)
-      if (s.unit === 'lines') {
+      if (s.unit === 'lines' || s.unit === 'words') {
         expect(parseConfigValue(key, [...s.default]), key).toEqual({ ok: true, value: s.default })
         continue
       }
-      if (s.unit === 'text') {
+      if (s.unit === 'text' || s.unit === 'choice') {
         expect(parseConfigValue(key, s.default), key).toEqual({ ok: true, value: s.default })
         continue
       }
