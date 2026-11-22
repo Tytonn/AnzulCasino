@@ -96,7 +96,14 @@ Plan, approved by Tyton on 2026-11-22: https://claude.ai/artifact/Sj3mrj6zpw6mgh
   simulation (`docs/progress/heist.md`) match. Tests that count single chips at the
   roulette table set `min_bet` to 1 themselves; the others bet 10 or more. Two tests had
   passed only because every bet in them was refused (the coin flip room, and one stream
-  test); they now check that their bets went down.
+  test); they now check that their bets went down. On the preview, season 2 (100-chip
+  start) was ended and a fresh test season started at 1,000 (sample players 1,000,
+  `test` and `test2` 10,000); then 52 browser tests passed and 4 skipped (the chat drop
+  and the live-layer tests need the local relay).
+- Still rounding to 0 or 1 at the 1,000 scale, sent to Tyton with fixes (no change made
+  yet): a steal on someone ranked below you (0.5%) takes 1 chip from a 200 to 399
+  wallet; the failed-steal fine (5% of the thief's wallet) is 0 under 20 chips and 1
+  under 40. The 10-chip coin flip pays 19, not 19.6.
 
 ## Not done yet
 
