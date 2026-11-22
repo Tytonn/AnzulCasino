@@ -1,6 +1,6 @@
 /**
- * A saved round, replayed (History and the ticker): where the ball landed,
- * the player's chips on the felt as they were, and what each bet did.
+ * One player's bets on a round, replayed (History and the ticker): where the
+ * ball landed, their chips on the felt as they were, and what each bet did.
  */
 import { formatChips } from '../../../shared/chips.ts'
 import { type RouletteDetail, spotById, spotReturn } from '../../../shared/games/roulette.ts'
@@ -8,7 +8,7 @@ import type { RoundView } from '../../../shared/rounds.ts'
 import { usePlayer } from '../../kit/index.ts'
 import { Felt, type FeltChip } from './Felt.tsx'
 import { tableLayout } from './layout.ts'
-import { NumberChip, numberWords } from './Status.tsx'
+import { NumberChip, numberWords } from './NumberChip.tsx'
 
 const WIDE = tableLayout('wide')
 const none = () => {}
@@ -22,7 +22,7 @@ export default function RouletteReplay({ round }: { round: RoundView }) {
   if (round.status === 'void' || bets.length === 0) {
     return (
       <p className="text-sm text-muted">
-        The bets on spin {detail.spin} were taken back before the wheel spun.
+        Round {detail.spin} was called off before the wheel spun, and its chips went back.
       </p>
     )
   }
@@ -48,7 +48,7 @@ export default function RouletteReplay({ round }: { round: RoundView }) {
           <p className="text-lg font-bold">
             {number !== null ? numberWords(number) : 'Not drawn yet'}
           </p>
-          <p className="text-xs text-muted">Spin {detail.spin}</p>
+          <p className="text-xs text-muted">Round {detail.spin}</p>
         </div>
         {round.status === 'settled' && (
           <p

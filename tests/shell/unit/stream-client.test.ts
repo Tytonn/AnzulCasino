@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { ChatMessage, StreamPage } from '../../../shared/chat.ts'
-import type { RoundView } from '../../../shared/rounds.ts'
+import type { RoundView, SharedRoundView } from '../../../shared/rounds.ts'
 import {
   addItem,
   addOlder,
@@ -14,7 +14,13 @@ import {
   STREAM_KEEP,
   type StreamList,
 } from '../../../src/shell/stream/cache.ts'
-import { type CardState, cardState, FOLD_AFTER_MS } from '../../../src/shell/stream/fold.ts'
+import {
+  type CardState,
+  cardState,
+  FOLD_AFTER_MS,
+  SHARED_FOLD_AFTER_MS,
+  sharedCardState,
+} from '../../../src/shell/stream/fold.ts'
 import type { PrivateItem } from '../../../src/shell/stream/private.ts'
 import { buildRows, GROUP_MS } from '../../../src/shell/stream/rows.ts'
 
@@ -37,6 +43,17 @@ function card(id: number, userId = 'alice', roundId = id): ChatMessage {
     kind: 'card',
     body: 'Blackjack',
     meta: { game: 'blackjack', roundId },
+  }
+}
+
+/** A shared round's card (a roulette round): everyone's, with no player of its own. */
+function sharedCard(id: number, sharedRoundId = id): ChatMessage {
+  return {
+    ...chat(id),
+    userId: null,
+    kind: 'card',
+    body: `Roulette · Round ${sharedRoundId}`,
+    meta: { game: 'roulette', sharedRoundId },
   }
 }
 
@@ -149,6 +166,19 @@ describe('the rows', () => {
     expect(drawn.map((r) => r.kind)).toEqual(['card', 'card', 'stub'])
   })
 
+  it('keeps a shared round’s card on its own line, out of any run', () => {
+    const folded = (ids: number[]): [number, CardState][] => ids.map((id) => [id, 'folded'])
+    const drawn = rows([card(1), sharedCard(2), card(3), card(4)], { states: folded([1, 2, 3, 4]) })
+    expect(drawn.map((r) => r.kind)).toEqual(['card', 'card', 'run'])
+    const run = drawn[2]
+    expect(run?.kind === 'run' && run.messages.map((m) => m.id)).toEqual([3, 4])
+    // Two rounds in a row are two lines, and a pinned one is a slim line.
+    expect(
+      rows([sharedCard(1), sharedCard(2)], { states: folded([1, 2]) }).map((r) => r.kind),
+    ).toEqual(['card', 'card'])
+    expect(rows([sharedCard(1)], { pinned: [1] }).map((r) => r.kind)).toEqual(['stub'])
+  })
+
   it('puts private replies right after the item that was newest when they came', () => {
     const reply = { label: 'Commands', content: 'help' }
     const drawn = rows([chat(1), chat(2), chat(3)], {
@@ -220,5 +250,49 @@ describe('folding a card', () => {
   it('keeps a big win and any all-in open', () => {
     expect(state({ round: round({ payout: 60_000 }), shownAt: AT - 60_000 }).state).toBe('big')
     expect(state({ round: round({ allIn: true }), shownAt: AT - 60_000 }).state).toBe('big')
+  })
+})
+
+describe('folding a shared round’s card', () => {
+  const view = (settled: boolean): SharedRoundView => ({
+    id: 9,
+    game: 'roulette',
+    roundNo: 3,
+    state: settled ? 'settled' : 'betting',
+    opensAt: new Date(AT - 20_000).toISOString(),
+    closesAt: new Date(AT).toISOString(),
+    settledAt: settled ? new Date(AT).toISOString() : null,
+    result: null,
+    rounds: [],
+    version: 0,
+  })
+  const state = (input: Partial<Parameters<typeof sharedCardState>[0]>) =>
+    sharedCardState({
+      view: view(true),
+      shownAt: null,
+      seenOpen: false,
+      now: AT,
+      serverNow: AT,
+      ...input,
+    })
+
+  it('keeps an open round live, however long it runs', () => {
+    expect(state({ view: view(false), serverNow: AT + 600_000 })).toEqual({
+      state: 'live',
+      changesAt: null,
+    })
+  })
+
+  it('folds a while after the card shows the result', () => {
+    expect(state({ shownAt: AT })).toEqual({ state: 'live', changesAt: AT + SHARED_FOLD_AFTER_MS })
+    expect(state({ shownAt: AT, now: AT + SHARED_FOLD_AFTER_MS }).state).toBe('folded')
+  })
+
+  it('waits for a spin this tab saw open to land, and folds an old one from the start', () => {
+    expect(state({ seenOpen: true, serverNow: AT + 60_000 }).state).toBe('live')
+    expect(state({ seenOpen: true, serverNow: AT + 80_000 }).state).toBe('folded')
+    expect(state({ serverNow: AT + 5_000 })).toEqual({ state: 'live', changesAt: AT + 10_000 })
+    expect(state({ serverNow: AT + 16_000 }).state).toBe('folded')
+    expect(state({ view: null }).state).toBe('folded')
   })
 })

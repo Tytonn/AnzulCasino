@@ -9,6 +9,11 @@
  * Finished cards fold to one line ("Bob · Blackjack 50 · Bust −50") that
  * expands to the replay, and a run of them by one player folds into one
  * line ("Bob · 6 hands · +45") while the stream_round_runs setting says so.
+ *
+ * A round the whole table shares (a roulette spin) has one card for
+ * everyone: its frame names the game, the round, the players and the chips
+ * on it, and the game's `sharedCard` draws the rest. It folds to its own
+ * line ("Roulette · Round 12 · 17 Black · 3 players").
  */
 import {
   type ComponentType,
@@ -24,27 +29,49 @@ import { useShallow } from 'zustand/react/shallow'
 
 import type { CardMeta, ChatMessage } from '../../../shared/chat.ts'
 import { formatChips } from '../../../shared/chips.ts'
-import type { RoundView } from '../../../shared/rounds.ts'
-import { markShown, useCardKeys, useCardRound, useCardRounds, useShownAt } from '../../kit/cards.ts'
+import type { RoundView, SharedRoundView } from '../../../shared/rounds.ts'
+import {
+  markShown,
+  markSharedShown,
+  useCardKeys,
+  useCardRound,
+  useCardRounds,
+  useSharedRound,
+  useSharedShownAt,
+  useShownAt,
+} from '../../kit/cards.ts'
 import { Avatar, PlayerName } from '../../kit/PlayerName.tsx'
 import { useMe, usePlayer } from '../../kit/queries.ts'
-import type { CardProps } from '../manifests.ts'
+import type { CardProps, SharedCardProps } from '../manifests.ts'
 import { type GameEntry, gameById, games } from '../registry.ts'
 import { TOUCH, useMediaQuery } from '../media.ts'
 import { Slot } from '../Slot.tsx'
 import { useUi } from '../ui.ts'
-import { cardRoundId, type CardState } from './fold.ts'
+import { cardRoundId, cardSharedRoundId, type CardState, isSharedCard } from './fold.ts'
 
 type CardComponent = LazyExoticComponent<ComponentType<CardProps>>
 type ReplayComponent = LazyExoticComponent<ComponentType<{ round: RoundView }>>
+type SharedCardComponent = LazyExoticComponent<ComponentType<SharedCardProps>>
+type SharedReplayComponent = LazyExoticComponent<ComponentType<{ shared: SharedRoundView }>>
 
-/** Each game's card and replay, loaded the first time one shows. */
+/** Each game's cards and replays, loaded the first time one shows. */
 const CARDS: Readonly<Record<string, CardComponent | undefined>> = Object.fromEntries(
   games.flatMap((game) => (game.manifest?.card ? [[game.id, lazy(game.manifest.card)]] : [])),
 )
 const REPLAYS: Readonly<Record<string, ReplayComponent | undefined>> = Object.fromEntries(
   games.flatMap((game) => (game.manifest?.replay ? [[game.id, lazy(game.manifest.replay)]] : [])),
 )
+const SHARED_CARDS: Readonly<Record<string, SharedCardComponent | undefined>> = Object.fromEntries(
+  games.flatMap((game) =>
+    game.manifest?.sharedCard ? [[game.id, lazy(game.manifest.sharedCard)]] : [],
+  ),
+)
+const SHARED_REPLAYS: Readonly<Record<string, SharedReplayComponent | undefined>> =
+  Object.fromEntries(
+    games.flatMap((game) =>
+      game.manifest?.sharedReplay ? [[game.id, lazy(game.manifest.sharedReplay)]] : [],
+    ),
+  )
 
 export function cardGame(message: ChatMessage): GameEntry | undefined {
   return gameById((message.meta as Partial<CardMeta> | null)?.game)
@@ -113,19 +140,20 @@ function CardSkeleton() {
   return <div className="skeleton mx-3 mb-3 h-40" aria-label="Loading the card" />
 }
 
-/** A live card, or a big result that stays open. */
-export const CardItem = memo(function CardItem({
-  message,
-  state,
-  pinned = false,
-  collapsed = false,
-}: {
+interface CardItemProps {
   message: ChatMessage
   state: CardState
   pinned?: boolean
   /** An older card pinned under a newer one: its header alone. */
   collapsed?: boolean
-}) {
+}
+
+/** A live card, or a big result that stays open. */
+export const CardItem = memo(function CardItem(props: CardItemProps) {
+  return isSharedCard(props.message) ? <SharedCardItem {...props} /> : <RoundCardItem {...props} />
+})
+
+function RoundCardItem({ message, state, pinned = false, collapsed = false }: CardItemProps) {
   const me = useMe()
   const roundId = cardRoundId(message)
   const round = useCardRound(roundId, message.round)
@@ -202,16 +230,170 @@ export const CardItem = memo(function CardItem({
       )}
     </article>
   )
-})
+}
+
+/** A shared round's facts for its frame: the players, the chips on it, its line, your part. */
+function sharedFacts(shared: SharedRoundView, me: string) {
+  const players = new Set(shared.rounds.map((r) => r.userId)).size
+  const total = shared.rounds.reduce((sum, r) => sum + r.stake, 0)
+  const summary = shared.rounds.find((r) => r.summary)?.summary ?? null
+  const mine = shared.rounds.filter((r) => r.userId === me)
+  const myNet = mine.length > 0 ? mine.reduce((sum, r) => sum + net(r), 0) : null
+  return { players, total, summary, mine: mine.length > 0, myNet }
+}
+
+function playerCount(players: number): string {
+  return `${players} ${players === 1 ? 'player' : 'players'}`
+}
+
+/** A shared round's card (a roulette spin): one for everyone at the table. */
+function SharedCardItem({ message, pinned = false, collapsed = false }: CardItemProps) {
+  const me = useMe()
+  const id = cardSharedRoundId(message)
+  const shared = useSharedRound(id, message.sharedRound)
+  const shownAt = useSharedShownAt(id)
+  const game = cardGame(message)
+  const Card = game ? SHARED_CARDS[game.id] : undefined
+
+  if (!shared) return <SharedFoldedLine message={message} />
+  // The draw comes before the wheel lands: the frame keeps the result until the card shows it.
+  const told = shared.settledAt !== null && shownAt !== null
+  const facts = sharedFacts(shared, me.id)
+
+  return (
+    <article
+      data-card={game?.id ?? 'card'}
+      data-shared={shared.id}
+      data-status={shared.settledAt === null ? 'open' : 'settled'}
+      aria-label={`${game?.name ?? 'A game'}, round ${shared.roundNo}`}
+      className={`@container relative overflow-hidden rounded-lg border bg-surface-1 ${pinned ? 'border-accent/55 shadow-pop' : 'border-border'}`}
+    >
+      <header className="flex min-h-11 items-center gap-2 px-3 py-2 text-sm">
+        <span className="flex min-w-0 shrink items-center gap-1.5">
+          {game && <game.icon className="size-4 shrink-0 text-muted" />}
+          <span className="truncate font-semibold @max-[24rem]:sr-only">
+            {game?.name ?? message.body}
+          </span>
+          <span className="shrink-0 text-muted">Round {shared.roundNo}</span>
+        </span>
+        <span className="shrink-0 text-faint">·</span>
+        <span className="shrink-0 text-muted tabular-nums">
+          <span className="@max-[20rem]:sr-only">{playerCount(facts.players)} · </span>
+          {formatChips(facts.total)}
+        </span>
+        <span className="ml-auto flex shrink-0 items-center gap-2 text-xs">
+          {told ? (
+            <>
+              {facts.summary && (
+                <span className="text-muted @max-[28rem]:hidden">{facts.summary}</span>
+              )}
+              {facts.myNet !== null && <Amount value={facts.myNet} />}
+            </>
+          ) : (
+            <span className="flex items-center gap-1.5 text-online">
+              <span className="size-1.5 animate-pulse rounded-full bg-online" />
+              live
+            </span>
+          )}
+        </span>
+      </header>
+      {!collapsed &&
+        (Card ? (
+          <Suspense fallback={<CardSkeleton />}>
+            <Card shared={shared} message={message} mine={facts.mine} pinned={pinned} />
+          </Suspense>
+        ) : (
+          <PlainShared shared={shared} />
+        ))}
+      {!pinned && (
+        <div className="empty:hidden px-3 pb-2">
+          <Slot name="chat-message" props={{ message }} />
+        </div>
+      )}
+    </article>
+  )
+}
+
+/** The plain shared card for a game without its own: who is in, then what each took home. */
+function PlainShared({ shared }: { shared: SharedRoundView }) {
+  const done = shared.settledAt !== null
+  useEffect(() => {
+    if (done) markSharedShown(shared.id)
+  }, [done, shared.id])
+  return (
+    <ul className="space-y-1 px-4 pb-3 text-sm">
+      {shared.rounds.map((round) => (
+        <li key={round.id} className="flex items-center gap-2">
+          <FoldedOwner userId={round.userId} />
+          <span className="ml-auto tabular-nums">
+            {done ? <Amount value={net(round)} /> : formatChips(round.stake)}
+          </span>
+        </li>
+      ))}
+    </ul>
+  )
+}
 
 /** A finished card as one line, which opens to the replay. In a run's list, without its player. */
-export const FoldedLine = memo(function FoldedLine({
-  message,
-  owner = true,
-}: {
+export const FoldedLine = memo(function FoldedLine(props: {
   message: ChatMessage
   owner?: boolean
 }) {
+  return isSharedCard(props.message) ? (
+    <SharedFoldedLine message={props.message} />
+  ) : (
+    <RoundFoldedLine {...props} />
+  )
+})
+
+/** A finished shared round as one line ("Roulette · Round 12 · 17 Black · 3 players"), which opens to its result. */
+function SharedFoldedLine({ message }: { message: ChatMessage }) {
+  const me = useMe()
+  const id = cardSharedRoundId(message)
+  const shared = useSharedRound(id, message.sharedRound)
+  const game = cardGame(message)
+  const [open, setOpen] = useState(false)
+  const Replay = game ? SHARED_REPLAYS[game.id] : undefined
+  const facts = shared ? sharedFacts(shared, me.id) : null
+
+  return (
+    <div data-folded-shared={id} className="rounded-md border border-border/70 bg-surface-1/60">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="flex w-full min-w-0 items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-surface-2"
+      >
+        {game && <game.icon className="size-4 shrink-0 text-muted" />}
+        <span className="min-w-0 truncate text-muted">
+          {game?.name ?? 'Game'}
+          {shared && <span className="text-text"> · Round {shared.roundNo}</span>}
+          {facts?.summary && <span> · {facts.summary}</span>}
+          {facts && <span> · {playerCount(facts.players)}</span>}
+        </span>
+        <span className="ml-auto flex shrink-0 items-center gap-2">
+          {facts?.myNet !== null && facts?.myNet !== undefined && shared?.settledAt && (
+            <Amount value={facts.myNet} className="text-xs" />
+          )}
+          <Chevron open={open} />
+        </span>
+      </button>
+      {open && shared && (
+        <div className="border-t border-border/70 p-2">
+          {Replay ? (
+            <Suspense fallback={<div className="skeleton h-32" />}>
+              <Replay shared={shared} />
+            </Suspense>
+          ) : (
+            <PlainShared shared={shared} />
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function RoundFoldedLine({ message, owner = true }: { message: ChatMessage; owner?: boolean }) {
   const roundId = cardRoundId(message)
   const round = useCardRound(roundId, message.round)
   const game = cardGame(message)
@@ -255,7 +437,7 @@ export const FoldedLine = memo(function FoldedLine({
       )}
     </div>
   )
-})
+}
 
 function FoldedOwner({ userId }: { userId: string | null }) {
   const player = usePlayer(userId)

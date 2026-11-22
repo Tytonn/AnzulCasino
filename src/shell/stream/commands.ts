@@ -196,7 +196,7 @@ export function checkArgs(command: Command, called: string, args: string): strin
   if (needs === 'player' && !args) {
     return `${called} needs a player, like ${called} ${example ?? 'alice'}.`
   }
-  return null
+  return command.spec.check?.(args, called) ?? null
 }
 
 function article(noun: string): string {

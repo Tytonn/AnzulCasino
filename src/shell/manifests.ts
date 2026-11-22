@@ -5,8 +5,9 @@
  *   src/games/<id>/manifest.ts       export default defineGame({ ... })
  *   src/features/<name>/manifest.ts  export default defineFeature({ ... })
  *
- * A game brings its card for the stream, its commands, its room (until the
- * classic rooms go), how-to-play card and replay. A feature brings pages,
+ * A game brings its card for the stream (or its shared card, for a round
+ * the whole table shares), its commands, its room (until the classic rooms
+ * go), how-to-play card and replay. A feature brings pages,
  * commands, and components for the shell's slots: the top bar, the profile
  * card, chat, banners, overlays and shop items. Pages, rooms and cards load
  * on demand, so a manifest stays small.
@@ -18,7 +19,7 @@ import type { Me } from '../../shared/accounts.ts'
 import type { ChatMessage } from '../../shared/chat.ts'
 import type { CommandKey } from '../../shared/config.ts'
 import type { PlayerSummary } from '../../shared/players.ts'
-import type { RoundView } from '../../shared/rounds.ts'
+import type { RoundView, SharedRoundView } from '../../shared/rounds.ts'
 import type { Icon } from '../kit/icons.tsx'
 import type { SeatExtrasProps } from '../kit/seat-extras.ts'
 
@@ -64,6 +65,15 @@ export interface GameManifest {
    * the bet and the result.
    */
   card?: Lazy<CardProps>
+  /**
+   * A game with one round for the whole table (roulette, crash, race): that
+   * round's one card in the stream, for everyone, under the shell's header
+   * (docs/LANE_GUIDE.md section 8). Without one, the stream shows the
+   * shared round's players and their results.
+   */
+  sharedCard?: Lazy<SharedCardProps>
+  /** A finished shared round, for its folded line: the result and everyone's part in it. */
+  sharedReplay?: Lazy<{ shared: SharedRoundView }>
   /** The commands that start it, such as .bj 50. */
   commands?: readonly CommandSpec[]
   /** What one round is called, and several: ['hand', 'hands']. "round" without it. */
@@ -84,6 +94,18 @@ export interface CardProps<D = unknown> {
   pinned: boolean
   /** It has the keyboard: its shortcuts work, and the message box waits. */
   keys: boolean
+}
+
+/** What a game's shared card gets from the stream. */
+export interface SharedCardProps<D = unknown, R = unknown> {
+  /** The shared round as it is now, with every player's round on it. */
+  shared: SharedRoundView<D, R>
+  /** The card's chat row. */
+  message: ChatMessage
+  /** You have a bet on it. */
+  mine: boolean
+  /** It sits above the message box, in thumb reach: keep it short. */
+  pinned: boolean
 }
 
 /** A private item in your own stream, marked "only you" and never stored. */
@@ -138,6 +160,18 @@ export interface CommandSpec {
    * read as an amount.
    */
   choices?: readonly (readonly [string, ...string[]])[]
+  /**
+   * Places offered as quick picks after the amount, such as roulette's red
+   * and black. Unlike choices they stay in what was typed, for `run` to read
+   * with the rest; the box offers amounts beside them.
+   */
+  picks?: readonly string[]
+  /**
+   * Why what was typed after the word cannot run, checked in the box before
+   * anything is sent, or null when it can. `called` is the word as typed,
+   * with the prefix: ".rl".
+   */
+  check?(args: string, called: string): string | null
   adminOnly?: boolean
   /** A game still to come: the command list shows it only once its word is typed. */
   soon?: boolean

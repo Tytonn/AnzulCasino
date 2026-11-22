@@ -103,10 +103,15 @@ export function LiveSync({ me }: { me: Me }) {
         queryClient.setQueryData<ChatPage>(queryKeys.chat, (old) => addMessage(old, message))
       }
     }
-    // A card of yours from another tab pins here too while its round is open.
+    // A card of yours from another tab pins here too while its round is open,
+    // and so does a shared card your bet there opened.
     if (message.kind === 'card' && message.userId === me.id) {
       const round = useCardRounds.getState().rounds[cardRoundId(message)] ?? message.round
       if (round?.status === 'open') pinCard(message)
+    }
+    const shared = message.kind === 'card' ? message.sharedRound : null
+    if (shared && shared.settledAt === null && shared.rounds.some((r) => r.userId === me.id)) {
+      pinCard(message)
     }
     // A post about a big result waits for that player's reveal.
     const about = message.kind === 'system' ? (message.meta as SystemMeta | null)?.userId : null

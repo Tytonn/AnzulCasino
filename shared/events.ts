@@ -18,7 +18,7 @@
  */
 
 import type { ChatMessage } from './chat.ts'
-import type { RoundView } from './rounds.ts'
+import type { RoundView, SharedRoundView } from './rounds.ts'
 import type { SeasonPhase } from './seasons.ts'
 import type { StealResult } from './steals.ts'
 
@@ -110,6 +110,12 @@ export interface RoomEvents {
   /** The round is over: its payout, multiplier and summary are set. */
   'round.settled': RoundView
   'seat.emote': { userId: string; emote: string }
+  /**
+   * A shared round moved on, such as a bet joining a roulette spin or its
+   * number drawn: the shared round with every player's round on it, for its
+   * card. Version: sharedRoundVersion(view) (shared/rounds.ts).
+   */
+  'shared.updated': SharedRoundView
 }
 
 // ---------------------------------------------------------------- user:<id> (that player only)

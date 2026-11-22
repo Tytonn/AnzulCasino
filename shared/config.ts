@@ -552,22 +552,25 @@ export const CONFIG = {
     'Blackjack: how long a slow-reveal card takes to flip.',
     { min: 100, max: 2_000 },
   ),
-  roulette_betting_seconds: number(
+  roulette_close_after_seconds: number(
     'games',
     'seconds',
-    20,
-    'Roulette: seconds of betting in each round.',
-    { min: 5, max: 300 },
+    15,
+    'Roulette: a round closes this many seconds after its latest bet. Each new bet starts the countdown again.',
+    { min: 3, max: 120 },
   ),
-  roulette_spin_seconds: number('games', 'seconds', 7, 'Roulette: seconds the wheel spins.', {
-    min: 1,
-    max: 60,
-  }),
-  roulette_result_seconds: number(
+  roulette_max_open_seconds: number(
     'games',
     'seconds',
-    3,
-    'Roulette: seconds the result shows before the next round.',
+    60,
+    'Roulette: a round closes at the latest this many seconds after its first bet, however many bets keep coming.',
+    { min: 5, max: 600 },
+  ),
+  roulette_spin_seconds: number(
+    'games',
+    'seconds',
+    7,
+    'Roulette: seconds the wheel spins on the card once betting closes.',
     { min: 1, max: 60 },
   ),
   mines_edge_pct: share('games', 200, 'Mines house edge.', { max: 2_000 }),
@@ -713,7 +716,7 @@ export const CONFIG = {
   command_roulette: words(
     'Roulette',
     ['roulette', 'rl'],
-    'Roulette: bets on the next spin, such as roulette 200 odd.',
+    'Roulette: bets on the open round, or starts one, such as roulette 200 odd.',
   ),
   command_coinflip: words(
     'Coin flip',

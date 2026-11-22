@@ -411,15 +411,19 @@ The edges for mines, plinko, crash and slots are config values. So are the russi
 
 ### Roulette
 
-- **Wheel.** European, numbers 0 to 36, single zero. One table and one wheel for everyone.
-- **Clock.** Rounds run on a fixed cycle: 20 seconds of betting, 7 of spin, 3 of result. Round number is `floor((server time - season start) / cycle)`, so every browser is in the same round by definition. The times are config.
-- **Bets and payouts.** Single number 35 to 1, split 17, street 11, corner 8, six line 5, dozen and column 2, red or black, odd or even, high or low 1 to 1. Several bets per round. Chips leave the wallet when placed. Bets can be cleared until betting closes.
-- **The number.** It is drawn with `crypto.randomInt(37)` by the first request that arrives after betting closes, and saved in that round's row. A unique constraint on the round number means only one draw can win. Nobody, including the owner, can know it earlier, because it does not exist earlier.
-- **Settlement.** The same transaction that saves the number pays every bet in the round. Browsers showing the round all call settle at the close time; the first one does the work and the rest read the saved result. A scheduled function sweeps any round left unsettled.
-- **Empty rounds.** If nobody has a bet down at the close, the wheel does not spin and nothing is saved.
-- **The table** shows every player's chips on the felt in their color. The wheel starts spinning at the close time on every screen and slows onto the number when it arrives.
-- **Keys.** Click to place, right-click to remove, R repeat last round's bets, C clear. A strip shows the last 12 numbers.
-- **Quick-bet box.** _(Added by Tyton, Nov 18, 2026.)_ Roulette has a quick-bet box that uses the same syntax as UnbelievaBoat: `<amount> <space>`. Examples: "200 odd", "600 2nd", "50 17", "all red". Spaces it accepts: a single number, dozens (1-12, 13-24, 25-36), columns (1st, 2nd, 3rd), halves (1-18, 19-36), odd, even, red, black. Typed bets appear as chips on the table. Clicking spots on the table still works. Splits, streets, corners and six lines are click-only.
+_(Changed by Tyton, Nov 22, 2026, to match UnbelievaBoat: a round starts with its first bet, and there is no always-running clock. This replaces the fixed cycle, the table of chips on the felt and taking bets back.)_
+
+- **Wheel.** European, numbers 0 to 36, single zero. One wheel for everyone, and never more than one open round.
+- **A round starts with its first bet.** `.roulette <amount> <space>` (or `.rl`) bets on the open round. With no round open, the bet starts one, and one shared card for it appears in the stream for everyone. While a round is open, a new `.roulette` joins it.
+- **Closing.** A round closes `roulette_close_after_seconds` (15) after its most recent bet, and at the latest `roulette_max_open_seconds` (60) after its first. Each new bet starts the countdown again until that limit. The server compares both against database time; the card's countdown is display only.
+- **Bets.** Anyone can join an open round and place several bets: with several commands, or in one line split by commas, `.roulette 50 red, 25 17`. A place typed without an amount takes the one before it. A player's bets on one round are one game round of theirs. Chips leave the wallet as each bet goes down, and a bet cannot be taken back.
+- **Spaces.** The same syntax as UnbelievaBoat: `<amount> <space>`, such as "200 odd", "600 2nd", "50 17" or "all red". The spaces are a single number, dozens (1-12, 13-24, 25-36), columns (1st, 2nd, 3rd), halves (1-18, 19-36), odd, even, red and black. Amounts use the shared bet parser. Splits, streets, corners and six lines are not typed spaces.
+- **Payouts.** Single number 35 to 1, dozen and column 2 to 1, and red or black, odd or even, high or low 1 to 1. The single green zero loses every outside bet: the 2.7% edge. The rules engine still pays splits (17), streets (11), corners (8) and six lines (5) for rounds saved before the card.
+- **The number.** It is drawn with `crypto.randomInt(37)` on the server only after betting closes, by the first request that arrives after the close, and saved in that round's row. Nobody, including the owner, can know it earlier, because it does not exist earlier.
+- **Settlement.** The same transaction that saves the number pays every bet on the round. Bettors' browsers call settle at the close; the first does the work and the rest read the saved number. The round's row is unique on season, game and round number, so there is one row, and one draw, per round. A bet that arrives after the close settles that round first, then opens the next. A scheduled function sweeps any round nobody settled.
+- **The card.** While bets are open, a live countdown that starts again when a new bet lands, and every bet with its player's name: "Alice · 50 on Red, 25 on 17". At the close, "No more bets", then the wheel spins on the card for `roulette_spin_seconds` (7) and lands on the number on every screen at once. The result shows the number and its color large, then every player with their net gain or loss, winners first. A few seconds later the card folds to one line, "Roulette · Round 12 · 17 Black · 3 players", that opens to the result.
+- **Pinned.** For each bettor the card sits above the message box while the round runs and for a few seconds after it lands. It takes no keys, so the box stays free for more bets.
+- **News waits for the ball.** From just before the close until the ball lands, every bettor's wallet, leaderboard place and big-result post wait, so nothing gives the number away early.
 
 ### Mines
 
@@ -676,7 +680,7 @@ The database is the truth and live events are only the news of it. A browser tha
 | `chat` | Everyone | `chat.message` (chat, news and cards), `chat.deleted`, `chat.reaction` |
 | `feed` | Everyone | `round.settled` summaries, `steal.result`, `rank.changed`, `season.state` |
 | `room:<game>` | Everyone | `round.started`, `round.action` (public part only), `round.settled`, `seat.emote` |
-| `room:roulette` | Everyone | Also `bet.placed`, `bet.cleared`, `round.closed`, `round.result` |
+| `room:roulette` | Everyone | Also `shared.updated`: the open round with every bet on it, then its number and every player's result _(Nov 22, 2026)_ |
 | `room:crash` | Everyone | Also `round.created`, `bet.placed`, `cashout`, `round.crashed` |
 | `user:<id>` | That player only | `wallet.updated`, `robbed`, `shield.blocked`, `challenge.done`, `notification` |
 
@@ -687,7 +691,7 @@ Rules:
 - **Publish after the commit,** never before. If publishing fails, the request still succeeds.
 - **Self-contained events.** Each carries an id, the server time, a version number and enough data to draw it without a fetch. The types live in `shared/events.ts` and both sides use them.
 - **Recovery.** On connect, reconnect and tab focus, the browser refetches the stream, the open cards' rounds, wallet and leaderboard. Events older than the fetched state are dropped.
-- **No per-frame data.** The crash multiplier and the roulette spin are computed in the browser from a start time.
+- **No per-frame data.** The crash multiplier and the roulette spin are computed in the browser from a start time: a roulette round's close and spin time.
 - **No waiting on your own echo.** The player who acted animates from the API response.
 - **Cards listen to their games.** _(Nov 22, 2026.)_ The `room:<game>` channels keep their names. A browser listens to the channel of every game whose open card it shows, and a card's round updates from its events whatever order they arrive in.
 

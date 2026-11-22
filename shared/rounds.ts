@@ -53,6 +53,53 @@ export function roundVersion(round: { id: number; steps: number }): number {
 }
 
 /**
+ * A round the whole table shares (spec: Games, one shared round on one
+ * shared card): roulette's spin now, and crash's climb and the race later.
+ * Its row in shared_rounds holds the times and the public result, and each
+ * player's stake on it is a round of theirs, as in every other game. Its one
+ * card in the stream draws this view. Never holds the shared round's secret.
+ */
+export interface SharedRoundView<D = unknown, R = unknown> {
+  /** The shared round's id: what its card and its settle request name. */
+  id: number
+  game: string
+  /** Counts the game's shared rounds in the season: 1, 2, 3 and on. */
+  roundNo: number
+  /** The game's own states, such as betting and settled. */
+  state: string
+  /** When it opened: roulette's first bet. */
+  opensAt: string
+  /** When betting closes. Roulette's moves later with each bet. */
+  closesAt: string
+  /** When its result was drawn, null until then. */
+  settledAt: string | null
+  /** The game's public result: roulette's spin time, and its number once drawn. */
+  result: R | null
+  /** Every player's round on it, in the order they joined. */
+  rounds: RoundView<D>[]
+  /** sharedRoundVersion(): a browser keeps the newest it has seen. */
+  version: number
+}
+
+/**
+ * The version a shared round's view carries. It grows with every bet (a new
+ * round on it, or one more step of a round already on it) and again when the
+ * result is drawn, which settles every round on it too. So a browser keeps
+ * the newest of the stream page, the live events and its own answers, with
+ * nothing stored for it.
+ */
+export function sharedRoundVersion(view: {
+  settledAt: string | Date | null
+  rounds: readonly { steps: number }[]
+}): number {
+  let version = view.settledAt ? 1 : 0
+  for (const round of view.rounds) {
+    version += 2 * (Math.min(round.steps, ROUND_STEP_LIMIT - 1) + 1)
+  }
+  return version
+}
+
+/**
  * The amount a player types in the bet box, as the API receives it: the
  * text itself ("250", "2.5k", "half", "all"), resolved on the server against
  * the locked wallet (shared/bet-amount.ts).

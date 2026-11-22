@@ -1,8 +1,9 @@
 /**
- * The quick-bet box (spec: Quick-bet box, added by Tyton): "<amount> <space>"
- * as on UnbelievaBoat, such as "200 odd", "600 2nd", "50 17" and "all red".
- * Splits, streets, corners and six lines are click-only. Typed amounts are
- * resolved on the server against the wallet, one bet after another.
+ * Typed bets (spec: Games > Roulette > Spaces): "<amount> <space>" as on
+ * UnbelievaBoat, such as "200 odd", "600 2nd", "50 17" and "all red", after
+ * .roulette. Splits, streets, corners and six lines are not typed spaces.
+ * Typed amounts are resolved on the server against the wallet, one bet
+ * after another.
  */
 import { describe, expect, it } from 'vitest'
 
@@ -10,9 +11,10 @@ import {
   parseQuickBet,
   parseSpace,
   RouletteBetInput,
-  RouletteRemoveInput,
+  RouletteSettleInput,
 } from '../../../shared/games/roulette.ts'
 import { resolveBets } from '../../../server/games/roulette/rules.ts'
+import { readBets, withAmounts } from '../../../src/games/roulette/typed.ts'
 
 const bets = (text: string) => {
   const parsed = parseQuickBet(text)
@@ -26,7 +28,7 @@ const error = (text: string) => {
   return parsed.error
 }
 
-describe('the quick-bet box', () => {
+describe('typed bets', () => {
   it("reads the spec's examples", () => {
     expect(bets('200 odd')).toEqual([{ amount: '200', spot: 'odd' }])
     expect(bets('600 2nd')).toEqual([{ amount: '600', spot: 'col2' }])
@@ -95,7 +97,7 @@ describe('the quick-bet box', () => {
     ])
   })
 
-  it('sets the chip size from a lone number, and bets the chip on a lone place', () => {
+  it('hands back a lone amount, and a place without one, for the command to ask about', () => {
     expect(parseQuickBet('25')).toEqual({ ok: true, bets: [], amount: '25' })
     expect(parseQuickBet('2.5k')).toEqual({ ok: true, bets: [], amount: '2.5k' })
     expect(bets('red')).toEqual([{ amount: null, spot: 'red' }])
@@ -109,13 +111,15 @@ describe('the quick-bet box', () => {
     expect(error('50 37')).toMatch(/37 is not on the wheel/)
     expect(error('50 purple')).toMatch(/"purple" is not a place on the table/)
     expect(error('lots red')).toMatch(/Type an amount and a place/)
-    // Combinations are click-only (spec).
+    // A typed bet takes one space (spec).
     for (const combo of ['50 17-20', '50 17/18', '50 13-14-15', '50 1-2-4-5', '50 0-1-2-3']) {
-      expect(error(combo), combo).toMatch(/by clicking the table/)
+      expect(error(combo), combo).toMatch(
+        /takes one space, not a split, street, corner or six line/,
+      )
     }
   })
 
-  it('reads a lone place for the table', () => {
+  it('reads a lone place', () => {
     expect(parseSpace('17')).toEqual({ ok: true, spot: '17' })
     expect(parseSpace('07')).toEqual({ ok: true, spot: '7' })
     expect(parseSpace('Black!')).toEqual({ ok: true, spot: 'black' })
@@ -123,24 +127,76 @@ describe('the quick-bet box', () => {
   })
 })
 
-describe('the bet endpoint input', () => {
-  it('takes one to every spot, each with typed text', () => {
+describe('the .roulette command', () => {
+  const read = (args: string) => readBets(args, '.roulette')
+
+  it('reads one bet or several, each with its amount', () => {
+    expect(read('50 red')).toEqual({ ok: true, bets: [{ amount: '50', spot: 'red' }] })
+    expect(read('50 red, 25 17')).toEqual({
+      ok: true,
+      bets: [
+        { amount: '50', spot: 'red' },
+        { amount: '25', spot: '17' },
+      ],
+    })
+  })
+
+  it('gives a place without an amount the one before it', () => {
+    expect(read('50 red, 17, 10 odd, even')).toEqual({
+      ok: true,
+      bets: [
+        { amount: '50', spot: 'red' },
+        { amount: '50', spot: '17' },
+        { amount: '10', spot: 'odd' },
+        { amount: '10', spot: 'even' },
+      ],
+    })
+    expect(withAmounts([{ amount: null, spot: 'red' }])).toBeNull()
+  })
+
+  it('says what is missing, with the word as typed', () => {
+    expect(read('')).toEqual({
+      ok: false,
+      error: '.roulette needs a bet and a place, like .roulette 50 red.',
+    })
+    expect(read('25')).toEqual({ ok: false, error: 'Say where it goes, like .roulette 25 red.' })
+    expect(read('red')).toEqual({
+      ok: false,
+      error: 'Say how much goes on Red, like .roulette 50 red.',
+    })
+    expect(read('2nd, 50 red')).toEqual({
+      ok: false,
+      error: 'Say how much goes on 2nd column, like .roulette 50 col2.',
+    })
+    expect(readBets('50 purple', '.rl')).toMatchObject({
+      ok: false,
+      error: /"purple" is not a place/,
+    })
+    // What it suggests reads back as a bet.
+    expect(read('50 col2').ok).toBe(true)
+  })
+})
+
+describe("the endpoints' input", () => {
+  it('takes one to every spot, each with typed text, and nothing else', () => {
+    expect(RouletteBetInput.safeParse({ bets: [{ spot: 'red', bet: '50' }] }).success).toBe(true)
+    expect(RouletteBetInput.safeParse({ bets: [] }).success).toBe(false)
+    expect(RouletteBetInput.safeParse({ bets: [{ spot: 'purple', bet: '50' }] }).success).toBe(
+      false,
+    )
+    // The server picks the round: a bet names no spin.
     expect(
       RouletteBetInput.safeParse({ spin: 4, bets: [{ spot: 'red', bet: '50' }] }).success,
-    ).toBe(true)
-    expect(RouletteBetInput.safeParse({ spin: 4, bets: [] }).success).toBe(false)
-    expect(
-      RouletteBetInput.safeParse({ spin: 4, bets: [{ spot: 'purple', bet: '50' }] }).success,
     ).toBe(false)
     expect(
-      RouletteBetInput.safeParse({ spin: -1, bets: [{ spot: 'red', bet: '50' }] }).success,
+      RouletteBetInput.safeParse({ bets: [{ spot: 'red', bet: '50', payout: 9 }] }).success,
     ).toBe(false)
-    expect(
-      RouletteBetInput.safeParse({ spin: 4, bets: [{ spot: 'red', bet: '50', payout: 9 }] })
-        .success,
-    ).toBe(false)
-    expect(RouletteRemoveInput.safeParse({ spin: 4, spot: '17' }).success).toBe(true)
-    expect(RouletteRemoveInput.safeParse({ spin: 4, spot: '17', amount: 0 }).success).toBe(false)
+  })
+
+  it('settles a round by its id alone', () => {
+    expect(RouletteSettleInput.safeParse({ table: 7 }).success).toBe(true)
+    expect(RouletteSettleInput.safeParse({ table: 0 }).success).toBe(false)
+    expect(RouletteSettleInput.safeParse({ table: 7, number: 17 }).success).toBe(false)
   })
 })
 
