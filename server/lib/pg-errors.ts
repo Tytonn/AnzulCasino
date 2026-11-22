@@ -24,3 +24,15 @@ export function isCheckViolation(error: unknown, constraint?: string): boolean {
   const e = pgError(error)
   return e?.code === '23514' && (constraint === undefined || e.constraint === constraint)
 }
+
+/**
+ * Codes for a table, column, type, function or schema that does not exist:
+ * what a query gets from a database whose migrations have not been applied.
+ */
+const MISSING_SCHEMA_CODES = new Set(['42P01', '42703', '42704', '42883', '3F000'])
+
+/** The database lacks something the query uses, such as a table from a migration not yet applied. */
+export function isMissingSchema(error: unknown): boolean {
+  const code = pgError(error)?.code
+  return code !== undefined && MISSING_SCHEMA_CODES.has(code)
+}

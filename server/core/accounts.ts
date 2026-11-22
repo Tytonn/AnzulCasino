@@ -31,6 +31,8 @@ import { ensureTestAccounts, refillTestAccounts } from './test-accounts.ts'
 
 const INVALID_INVITE = 'That invite code is not valid, or it was already used.'
 const LOGIN_FAILURES = { limit: 5, windowSeconds: 15 * 60 }
+const TEST_ACCOUNTS_OFF =
+  'The test accounts only work on deploy previews. This deploy uses the live database.'
 
 type UserRow = typeof users.$inferSelect
 
@@ -125,6 +127,13 @@ export interface LoginOptions {
    * needed and fills its wallet. Off unless the route says so.
    */
   testAccounts?: boolean
+  /**
+   * A production deploy opened by its own link (isUnpublishedProduction in
+   * server/lib/deploy.ts): a failed sign-in as a test account says they only
+   * work on deploy previews, instead of only that the password is wrong.
+   * Never on the live site, which has no reason to mention them.
+   */
+  testAccountsHint?: boolean
 }
 
 export async function login(
@@ -151,6 +160,9 @@ export async function login(
   const ok = await verifyPassword(input.password, user?.passwordHash ?? (await dummyPasswordHash()))
   if (!user || !ok) {
     await hit(db(), 'login_failed', subject, LOGIN_FAILURES.windowSeconds)
+    if (options.testAccountsHint === true && isTestUsername(subject)) {
+      throw new ApiError(400, 'test_accounts_off', TEST_ACCOUNTS_OFF)
+    }
     throw new ApiError(400, 'bad_credentials', 'Wrong username or password.')
   }
   if (user.disabledAt) throw forbidden('This account is disabled. Ask the admin about it.')

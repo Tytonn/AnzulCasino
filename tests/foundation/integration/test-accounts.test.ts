@@ -8,8 +8,9 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { coreApi } from '../../../server/core/api.ts'
-import { type DeployInfo, testAccountsOn } from '../../../server/core/test-accounts.ts'
+import { testAccountsOn } from '../../../server/core/test-accounts.ts'
 import { db } from '../../../server/lib/db.ts'
+import type { DeployInfo } from '../../../server/lib/deploy.ts'
 import { captureLive, type Outgoing } from '../../../server/lib/live.ts'
 import { debit, ledgerMismatches } from '../../../server/lib/wallet.ts'
 import { CHIP } from '../../../shared/chips.ts'
@@ -96,22 +97,66 @@ describe('where the test accounts are on', () => {
 })
 
 describe('on production', () => {
+  const UNPUBLISHED: DeployInfo = { context: 'production', id: 'newest-main', published: false }
+
   it('signing in as test is refused and creates nothing', async () => {
     expect(await testUsers()).toEqual([])
     for (const deploy of [
       { context: 'production', id: 'live', published: true },
-      { context: 'production', id: 'newest-main', published: false },
+      UNPUBLISHED,
       { ...PREVIEW, published: true },
       undefined,
     ]) {
       const res = await signIn(deploy)
       expect(res.status, JSON.stringify(deploy)).toBe(400)
-      expect(res.body.error.code).toBe('bad_credentials')
     }
     expect(await testUsers()).toEqual([])
     expect(await seasonRows()).toEqual([])
     expect(capture.events).toEqual([])
-    // Those wrong passwords count toward test's lockout; start the preview clean.
+    // Those wrong passwords count toward test's lockout; start the next test clean.
+    await testDb.query(`delete from rate_limits where bucket = 'login_failed'`)
+  })
+
+  it('the live site only says the password is wrong', async () => {
+    for (const deploy of [
+      { context: 'production', id: 'live', published: true },
+      { ...PREVIEW, published: true },
+      undefined,
+    ]) {
+      const res = await signIn(deploy)
+      expect(res.body.error, JSON.stringify(deploy)).toEqual({
+        code: 'bad_credentials',
+        message: 'Wrong username or password.',
+      })
+    }
+    await testDb.query(`delete from rate_limits where bucket = 'login_failed'`)
+  })
+
+  it('a deploy opened by its own link says the test accounts are for previews', async () => {
+    for (const [username, password] of [
+      ['test', TEST_PASSWORD],
+      ['TEST2', TEST_PASSWORD],
+      ['test', 'a wrong password'],
+    ] as const) {
+      const res = await signIn(UNPUBLISHED, username, password)
+      expect(res.status, username).toBe(400)
+      expect(res.body.error).toEqual({
+        code: 'test_accounts_off',
+        message:
+          'The test accounts only work on deploy previews. This deploy uses the live database.',
+      })
+    }
+    // Any other username is an ordinary wrong password there too.
+    const other = await signIn(UNPUBLISHED, 'nobody_here', 'not the password')
+    expect(other.body.error.code).toBe('bad_credentials')
+    // Still a wrong password: it counts toward the lockout like any other.
+    const [failures] = await testDb.query<{ count: number }>(
+      `select sum(count)::int as count from rate_limits
+       where bucket = 'login_failed' and subject = 'test'`,
+    )
+    expect(failures?.count).toBe(2)
+    expect(await testUsers()).toEqual([])
+    expect(capture.events).toEqual([])
     await testDb.query(`delete from rate_limits where bucket = 'login_failed'`)
   })
 })
