@@ -42,6 +42,17 @@ export interface FeedEvents {
    * heist lane publishes it. Version: the steal id.
    */
   'steal.result': StealResult
+  /**
+   * An admin changed a setting: browsers fetch /api/config again. A change
+   * that waits for the daily reset says when it starts. Version: the change's id.
+   */
+  'config.changed': ConfigChangedEvent
+}
+
+export interface ConfigChangedEvent {
+  key: string
+  /** ISO time it takes effect. */
+  effectiveAt: string
 }
 
 export interface StandingChanged {
