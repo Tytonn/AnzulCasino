@@ -2,7 +2,7 @@
  * Basic chat (spec: Social layer > Chat): the pages, sending, and an admin
  * deleting a message. The social lane adds reactions and GIFs on top.
  */
-import { and, desc, eq, isNull, lt, sql } from 'drizzle-orm'
+import { and, desc, eq, isNull, lt, ne, sql } from 'drizzle-orm'
 
 import { chatMessages } from '../../db/schema/core.ts'
 import { CHAT_PAGE_SIZE, type ChatMessage, type ChatPage } from '../../shared/chat.ts'
@@ -19,7 +19,10 @@ import { notFound } from '../lib/errors.ts'
 import { liveEvent, type Outgoing } from '../lib/live.ts'
 import { enforce } from '../lib/rate-limit.ts'
 
-/** The newest messages, or the page before `before`, oldest first. Deleted ones are left out. */
+/**
+ * The newest messages, or the page before `before`, oldest first, for the
+ * classic chat. Deleted ones and the stream's game cards are left out.
+ */
 export async function chatPage(options: { before?: number; limit?: number }): Promise<ChatPage> {
   const limit = options.limit ?? CHAT_PAGE_SIZE
   const found = await db()
@@ -28,6 +31,7 @@ export async function chatPage(options: { before?: number; limit?: number }): Pr
     .where(
       and(
         isNull(chatMessages.deletedAt),
+        ne(chatMessages.kind, 'card'),
         options.before === undefined ? undefined : lt(chatMessages.id, options.before),
       ),
     )

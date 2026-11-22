@@ -30,10 +30,10 @@
  * (a hole card, a crash point). It never leaves the server and is cleared at
  * settle. Draw everything else late, at the moment it is revealed.
  */
-import { and, desc, eq, gt, lt, or, sql } from 'drizzle-orm'
+import { and, desc, eq, gt, inArray, lt, or, sql } from 'drizzle-orm'
 
 import { gameRounds, users } from '../../db/schema/core.ts'
-import type { SystemMeta } from '../../shared/chat.ts'
+import type { CardMeta, SystemMeta } from '../../shared/chat.ts'
 import { formatChips, formatMultiplier } from '../../shared/chips.ts'
 import type { ConfigValues } from '../../shared/config.ts'
 import { checkBetAmount, parseBetAmount } from '../../shared/bet-amount.ts'
@@ -41,7 +41,7 @@ import { roomChannel, type RoundSummary } from '../../shared/events.ts'
 import type { RoundStatus } from '../../shared/rounds.ts'
 import { roundVersion } from '../../shared/rounds.ts'
 import type { Wire } from '../../shared/wire.ts'
-import { systemPost } from './chat.ts'
+import { insertChatMessage, systemPost } from './chat.ts'
 import { loadConfig } from './config.ts'
 import { db, type Executor, type Tx } from './db.ts'
 import { ApiError, badRequest } from './errors.ts'
@@ -120,6 +120,23 @@ type RoundRow = Pick<typeof gameRounds.$inferSelect, keyof typeof roundColumns>
 
 function toRound<D, S>(row: RoundRow): Round<D, S> {
   return { ...row, detail: row.detail as D, secret: row.secret as S | null }
+}
+
+/**
+ * The public views of some rounds, by id, for the stream's cards. The query
+ * never reads the secret column, so no card can carry it (rule 7).
+ */
+export async function roundViewsById(
+  executor: Executor,
+  ids: readonly number[],
+): Promise<Map<number, RoundOut>> {
+  if (ids.length === 0) return new Map()
+  const { secret: _secret, ...columns } = roundColumns
+  const rows = await executor
+    .select(columns)
+    .from(gameRounds)
+    .where(inArray(gameRounds.id, [...ids]))
+  return new Map(rows.map((row) => [row.id, roundView({ ...row, secret: null })]))
 }
 
 /** A round as browsers see it: no secret. Chip amounts become numbers on the wire. */
@@ -319,7 +336,31 @@ export async function startRound<D, S = never>(
     refId: round.id,
   })
   rt.emit(roomEvent('round.started', round), ...walletEvents(input.seasonId, input.userId, after))
+  // A player's own round gets its card in the stream; a shared round's
+  // bets show on the shared round's one card instead.
+  if (round.sharedRoundId === null) rt.emit(await cardPost(tx, input.game, round))
   return { round, wallet: after }
+}
+
+/**
+ * The card that shows a round in the stream (spec: The stream), written in
+ * the bet's transaction, and its `chat.message` event, which carries the
+ * round as it stands so a browser draws the card at once. The round's room
+ * events move the card on from there.
+ */
+async function cardPost(
+  executor: Executor,
+  game: ServerGame,
+  round: Round<unknown, unknown>,
+): Promise<Outgoing> {
+  const meta: CardMeta = { game: round.game, roundId: round.id }
+  const message = await insertChatMessage(executor, {
+    userId: round.userId,
+    kind: 'card',
+    body: `${game.name} · ${formatChips(round.stake)}`,
+    meta: { ...meta },
+  })
+  return liveEvent('chat', 'chat.message', { ...message, round: roundView(round) }, message.id)
 }
 
 // ---------------------------------------------------------------- finding rounds
@@ -636,6 +677,9 @@ async function bigResultPost(
     userId: round.userId,
     roundId: round.id,
     game: round.game,
+    category: 'game',
+    // The round's own card shows the result in the stream; the classic chat shows this post.
+    ...(round.sharedRoundId === null ? { onCard: true as const } : {}),
   }
   return systemPost(rt.tx, body, meta)
 }

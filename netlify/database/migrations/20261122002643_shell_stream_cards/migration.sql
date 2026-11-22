@@ -1,0 +1,4 @@
+CREATE UNIQUE INDEX "chat_messages_card_round_key" ON "chat_messages" (("meta" ->> 'roundId')) WHERE "kind" = 'card';--> statement-breakpoint
+CREATE UNIQUE INDEX "chat_messages_card_shared_key" ON "chat_messages" (("meta" ->> 'sharedRoundId')) WHERE "kind" = 'card';--> statement-breakpoint
+ALTER TABLE "chat_messages" ADD CONSTRAINT "chat_messages_card_check" CHECK ("kind" <> 'card' or ("meta" ->> 'game') is not null);--> statement-breakpoint
+ALTER TABLE "chat_messages" DROP CONSTRAINT "chat_messages_kind_check", ADD CONSTRAINT "chat_messages_kind_check" CHECK ("kind" in ('player', 'gif', 'system', 'card'));

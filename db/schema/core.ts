@@ -384,7 +384,8 @@ export const chatMessages = pgTable(
     body: text('body').notNull(),
     /**
      * For system posts: what happened, such as a round or a steal, for
-     * styling and links. For GIFs: Klipy's id and URLs (GifMeta).
+     * styling and links. For GIFs: Klipy's id and URLs (GifMeta). For cards:
+     * the game and the round (CardMeta).
      */
     meta: jsonb('meta'),
     createdAt: ts('created_at').notNull().defaultNow(),
@@ -403,6 +404,17 @@ export const chatMessages = pgTable(
       'chat_messages_gif_check',
       sql`${t.kind} <> 'gif' or (${t.userId} is not null and ${t.meta} is not null and char_length(${t.body}) <= ${sql.raw(String(CHAT_MAX_LENGTH))})`,
     ),
+    // A card names its game, and shows one round or one shared round (shared/chat.ts).
+    check(
+      'chat_messages_card_check',
+      sql`${t.kind} <> 'card' or (${t.meta} ->> 'game') is not null`,
+    ),
+    uniqueIndex('chat_messages_card_round_key')
+      .on(sql`(${t.meta} ->> 'roundId')`)
+      .where(sql`${t.kind} = 'card'`),
+    uniqueIndex('chat_messages_card_shared_key')
+      .on(sql`(${t.meta} ->> 'sharedRoundId')`)
+      .where(sql`${t.kind} = 'card'`),
   ],
 )
 

@@ -250,6 +250,7 @@ export async function attemptSteal(
     const post = await systemPost(tx, postBody(outcome, thiefName, name, amount, fine), {
       tone: outcome === 'success' ? 'win' : outcome === 'failed' ? 'loss' : 'info',
       userId: thiefId,
+      category: 'game',
     })
 
     const immuneUntil = outcome === 'failed' ? null : immunity.toISOString()

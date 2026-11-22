@@ -16,7 +16,7 @@ import {
   SESSION_COOKIE,
   sessionCookie,
 } from '../lib/auth.ts'
-import { ChatListInput, ChatSendInput } from '../../shared/chat.ts'
+import { ChatListInput, ChatSendInput, LookupInput, StreamListInput } from '../../shared/chat.ts'
 import { CreateSeasonInput, type SeasonView } from '../../shared/seasons.ts'
 import { loadConfig } from '../lib/config.ts'
 import { db } from '../lib/db.ts'
@@ -37,6 +37,7 @@ import {
 import { login, redeemReset, signup, updateProfile } from './accounts.ts'
 import { chatPage, deleteChat, sendChat } from './chat.ts'
 import { createCode, listCodes } from './invites.ts'
+import { postLookup, streamPage } from './stream.ts'
 import { listPlayers, tickerItems } from './players.ts'
 import { testAccountsOn } from './test-accounts.ts'
 
@@ -259,6 +260,27 @@ export const coreRoutes = [
       const id = Number(params.id)
       if (!Number.isSafeInteger(id) || id <= 0) throw badRequest('That is not a message.')
       const { events } = await deleteChat(user.id, id)
+      waitUntil(publish(events))
+      return { ok: true }
+    },
+  }),
+  route({
+    method: 'GET',
+    path: '/api/stream',
+    auth: 'user',
+    input: StreamListInput,
+    async run({ input }) {
+      return streamPage(input)
+    },
+  }),
+  route({
+    method: 'POST',
+    path: '/api/stream/lookup',
+    auth: 'user',
+    input: LookupInput,
+    limit: { limit: 12, windowSeconds: 60 },
+    async run({ user, input, waitUntil }) {
+      const { events } = await postLookup(user.id, input)
       waitUntil(publish(events))
       return { ok: true }
     },

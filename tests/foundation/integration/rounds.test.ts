@@ -596,18 +596,26 @@ describe('settling', () => {
     await client.post('/api/testdice/instant', { bet: 'all', times: 200 }, key())
     await client.post('/api/testdice/instant', { bet: 'all', times: 0 }, key())
 
-    const posts = await testDb.query<{ kind: string; body: string; meta: { tone: string } }>(
-      `select kind, body, meta from chat_messages order by id`,
-    )
+    const posts = await testDb.query<{
+      kind: string
+      body: string
+      meta: { tone: string; category: string; onCard: boolean }
+    }>(`select kind, body, meta from chat_messages where kind = 'system' order by id`)
     expect(posts.map((p) => [p.meta.tone, p.body])).toEqual([
       ['win', `${name} won 90 on Test dice, 10x the bet`],
       ['loss', `${name} lost ${Math.ceil(balance / 2).toLocaleString('en-US')} on Test dice`],
       ['win', expect.stringMatching(new RegExp(`^${name} went all in on Test dice and won `))],
       ['loss', expect.stringMatching(new RegExp(`^${name} went all in on Test dice and lost `))],
     ])
-    expect(posts.every((p) => p.kind === 'system')).toBe(true)
+    // Each round's own card shows its result in the stream, so the stream leaves these out.
+    expect(posts.every((p) => p.meta.category === 'game' && p.meta.onCard)).toBe(true)
     await client.settle()
-    expect(events('chat.message')).toHaveLength(4)
+    const kinds = events('chat.message').map((e) => (e.envelope.data as { kind: string }).kind)
+    expect(kinds.filter((kind) => kind === 'system')).toHaveLength(4)
+    expect(
+      kinds.filter((kind) => kind === 'card'),
+      'one card for each of the six rounds',
+    ).toHaveLength(6)
   })
 })
 

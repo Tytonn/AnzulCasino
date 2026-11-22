@@ -231,12 +231,17 @@ describe('POST /api/economy/work', () => {
     expect(await balance(id)).toBe(BigInt(paid[0]?.body.result.amount ?? -1))
   })
 
-  it("tells the player's other tabs and the leaderboard, and keeps it out of chat", async () => {
+  it("tells the player's other tabs, the leaderboard and the stream", async () => {
     const { id, client } = await player(5n)
     const res = await client.post<IncomeResponse>('/api/economy/work', {}, key())
     await client.settle()
     const names = capture.events.map((e) => e.name)
-    expect(names).toEqual(['wallet.updated', 'standing.changed', 'economy.changed'])
+    expect(names).toEqual(['chat.message', 'wallet.updated', 'standing.changed', 'economy.changed'])
+    const line = capture.events.find((e) => e.name === 'chat.message')
+    expect(line?.envelope.data).toMatchObject({
+      kind: 'system',
+      meta: { userId: id, category: 'game', income: { command: 'work', outcome: 'paid' } },
+    })
     const changed = capture.events.find((e) => e.name === 'economy.changed')
     expect(changed?.channel).toBe(`user:${id}`)
     expect(changed?.envelope.version).toBe(res.body.state.version)
@@ -290,7 +295,7 @@ describe('POST /api/economy/hustle and /crime', () => {
     expect(again.body.error.message).toMatch(/^Moonlight is ready again in/)
   })
 
-  it('posts a crime that pays crime_chat_min or more, and nothing else', async () => {
+  it('posts every result for everyone, and marks a crime of crime_chat_min or more as big', async () => {
     await setConfig('crime_success_pct', 10_000)
     await setConfig('crime_pay_min', 15_000)
     const { id, client } = await player(0n)
@@ -300,14 +305,50 @@ describe('POST /api/economy/hustle and /crime', () => {
     const posts = capture.events.filter((e) => e.name === 'chat.message')
     expect(posts).toHaveLength(1)
     const post = posts[0]?.envelope.data as { body: string; meta: Record<string, unknown> }
-    expect(post.body).toMatch(/pulled off a big crime and got away with 150 chips\.$/)
-    expect(post.meta).toEqual({ tone: 'win', userId: id })
+    expect(post.body).toMatch(/ · Crime: .+ \+150$/)
+    expect(post.meta).toEqual({
+      tone: 'win',
+      userId: id,
+      category: 'game',
+      income: {
+        command: 'crime',
+        outcome: 'paid',
+        amount: 15_000,
+        line: res.body.result.line,
+        big: true,
+      },
+    })
 
     await setConfig('crime_pay_min', 6_000)
     await setConfig('crime_pay_max', 6_000)
     const small = await player(0n)
+    capture.events.length = 0
     const quiet = await small.client.post<IncomeResponse>('/api/economy/crime', {}, key())
+    await small.client.settle()
     expect(quiet.body.result).toMatchObject({ amount: 6_000, posted: false })
+    const line = capture.events.find((e) => e.name === 'chat.message')?.envelope.data as {
+      meta: { income: { big: boolean; amount: number } }
+    }
+    expect(line.meta.income).toMatchObject({ amount: 6_000, big: false })
+  })
+
+  it('posts a fine too, with its flavor line and the amount lost', async () => {
+    await setConfig('crime_success_pct', 0)
+    const { id, client } = await player(5_000n)
+    const res = await client.post<IncomeResponse>('/api/economy/crime', {}, key())
+    await client.settle()
+    expect(res.body.result.outcome).toBe('fined')
+    const post = capture.events.find((e) => e.name === 'chat.message')?.envelope.data as {
+      body: string
+      meta: Record<string, unknown>
+    }
+    expect(post.body).toContain(`Crime: ${res.body.result.line} −`)
+    expect(post.meta).toMatchObject({
+      tone: 'loss',
+      userId: id,
+      category: 'game',
+      income: { command: 'crime', outcome: 'fined', amount: res.body.result.amount, big: false },
+    })
   })
 })
 
