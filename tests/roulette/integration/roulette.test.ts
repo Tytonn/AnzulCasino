@@ -54,7 +54,6 @@ type Bet = RouletteBetResult & Refusal
 
 const CLOSE_AFTER = 120
 const MAX_OPEN = 600
-const SPIN = 7
 
 let seasonId: number
 let capture: { events: Outgoing[]; stop(): void }
@@ -66,7 +65,6 @@ beforeAll(async () => {
   for (const [key, value] of [
     ['roulette_close_after_seconds', CLOSE_AFTER],
     ['roulette_max_open_seconds', MAX_OPEN],
-    ['roulette_spin_seconds', SPIN],
     ['min_bet', 1],
   ] as const) {
     await testDb.query(
@@ -131,7 +129,7 @@ async function closeRound(id: number): Promise<void> {
 async function roundRow(id: number) {
   const [row] = await testDb.query<{
     state: string
-    result: { number: number | null; spinMs: number } | null
+    result: { number: number | null } | null
     secret: unknown
     settled_at: Date | null
     opens_at: Date
@@ -207,7 +205,7 @@ describe('a round on the wheel', () => {
     expect(table.game).toBe('roulette')
     expect(table.state).toBe('betting')
     expect(table.settledAt).toBeNull()
-    expect(table.result).toEqual({ number: null, spinMs: SPIN * 1000 })
+    expect(table.result).toEqual({ number: null })
     expect(ms(table.closesAt) - ms(table.opensAt)).toBe(CLOSE_AFTER * 1000)
     expect(table.rounds).toHaveLength(1)
     expect(table.rounds[0]).toMatchObject({ userId: alice.id, status: 'open', stake: 12 })
@@ -366,7 +364,7 @@ describe('a round on the wheel', () => {
 
     const row = await roundRow(id)
     expect(row?.state).toBe('settled')
-    expect(row?.result).toEqual({ number: 17, spinMs: SPIN * 1000 })
+    expect(row?.result).toEqual({ number: 17 })
     expect(row?.secret).toBeNull()
     expect(await ledgerMismatches(db(), seasonId)).toEqual([])
 

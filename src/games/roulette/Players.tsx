@@ -1,8 +1,8 @@
 /**
  * The players on a roulette round, one row each: their name, their bets
- * ("50 on Red, 25 on 17") and their stake, or once the ball has landed,
+ * ("50 on Red, 25 on 17") and their stake, or once the result shows,
  * their net gain or loss with the bets that won in gold. The card lists
- * them in the order they joined until the ball lands, then winners first
+ * them in the order they joined until the result shows, then winners first
  * (tablePlayers in shared/games/roulette.ts); its folded line's replay
  * lists the result the same way.
  */
@@ -79,7 +79,7 @@ export function PlayerList({
   className = '',
 }: {
   players: TablePlayer[]
-  /** The ball rests: each row shows its net, and the list is the result. */
+  /** The result shows: each row shows its net, and the list is the result. */
   landed: boolean
   me: string
   /** At most this many rows, your own among them. */

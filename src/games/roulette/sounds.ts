@@ -1,8 +1,7 @@
 /**
- * The wheel's own sounds, made with Web Audio like the kit's (src/kit/sfx.ts)
- * and played at the player's volume and mute: the ball flicked onto the
- * track, its roll as it slows, the clicks as it bounces over the frets, and
- * the clack as it drops into a pocket. Chips, wins and losses use the kit's.
+ * Roulette's own sound, made with Web Audio like the kit's (src/kit/sfx.ts)
+ * and played at the player's volume and mute: the clack of the ball dropping
+ * into its pocket as the result pops up. Chips, wins and losses use the kit's.
  */
 import { useSound } from '../../kit/sound.ts'
 
@@ -44,21 +43,18 @@ interface Burst {
   at: number
   duration: number
   frequency: number
-  sweepTo?: number
   q?: number
   gain: number
-  type?: BiquadFilterType
 }
 
 function burst(ac: AudioContext, dest: AudioNode, b: Burst) {
   const source = ac.createBufferSource()
   source.buffer = noise(ac)
   const filter = ac.createBiquadFilter()
-  filter.type = b.type ?? 'bandpass'
+  filter.type = 'bandpass'
   filter.Q.value = b.q ?? 1.2
   const begin = ac.currentTime + 0.005 + b.at
   filter.frequency.setValueAtTime(b.frequency, begin)
-  if (b.sweepTo) filter.frequency.exponentialRampToValueAtTime(b.sweepTo, begin + b.duration)
   const env = ac.createGain()
   env.gain.setValueAtTime(0.0001, begin)
   env.gain.exponentialRampToValueAtTime(b.gain, begin + Math.min(0.02, b.duration / 4))
@@ -93,41 +89,6 @@ function play(recipe: (ac: AudioContext, dest: AudioNode) => void): void {
   } catch (error) {
     console.warn('[roulette] could not play a sound', error)
   }
-}
-
-/** The ball flicked onto the track, then rolling for `rollMs` as it slows. */
-export function playLaunch(rollMs: number): void {
-  play((ac, dest) => {
-    burst(ac, dest, { at: 0, duration: 0.35, frequency: 900, sweepTo: 4200, q: 0.9, gain: 0.32 })
-    const seconds = Math.max(0.5, rollMs / 1000)
-    // A low rumble that drops in pitch and fades as the ball slows.
-    burst(ac, dest, {
-      at: 0.1,
-      duration: seconds,
-      frequency: 2600,
-      sweepTo: 420,
-      q: 0.7,
-      gain: 0.09,
-    })
-    burst(ac, dest, {
-      at: 0.1,
-      duration: seconds * 0.9,
-      frequency: 180,
-      sweepTo: 90,
-      q: 0.8,
-      gain: 0.12,
-      type: 'lowpass',
-    })
-  })
-}
-
-/** One click of the ball on a fret, `delayMs` from now. */
-export function playBounce(delayMs: number): void {
-  play((ac, dest) => {
-    const at = Math.max(0, delayMs / 1000)
-    burst(ac, dest, { at, duration: 0.03, frequency: 3400, q: 4, gain: 0.35 })
-    knock(ac, dest, at, 1500, 0.08)
-  })
 }
 
 /** The ball dropping into its pocket, `delayMs` from now. */

@@ -260,15 +260,13 @@ export function settleBets(
 
 /**
  * What a spin keeps in its shared round's public result (shared_rounds.result):
- * how long the wheel spins, fixed when the round opens, and the number once
- * it is drawn. There is nothing hidden to keep: the number does not exist
- * until betting has closed.
+ * the number once it is drawn. There is nothing hidden to keep: the number
+ * does not exist until betting has closed. Rows saved while the card had a
+ * wheel also hold the wheel's spin time, which nothing reads now.
  */
 export interface RouletteResult {
   /** The winning number, null until it is drawn. */
   number: number | null
-  /** How long the wheel spins on the card, counted from the close. */
-  spinMs: number
 }
 
 /**
@@ -277,12 +275,6 @@ export interface RouletteResult {
  * one round of theirs each.
  */
 export type RouletteTable = SharedRoundView<RouletteDetail, RouletteResult>
-
-/** How long a spin's wheel turns: its own time, or `fallbackMs` for a row saved without one. */
-export function spinMsOf(table: Pick<RouletteTable, 'result'>, fallbackMs = 7_000): number {
-  const ms = (table.result as Partial<RouletteResult> | null)?.spinMs
-  return typeof ms === 'number' && ms > 0 ? ms : fallbackMs
-}
 
 /** The number a spin landed on, once drawn. */
 export function tableNumber(table: Pick<RouletteTable, 'result' | 'settledAt'>): number | null {

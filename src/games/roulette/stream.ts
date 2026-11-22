@@ -2,11 +2,11 @@
  * Betting from the stream (spec: Games > Roulette): the .roulette command
  * comes here. The server adds the bets to the open round, or opens a round
  * with them; either way the round's one card goes in your stream at once,
- * pinned above the box until it has landed.
+ * pinned above the box until its result has shown.
  *
- * Your wallet follows the bet, but waits while a spin you are on is still
- * landing: a bet that opens the next round settles the last one first, so
- * its wallet already counts that spin's result.
+ * Your wallet follows the bet, but waits while a round you are on is still
+ * to show its result: a bet that opens the next round settles the last one
+ * first, so its wallet already counts that round's result.
  */
 import type { QueryClient } from '@tanstack/react-query'
 

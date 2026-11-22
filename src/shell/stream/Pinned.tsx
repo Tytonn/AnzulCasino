@@ -25,7 +25,7 @@ import {
 } from '../../kit/cards.ts'
 import { usePlaying, usePresenceRoom } from '../../live/index.ts'
 import { CardItem, cardGame } from './CardItem.tsx'
-import { cardRoundId, cardSharedRoundId, isSharedCard, SHARED_SHOW_LIMIT_MS } from './fold.ts'
+import { cardRoundId, cardSharedRoundId, isSharedCard } from './fold.ts'
 import { PIN_HOLD_MS, unpinCard, usePins } from './pins.ts'
 
 /** A finished card whose result never says it has shown lets go this long after it ends. */
@@ -39,16 +39,9 @@ function letGo(message: ChatMessage) {
 /** How long a finished card stays, from when its result shows or, never shown, from now. */
 function useLetGo(
   message: ChatMessage,
-  state: {
-    gone: boolean
-    open: boolean
-    newest: boolean
-    shownAt: number | null
-    /** How long a finished card that never says it has shown stays. */
-    unshownMs: number
-  },
+  state: { gone: boolean; open: boolean; newest: boolean; shownAt: number | null },
 ) {
-  const { gone, open, newest, shownAt, unshownMs } = state
+  const { gone, open, newest, shownAt } = state
   useEffect(() => {
     if (gone) {
       letGo(message)
@@ -60,10 +53,10 @@ function useLetGo(
       letGo(message)
       return
     }
-    const until = shownAt !== null ? shownAt + PIN_HOLD_MS : Date.now() + unshownMs
+    const until = shownAt !== null ? shownAt + PIN_HOLD_MS : Date.now() + UNSHOWN_HOLD_MS
     const timer = setTimeout(() => letGo(message), Math.max(0, until - Date.now()))
     return () => clearTimeout(timer)
-  }, [gone, open, newest, shownAt, unshownMs, message])
+  }, [gone, open, newest, shownAt, message])
 }
 
 function PinnedCard({ message, newest }: { message: ChatMessage; newest: boolean }) {
@@ -79,14 +72,7 @@ function PinnedShared({ message, newest }: { message: ChatMessage; newest: boole
   const id = cardSharedRoundId(message)
   const shared = useSharedRound(id, message.sharedRound)
   const shownAt = useSharedShownAt(id)
-  // Drawn at the close, it still has its spin to play: up to the longest spin the settings allow.
-  useLetGo(message, {
-    gone: !shared,
-    open: shared?.settledAt === null,
-    newest,
-    shownAt,
-    unshownMs: SHARED_SHOW_LIMIT_MS,
-  })
+  useLetGo(message, { gone: !shared, open: shared?.settledAt === null, newest, shownAt })
   if (!shared) return null
   return (
     <div data-pinned-shared={id}>
@@ -100,7 +86,7 @@ function PinnedRound({ message, newest }: { message: ChatMessage; newest: boolea
   const round = useCardRound(roundId, message.round)
   const shownAt = useShownAt(roundId)
   const open = round?.status === 'open'
-  useLetGo(message, { gone: !round, open, newest, shownAt, unshownMs: UNSHOWN_HOLD_MS })
+  useLetGo(message, { gone: !round, open, newest, shownAt })
 
   if (!round) return null
   return (

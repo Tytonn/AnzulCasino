@@ -4,7 +4,7 @@
  * replay. A big win (big_win_times or more) or an all-in stays open. A card
  * this tab saw open folds only after it has played its result out; an old
  * result, loaded with the page, is folded from the start. A shared round's
- * card (a roulette spin) shows its result a little longer, since it lists
+ * card (a roulette round) shows its result a little longer, since it lists
  * everyone at the table, and always folds.
  */
 import { useEffect, useMemo, useState } from 'react'
@@ -24,10 +24,10 @@ const SHOW_LIMIT_MS = 20_000
 export const SHARED_FOLD_AFTER_MS = 8_000
 /**
  * A shared card this tab saw open that never says it has shown its result
- * folds this long after the draw: past the longest spin the settings allow.
+ * folds this long after the draw.
  */
-export const SHARED_SHOW_LIMIT_MS = 75_000
-/** One that was already drawn when it first came: long enough to land a spin under way. */
+const SHARED_SHOW_LIMIT_MS = 20_000
+/** One that was already drawn when it first came. */
 const SHARED_LATE_LIMIT_MS = 15_000
 
 export type CardState = 'live' | 'big' | 'folded'

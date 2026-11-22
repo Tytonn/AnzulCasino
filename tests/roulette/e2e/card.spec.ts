@@ -3,17 +3,16 @@
  * 375 (spec: Games > Roulette): the message box offers an amount and a place
  * and asks for what is missing; Alice's .roulette 25 red opens a round whose
  * card both players see, with her name on her bet; Bob's .roulette 25 17
- * joins it and starts the countdown again; at the close the wheel lands on
- * the same number on every screen (Carol's too, who opens the stream
- * mid-round), the card shows it large and lists both players winners first,
- * the wallets match, and the card folds to a line that opens to the result.
- * Screenshots land in tests/roulette/screenshots.
+ * joins it and starts the countdown again; at the close the result pops up
+ * with the same number on every screen (Carol's too, who opens the stream
+ * mid-round), the number large on a ball of its color, and both players
+ * listed winners first; the wallets match, and the card folds to a line
+ * that opens to the result. Screenshots land in tests/roulette/screenshots.
  *
- * A round closes 15 seconds after its latest bet and spins for 7 by
- * default, so a run takes about half a minute. On a deploy preview the
- * stream keeps what earlier runs posted, so every check looks for this
- * run's own round by its id, and a round an earlier run left open is let
- * close first.
+ * A round closes 15 seconds after its latest bet by default, so a run takes
+ * about half a minute. On a deploy preview the stream keeps what earlier
+ * runs posted, so every check looks for this run's own round by its id, and
+ * a round an earlier run left open is let close first.
  */
 import { expect, type Page, test } from '@playwright/test'
 
@@ -58,7 +57,7 @@ async function balance(page: Page): Promise<number> {
 }
 
 /** Lets a round an earlier run left open close, so this run's first bet opens its own. */
-async function waitForTheWheel(page: Page) {
+async function letOpenRoundClose(page: Page) {
   const res = await page.request.get('/api/stream?filter=games')
   expect(res.ok(), await res.text()).toBe(true)
   const { items } = (await res.json()) as StreamPage
@@ -75,7 +74,7 @@ const words = (n: number) => `${n} ${COLOR_NAMES[pocketColor(n)]}`
 const signed = (net: number) =>
   net > 0 ? `+${formatChips(net)}` : net < 0 ? `−${formatChips(-net)}` : '±0'
 
-test('two players bet on one round, watch it land, and see everyone’s result', async ({
+test('two players bet on one round, and everyone sees the same result pop up', async ({
   browser,
 }, testInfo) => {
   const phone = onPhone(testInfo)
@@ -84,12 +83,12 @@ test('two players bet on one round, watch it land, and see everyone’s result',
   // Carol signs in now and opens the stream only once the round is under way.
   const carol = await openAs(browser, 'carol')
 
-  await test.step('both open the stream with the wheel free', async () => {
+  await test.step('both open the stream with no round open', async () => {
     await alice.page.goto('/')
     await bob.page.goto('/')
     await expect(box(alice.page)).toBeVisible()
     await expect(box(bob.page)).toBeVisible()
-    await waitForTheWheel(alice.page)
+    await letOpenRoundClose(alice.page)
   })
 
   await test.step('the box offers an amount and a place, and asks for what is missing', async () => {
@@ -175,9 +174,10 @@ test('two players bet on one round, watch it land, and see everyone’s result',
   const watchers = [alice.page, bob.page, carol.page]
 
   const number =
-    await test.step('the wheel lands on the same number for everyone, shown large', async () => {
+    await test.step('the result pops up with the same number for everyone, shown large', async () => {
+      // No wheel to watch: the number shows a moment after the close.
       const left = Date.parse(joined.table.closesAt) - Date.now()
-      const landed = { timeout: Math.max(0, left) + 30_000 }
+      const landed = { timeout: Math.max(0, left) + 8_000 }
       const results: number[] = []
       for (const page of watchers) {
         const result = card(page, id).locator('[data-result]')

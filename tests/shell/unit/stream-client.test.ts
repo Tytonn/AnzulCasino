@@ -288,9 +288,9 @@ describe('folding a shared round’s card', () => {
     expect(state({ shownAt: AT, now: AT + SHARED_FOLD_AFTER_MS }).state).toBe('folded')
   })
 
-  it('waits for a spin this tab saw open to land, and folds an old one from the start', () => {
-    expect(state({ seenOpen: true, serverNow: AT + 60_000 }).state).toBe('live')
-    expect(state({ seenOpen: true, serverNow: AT + 80_000 }).state).toBe('folded')
+  it('waits a while for a round this tab saw open to show, and folds an old one sooner', () => {
+    expect(state({ seenOpen: true, serverNow: AT + 18_000 }).state).toBe('live')
+    expect(state({ seenOpen: true, serverNow: AT + 21_000 }).state).toBe('folded')
     expect(state({ serverNow: AT + 5_000 })).toEqual({ state: 'live', changesAt: AT + 10_000 })
     expect(state({ serverNow: AT + 16_000 }).state).toBe('folded')
     expect(state({ view: null }).state).toBe('folded')

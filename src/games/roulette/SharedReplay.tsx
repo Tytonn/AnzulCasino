@@ -12,7 +12,7 @@ import {
 } from '../../../shared/games/roulette.ts'
 import type { SharedRoundView } from '../../../shared/rounds.ts'
 import { useMe } from '../../kit/index.ts'
-import { NumberChip, numberWords } from './NumberChip.tsx'
+import { BlankBall, NumberBall, numberWords } from './NumberChip.tsx'
 import { PlayerList } from './Players.tsx'
 
 export default function RouletteSharedReplay({ shared }: { shared: SharedRoundView }) {
@@ -24,11 +24,9 @@ export default function RouletteSharedReplay({ shared }: { shared: SharedRoundVi
     <div data-roulette-replay={table.id} className="@container flex flex-col gap-2 px-1">
       <div className="flex items-center gap-3">
         {number !== null ? (
-          <NumberChip number={number} size="lg" />
+          <NumberBall number={number} className="size-12 text-xl" />
         ) : (
-          <span className="grid size-12 place-items-center rounded-lg bg-surface-3 text-muted">
-            ?
-          </span>
+          <BlankBall waiting={false} className="size-12 text-xl" />
         )}
         <div className="leading-tight">
           <p className="text-lg font-bold">

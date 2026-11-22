@@ -17,7 +17,6 @@ import {
   type RouletteDetail,
   type RouletteTable,
   settleBets,
-  spinMsOf,
   type SpotKind,
   SPOTS,
   spotById,
@@ -259,7 +258,7 @@ describe('a round on the wheel', () => {
     opensAt: new Date(AT).toISOString(),
     closesAt: new Date(AT + 15_000).toISOString(),
     settledAt: settled ? new Date(AT + 15_100).toISOString() : null,
-    result: { number, spinMs: 7_000 },
+    result: { number },
     rounds,
     version: 0,
   })
@@ -293,16 +292,16 @@ describe('a round on the wheel', () => {
     ])
   })
 
-  it('has its number only once drawn, its total, and its spin time', () => {
+  it('has its number only once drawn, and its total', () => {
     const rounds = [round('alice', 50, null), round('bob', 125, null)]
     expect(tableNumber(table(rounds, false, null))).toBeNull()
     // A number in a row not yet settled is not shown.
     expect(tableNumber(table(rounds, false, 17))).toBeNull()
     expect(tableNumber(table(rounds, true, 0))).toBe(0)
     expect(tableTotal(table(rounds, false))).toBe(175)
-    expect(spinMsOf(table(rounds, false))).toBe(7_000)
-    expect(spinMsOf({ result: null })).toBe(7_000)
-    expect(spinMsOf({ result: { number: null, spinMs: 4_000 } })).toBe(4_000)
+    // A row saved while the card had a wheel also kept the wheel's spin time.
+    const saved = { number: 5, spinMs: 7_000 }
+    expect(tableNumber({ settledAt: new Date(AT).toISOString(), result: saved })).toBe(5)
   })
 
   it('counts a newer view of the round as newer: every bet and the draw', () => {

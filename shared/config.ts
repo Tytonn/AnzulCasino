@@ -566,13 +566,6 @@ export const CONFIG = {
     'Roulette: a round closes at the latest this many seconds after its first bet, however many bets keep coming.',
     { min: 5, max: 600 },
   ),
-  roulette_spin_seconds: number(
-    'games',
-    'seconds',
-    7,
-    'Roulette: seconds the wheel spins on the card once betting closes.',
-    { min: 1, max: 60 },
-  ),
   mines_edge_pct: share('games', 200, 'Mines house edge.', { max: 2_000 }),
   plinko_edge_pct: share('games', 200, 'Plinko house edge.', { max: 2_000 }),
   crash_edge_pct: share('games', 300, 'Crash house edge.', { max: 2_000 }),

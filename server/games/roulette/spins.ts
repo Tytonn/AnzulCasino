@@ -62,16 +62,11 @@ const spinColumns = {
 
 export type SpinRow = Pick<typeof sharedRounds.$inferSelect, keyof typeof spinColumns>
 
-/** A spin's open times and the wheel's turn, from the settings in force, in seconds and ms. */
-export function spinTimes(config: ConfigValues): {
-  closeAfter: number
-  maxOpen: number
-  spinMs: number
-} {
+/** How long a spin stays open, from the settings in force, in seconds. */
+export function spinTimes(config: ConfigValues): { closeAfter: number; maxOpen: number } {
   return {
     closeAfter: config.roulette_close_after_seconds,
     maxOpen: config.roulette_max_open_seconds,
-    spinMs: config.roulette_spin_seconds * 1000,
   }
 }
 
@@ -135,7 +130,7 @@ export async function joinOrOpenSpin(
   }
 
   if (latest && latest.settledAt === null) await settleSpinIn(rt, latest.id)
-  const stored: RouletteResult = { number: null, spinMs: times.spinMs }
+  const stored: RouletteResult = { number: null }
   const [opened] = await tx
     .insert(sharedRounds)
     .values({
@@ -181,11 +176,7 @@ export async function settleSpinIn(rt: RoundTx, id: number): Promise<SettleOutco
   // Draw late: the number exists from this moment on, and no bet can join
   // the spin any more (a bet locks the row and checks the close first).
   const number = drawNumber()
-  const before = row.result as Partial<RouletteResult> | null
-  const stored: RouletteResult = {
-    number,
-    spinMs: before?.spinMs ?? spinTimes(rt.config).spinMs,
-  }
+  const stored: RouletteResult = { number }
   await rt.tx
     .update(sharedRounds)
     .set({ state: 'settled' satisfies SpinState, result: stored, settledAt: sql`now()` })

@@ -411,7 +411,7 @@ The edges for mines, plinko, crash and slots are config values. So are the russi
 
 ### Roulette
 
-_(Changed by Tyton, Nov 22, 2026, to match UnbelievaBoat: a round starts with its first bet, and there is no always-running clock. This replaces the fixed cycle, the table of chips on the felt and taking bets back.)_
+_(Changed by Tyton, Nov 22, 2026, to match UnbelievaBoat: a round starts with its first bet, and there is no always-running clock. This replaces the fixed cycle, the table of chips on the felt and taking bets back. The same day, Tyton swapped the spinning wheel for a result that pops up at the close.)_
 
 - **Wheel.** European, numbers 0 to 36, single zero. One wheel for everyone, and never more than one open round.
 - **A round starts with its first bet.** `.roulette <amount> <space>` (or `.rl`) bets on the open round. With no round open, the bet starts one, and one shared card for it appears in the stream for everyone. While a round is open, a new `.roulette` joins it.
@@ -421,9 +421,9 @@ _(Changed by Tyton, Nov 22, 2026, to match UnbelievaBoat: a round starts with it
 - **Payouts.** Single number 35 to 1, dozen and column 2 to 1, and red or black, odd or even, high or low 1 to 1. The single green zero loses every outside bet: the 2.7% edge. The rules engine still pays splits (17), streets (11), corners (8) and six lines (5) for rounds saved before the card.
 - **The number.** It is drawn with `crypto.randomInt(37)` on the server only after betting closes, by the first request that arrives after the close, and saved in that round's row. Nobody, including the owner, can know it earlier, because it does not exist earlier.
 - **Settlement.** The same transaction that saves the number pays every bet on the round. Bettors' browsers call settle at the close; the first does the work and the rest read the saved number. The round's row is unique on season, game and round number, so there is one row, and one draw, per round. A bet that arrives after the close settles that round first, then opens the next. A scheduled function sweeps any round nobody settled.
-- **The card.** While bets are open, a live countdown that starts again when a new bet lands, and every bet with its player's name: "Alice · 50 on Red, 25 on 17". At the close, "No more bets", then the wheel spins on the card for `roulette_spin_seconds` (7) and lands on the number on every screen at once. The result shows the number and its color large, then every player with their net gain or loss, winners first. A few seconds later the card folds to one line, "Roulette · Round 12 · 17 Black · 3 players", that opens to the result.
-- **Pinned.** For each bettor the card sits above the message box while the round runs and for a few seconds after it lands. It takes no keys, so the box stays free for more bets.
-- **News waits for the ball.** From just before the close until the ball lands, every bettor's wallet, leaderboard place and big-result post wait, so nothing gives the number away early.
+- **The card.** While bets are open, a live countdown that starts again when a new bet lands, and every bet with its player's name: "Alice · 50 on Red, 25 on 17". At the close, "No more bets". There is no spinning wheel: as soon as the server has drawn the number, the result pops up on every screen. It shows the number large on a ball of its color, "The ball landed on 32 Red", then every player with their net gain or loss, winners first. A few seconds later the card folds to one line, "Roulette · Round 12 · 17 Black · 3 players", that opens to the result.
+- **Pinned.** For each bettor the card sits above the message box while the round runs and for a few seconds after its result shows. It takes no keys, so the box stays free for more bets.
+- **News waits for the result.** From just before the close until the result shows, every bettor's wallet, leaderboard place and big-result post wait, so nothing gives the number away early.
 
 ### Mines
 
@@ -691,7 +691,7 @@ Rules:
 - **Publish after the commit,** never before. If publishing fails, the request still succeeds.
 - **Self-contained events.** Each carries an id, the server time, a version number and enough data to draw it without a fetch. The types live in `shared/events.ts` and both sides use them.
 - **Recovery.** On connect, reconnect and tab focus, the browser refetches the stream, the open cards' rounds, wallet and leaderboard. Events older than the fetched state are dropped.
-- **No per-frame data.** The crash multiplier and the roulette spin are computed in the browser from a start time: a roulette round's close and spin time.
+- **No per-frame data.** The crash multiplier is computed in the browser from a start time, and a roulette round's countdown from its close.
 - **No waiting on your own echo.** The player who acted animates from the API response.
 - **Cards listen to their games.** _(Nov 22, 2026.)_ The `room:<game>` channels keep their names. A browser listens to the channel of every game whose open card it shows, and a card's round updates from its events whatever order they arrive in.
 
@@ -751,7 +751,7 @@ A lane owns everything named after it: `src/games/<name>/` or `src/features/<nam
 | Lane | Branch | Builds | Owns the names |
 | --- | --- | --- | --- |
 | Blackjack | `lane/blackjack` | The blackjack card | `blackjack` |
-| Roulette | `lane/roulette` | The shared-wheel roulette card | `roulette` |
+| Roulette | `lane/roulette` | The shared roulette card | `roulette` |
 | Heist | `lane/heist` | Steal, shields, vault, shop, season simulation | `heist`, plus `scripts/simulate-season.ts` |
 | Economy | `lane/economy` | Daily bonus, streaks, challenges, work, slut and crime _(replaced the rebuy, Nov 18, 2026)_, final day, podium, Hall of Fame | `economy`, `season` |
 | Arcade | `lane/arcade` | Mines, then Plinko _(Crash moved to its own lane, Nov 18, 2026)_ | `mines`, `plinko` |
