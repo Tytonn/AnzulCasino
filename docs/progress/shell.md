@@ -121,15 +121,22 @@ Plan, approved by Tyton on 2026-11-22: https://claude.ai/artifact/Sj3mrj6zpw6mgh
   `/room/<id>` to the stream), and a run's line says "2 Coin flips". The lane guide's
   section 6 walks through the card, section 20 lists both games' files, and the spec's coin
   flip section says how it plays. Tests: `splitChoice` and `checkArgs` units, and
-  `tests/coinflip/e2e/card.spec.ts` at 1440 and 375.
+  `tests/coinflip/e2e/card.spec.ts` at 1440 and 375. Locally 743 unit and integration
+  tests and 57 browser tests passed. On the preview (at `d0b6962`) 51 passed and 6 skipped:
+  the chat drop and the live-layer tests need the local relay, and the heist steal skips
+  once the thief's attempts for the day are used, as earlier runs that day had. The
+  blackjack lane's room test failed once on the phone, its room's code never arriving
+  (the page sat on the loading skeleton while Bob's identical page loaded), and passed on
+  the rerun.
+- **Merged** (PR #19, 2026-11-22): Tyton asked for the shell to merge once CI and the
+  preview's browser tests passed, and both did. `main` now has the stream, the commands,
+  blackjack's and the coin flip's cards, and the docs.
 
 ## Not done yet
 
-- Merge the shell (PR #19) once CI and the preview's browser tests pass, as Tyton asked
-  on 2026-11-22, and tell Tyton when the preview is ready to try and when it is merged.
-  The test logins are players; to flip the two Stream switches on the preview, Tyton needs
+- The test logins are players; to flip the two Stream switches on a preview, Tyton needs
   the sample admin's login, or this thread.
-- Then, in order: roulette as one shared card per spin (shared-round cards in the round
+- Next, in order: roulette as one shared card per spin (shared-round cards in the round
   helper); heist on cards; economy cards (the chat drop with Grab, Daily in You); remove
   the classic interface (Floor, rooms, rail, ticker, the kit's room-only parts).
 - Under Chat only, your own `.work` result does not show (the public line is a game
