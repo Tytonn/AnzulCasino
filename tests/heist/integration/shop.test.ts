@@ -83,42 +83,42 @@ async function nextGameDay(userId: string) {
 
 describe('POST /api/heist/shield', () => {
   it('costs 2% of the wallet, removed from the game, for one charge', async () => {
-    const player = await fx.player(1_000)
+    const player = await fx.player(10_000)
     const res = await buyShield(player)
     expect(res.status, JSON.stringify(res.body)).toBe(200)
-    expect(res.body).toMatchObject({ charges: 1, price: 20, shieldsThisWeek: 1 })
-    expect(res.body.wallet).toMatchObject({ seasonId: fx.seasonId, balance: 980, vault: 0 })
-    expect(await fx.wallet(player.id)).toEqual({ balance: 980n, vault: 0n })
+    expect(res.body).toMatchObject({ charges: 1, price: 200, shieldsThisWeek: 1 })
+    expect(res.body.wallet).toMatchObject({ seasonId: fx.seasonId, balance: 9_800, vault: 0 })
+    expect(await fx.wallet(player.id)).toEqual({ balance: 9_800n, vault: 0n })
     expect(await ledger(player.id, 'shield_purchase')).toEqual([
-      { account: 'wallet', delta: '-20', ref_type: 'shield_purchase' },
+      { account: 'wallet', delta: '-200', ref_type: 'shield_purchase' },
     ])
     const purchases = await testDb.query<{ price: string }>(
       `select price from shield_purchases where season_id = $1 and user_id = $2`,
       [fx.seasonId, player.id],
     )
-    expect(purchases).toEqual([{ price: '20' }])
+    expect(purchases).toEqual([{ price: '200' }])
     expect((await state(player)).me).toMatchObject({ charges: 1, shieldsThisWeek: 1 })
     await expectLedgerClean()
   })
 
-  it('costs at least 3 chips', async () => {
-    // 2% of 149 is 2.98, rounded down to 2: the 3-chip floor applies.
-    const player = await fx.player(149)
+  it('costs at least 30 chips', async () => {
+    // 2% of 1,499 is 29.98, rounded down to 29: the 30-chip floor applies.
+    const player = await fx.player(1_499)
     const res = await buyShield(player)
     expect(res.status).toBe(200)
-    expect(res.body.price).toBe(3)
-    expect(await fx.wallet(player.id)).toEqual({ balance: 146n, vault: 0n })
+    expect(res.body.price).toBe(30)
+    expect(await fx.wallet(player.id)).toEqual({ balance: 1_469n, vault: 0n })
   })
 
   it('refuses a player who cannot pay, and charges nothing', async () => {
-    const player = await fx.player(2)
+    const player = await fx.player(20)
     const res = await buyShield(player)
     expect(res.status).toBe(400)
     expect(res.body.error).toEqual({
       code: 'insufficient_funds',
-      message: 'A shield charge costs 3 chips and you have 2 chips.',
+      message: 'A shield charge costs 30 chips and you have 20 chips.',
     })
-    expect(await fx.wallet(player.id)).toEqual({ balance: 2n, vault: 0n })
+    expect(await fx.wallet(player.id)).toEqual({ balance: 20n, vault: 0n })
     expect((await state(player)).me.charges).toBe(0)
   })
 
@@ -204,13 +204,13 @@ describe('POST /api/heist/shield', () => {
 
 describe('POST /api/heist/extra-attempt', () => {
   it('sells one extra steal attempt a game day at its price', async () => {
-    const player = await fx.player(1_000)
+    const player = await fx.player(10_000)
     const res = await buyExtra(player)
     expect(res.status, JSON.stringify(res.body)).toBe(200)
-    expect(res.body).toMatchObject({ attemptsAllowed: 3, price: 20 })
-    expect(await fx.wallet(player.id)).toEqual({ balance: 980n, vault: 0n })
+    expect(res.body).toMatchObject({ attemptsAllowed: 3, price: 200 })
+    expect(await fx.wallet(player.id)).toEqual({ balance: 9_800n, vault: 0n })
     expect(await ledger(player.id, 'steal_attempt_purchase')).toEqual([
-      { account: 'wallet', delta: '-20', ref_type: 'game_day' },
+      { account: 'wallet', delta: '-200', ref_type: 'game_day' },
     ])
     expect((await state(player)).me).toMatchObject({ attemptsAllowed: 3, extraBought: true })
 
@@ -223,13 +223,13 @@ describe('POST /api/heist/extra-attempt', () => {
     await expectLedgerClean()
   })
 
-  it('costs at least 3 chips, and refuses a player who cannot pay', async () => {
-    const cheap = await fx.player(50)
-    expect((await buyExtra(cheap)).body.price).toBe(3)
+  it('costs at least 30 chips, and refuses a player who cannot pay', async () => {
+    const cheap = await fx.player(500)
+    expect((await buyExtra(cheap)).body.price).toBe(30)
     const broke = await fx.player(1)
     const res = await buyExtra(broke)
     expect(res.status).toBe(400)
-    expect(res.body.error.message).toBe('The extra attempt costs 3 chips and you have 1 chip.')
+    expect(res.body.error.message).toBe('The extra attempt costs 30 chips and you have 1 chip.')
   })
 
   it('sells one to parallel clicks and replays a repeated key', async () => {

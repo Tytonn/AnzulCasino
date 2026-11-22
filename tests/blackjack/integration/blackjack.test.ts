@@ -130,35 +130,35 @@ function ok(res: { status: number; body: unknown }) {
 
 describe('POST /api/blackjack/deal', () => {
   it('takes the stake, then deals two cards each, leaving the hole card undrawn with 2 to 9 up', async () => {
-    const { id, client } = await player(100n)
+    const { id, client } = await player(1_000n)
     stack('9s', '7h', '5d')
-    const res = await deal(client, '10')
+    const res = await deal(client, '100')
     ok(res)
     expect(res.body.round).toMatchObject({
       game: 'blackjack',
       userId: id,
       status: 'open',
-      stake: 10,
+      stake: 100,
       payout: null,
       detail: {
-        bet: 10,
-        hands: [{ cards: ['9s', '5d'], stake: 10, result: null }],
+        bet: 100,
+        hands: [{ cards: ['9s', '5d'], stake: 100, result: null }],
         dealer: ['7h'],
         active: 0,
         peeked: false,
         slowReveal: false,
       },
     })
-    expect(res.body.wallet.balance).toBe(90)
+    expect(res.body.wallet.balance).toBe(900)
     const [row] = await rounds(id)
     expect(row).toMatchObject({ status: 'open', secret: null })
     expect(stacked.cards).toEqual([])
   })
 
   it('keeps the peeked hole card in the secret, out of every answer and event, until it turns over', async () => {
-    const { id, client } = await player(100n)
+    const { id, client } = await player(1_000n)
     stack('9s', 'Ah', '5d', '9c')
-    const dealt = await deal(client, '10')
+    const dealt = await deal(client, '100')
     ok(dealt)
     expect(dealt.body.round.detail).toMatchObject({ dealer: ['Ah'], peeked: true, active: 0 })
     expect((await rounds(id))[0]?.secret).toEqual({ hole: '9c' })
@@ -183,9 +183,9 @@ describe('POST /api/blackjack/deal', () => {
   })
 
   it('ends the hand at the deal on a dealer blackjack, taking only the bet', async () => {
-    const { id, client } = await player(100n)
+    const { id, client } = await player(1_000n)
     stack('9s', 'Kh', '5d', 'Ac')
-    const res = await deal(client, '10')
+    const res = await deal(client, '100')
     ok(res)
     expect(res.body.round).toMatchObject({
       status: 'settled',
@@ -193,25 +193,25 @@ describe('POST /api/blackjack/deal', () => {
       summary: 'Dealer blackjack',
       detail: { dealer: ['Kh', 'Ac'] },
     })
-    expect(await balance(id)).toBe(90n * CHIP)
+    expect(await balance(id)).toBe(900n * CHIP)
     expect((await rounds(id))[0]?.secret).toBeNull()
   })
 
   it('pays a blackjack 3 to 2 at once', async () => {
-    const { id, client } = await player(100n)
+    const { id, client } = await player(1_000n)
     stack('As', '6h', 'Kd', 'Tc')
-    const res = await deal(client, '10')
+    const res = await deal(client, '100')
     ok(res)
-    expect(res.body.round).toMatchObject({ status: 'settled', payout: 25, summary: 'Blackjack' })
-    expect(res.body.wallet.balance).toBe(115)
-    expect(await balance(id)).toBe(115n * CHIP)
+    expect(res.body.round).toMatchObject({ status: 'settled', payout: 250, summary: 'Blackjack' })
+    expect(res.body.wallet.balance).toBe(1_150)
+    expect(await balance(id)).toBe(1_150n * CHIP)
     expect(await ledgerMismatches(db(), seasonId)).toEqual([])
   })
 
   it('tells the room the bet, the cards and the result', async () => {
     const { client } = await player(100n)
     stack('Ts', '9h', '7d')
-    const dealt = await deal(client, '5')
+    const dealt = await deal(client, '50')
     stack('Tc')
     ok(await move(client, dealt.body.round, 'stand'))
     await client.settle()
@@ -226,17 +226,18 @@ describe('POST /api/blackjack/deal', () => {
     const ticker = capture.events.find(
       (e) => e.name === 'round.settled' && !e.channel.includes('room:'),
     )
-    expect(ticker?.envelope.data).toMatchObject({ game: 'blackjack', stake: 5, payout: 0 })
+    expect(ticker?.envelope.data).toMatchObject({ game: 'blackjack', stake: 50, payout: 0 })
   })
 
   it('needs a session, an idempotency key and an amount', async () => {
     const anonymous = apiClient(blackjackApi)
     expect((await anonymous.post('/api/blackjack/deal', { bet: '1' }, key())).status).toBe(401)
-    const { id, client } = await player(10n)
+    const { id, client } = await player(100n)
     expect((await client.post('/api/blackjack/deal', { bet: '1' })).status).toBe(400)
     const cases: [unknown, string][] = [
       [{ bet: '' }, 'Type an amount'],
-      [{ bet: '11' }, 'You only have 10 chips.'],
+      [{ bet: '24' }, 'The smallest bet is 25.'],
+      [{ bet: '101' }, 'You only have 100 chips.'],
       [{ bet: '1', cards: ['As', 'Kd'] }, ''],
     ]
     for (const [body, message] of cases) {
@@ -248,8 +249,12 @@ describe('POST /api/blackjack/deal', () => {
   })
 
   it('never deals two hands at once, or spends a chip twice', async () => {
-    const { id, client } = await player(10n)
-    const responses = await Promise.all(Array.from({ length: 8 }, () => deal(client, '4')))
+    const { id, client } = await player(100n)
+    // A hand that stays open (14 against a 7), so every other deal meets it. Random cards
+    // could settle it at the deal, on a dealer blackjack, and free the table for a second
+    // hand, after which the rest are refused for the chips left instead.
+    stack('9s', '7h', '5d')
+    const responses = await Promise.all(Array.from({ length: 8 }, () => deal(client, '40')))
     for (const res of responses.filter((r) => r.status !== 200)) {
       expect(res.status, JSON.stringify(res.body)).toBe(409)
       expect(res.body.error.code).toBe('round_open')
@@ -262,14 +267,14 @@ describe('POST /api/blackjack/deal', () => {
   })
 
   it('posts an all-in to chat and gives it the slow reveal', async () => {
-    const { id, client } = await player(10n)
+    const { id, client } = await player(100n)
     stack('As', '6h', 'Kd', 'Tc')
     const res = await deal(client, 'all')
     ok(res)
     expect(res.body.round).toMatchObject({
       allIn: true,
       bigBet: true,
-      payout: 25,
+      payout: 250,
       detail: { slowReveal: true },
     })
     const [post] = await testDb.query<{ kind: string; body: string }>(
@@ -277,15 +282,15 @@ describe('POST /api/blackjack/deal', () => {
       [id],
     )
     expect(post?.kind).toBe('system')
-    expect(post?.body).toMatch(/went all in on Blackjack and won 15$/)
+    expect(post?.body).toMatch(/went all in on Blackjack and won 150$/)
   })
 })
 
 describe('POST /api/blackjack/move', () => {
   it('hits and stands, then the dealer draws to 17 and the hand settles', async () => {
-    const { id, client } = await player(100n)
+    const { id, client } = await player(1_000n)
     stack('5s', '9h', '3d')
-    const dealt = await deal(client, '10')
+    const dealt = await deal(client, '100')
     stack('4c')
     const hit = await move(client, dealt.body.round, 'hit')
     ok(hit)
@@ -307,53 +312,53 @@ describe('POST /api/blackjack/move', () => {
         ],
       },
     })
-    expect(await balance(id)).toBe(90n * CHIP)
+    expect(await balance(id)).toBe(900n * CHIP)
   })
 
   it('doubles: the second stake goes down, then one card, then the dealer', async () => {
-    const { id, client } = await player(100n)
+    const { id, client } = await player(1_000n)
     stack('9s', '6h', '2d')
-    const dealt = await deal(client, '10')
+    const dealt = await deal(client, '100')
     // 9 2 doubles and catches a ten: 21. The dealer's 6 T draws a 9 and busts.
     stack('Tc', 'Th', '9c')
     const doubled = await move(client, dealt.body.round, 'double')
     ok(doubled)
     expect(doubled.body.round).toMatchObject({
       status: 'settled',
-      stake: 20,
-      payout: 40,
+      stake: 200,
+      payout: 400,
       summary: 'Doubled, dealer bust on 25',
-      detail: { hands: [{ cards: ['9s', '2d', 'Tc'], doubled: true, stake: 20 }] },
+      detail: { hands: [{ cards: ['9s', '2d', 'Tc'], doubled: true, stake: 200 }] },
     })
-    expect(doubled.body.wallet.balance).toBe(120)
+    expect(doubled.body.wallet.balance).toBe(1_200)
     const ledger = await testDb.query<{ reason: string; delta: string }>(
       `select reason, delta from ledger where user_id = $1 and reason <> 'season_start' order by id`,
       [id],
     )
     expect(ledger.map((r) => [r.reason, Number(r.delta)])).toEqual([
-      ['bet', -10],
-      ['bet', -10],
-      ['payout', 40],
+      ['bet', -100],
+      ['bet', -100],
+      ['payout', 400],
     ])
     expect(await ledgerMismatches(db(), seasonId)).toEqual([])
   })
 
   it('splits into two hands with a second stake, plays each, and settles each', async () => {
-    const { id, client } = await player(100n)
+    const { id, client } = await player(1_000n)
     stack('8s', '6h', '8d')
-    const dealt = await deal(client, '10')
+    const dealt = await deal(client, '100')
     stack('3c')
     const split = await move(client, dealt.body.round, 'split')
     ok(split)
-    expect(split.body.round).toMatchObject({ status: 'open', stake: 20 })
+    expect(split.body.round).toMatchObject({ status: 'open', stake: 200 })
     expect(split.body.round.detail.hands.map((h) => h.cards)).toEqual([['8s', '3c'], ['8d']])
-    expect(split.body.wallet.balance).toBe(80)
+    expect(split.body.wallet.balance).toBe(800)
 
     // Double after the split: 8 3 catches a ten. The second hand gets its king.
     stack('Td', 'Kh')
     const doubled = await move(client, split.body.round, 'double')
     ok(doubled)
-    expect(doubled.body.round).toMatchObject({ status: 'open', stake: 30 })
+    expect(doubled.body.round).toMatchObject({ status: 'open', stake: 300 })
     expect(doubled.body.round.detail).toMatchObject({ active: 1 })
     expect(doubled.body.round.detail.hands.map((h) => h.cards)).toEqual([
       ['8s', '3c', 'Td'],
@@ -365,19 +370,19 @@ describe('POST /api/blackjack/move', () => {
     ok(stood)
     expect(stood.body.round).toMatchObject({
       status: 'settled',
-      stake: 30,
-      payout: 40,
+      stake: 300,
+      payout: 400,
       summary: 'Split: won 21 doubled, lost 18',
       detail: { dealer: ['6h', '9c', '5s'] },
     })
-    expect(await balance(id)).toBe(110n * CHIP)
+    expect(await balance(id)).toBe(1_100n * CHIP)
     expect(await ledgerMismatches(db(), seasonId)).toEqual([])
   })
 
   it('refuses a double or a split the wallet cannot cover, and leaves the hand as it was', async () => {
-    const { id, client } = await player(10n)
+    const { id, client } = await player(100n)
     stack('8s', '6h', '8d')
-    const dealt = await deal(client, '6')
+    const dealt = await deal(client, '60')
     for (const [which, word] of [
       ['double', 'Doubling'],
       ['split', 'Splitting'],
@@ -386,11 +391,11 @@ describe('POST /api/blackjack/move', () => {
       expect(res.status, JSON.stringify(res.body)).toBe(400)
       expect(res.body.error).toMatchObject({
         code: 'insufficient_funds',
-        message: `${word} takes another 6 chips, and you have 4 chips.`,
+        message: `${word} takes another 60 chips, and you have 40 chips.`,
       })
     }
-    expect(await balance(id)).toBe(4n * CHIP)
-    expect(await rounds(id)).toMatchObject([{ status: 'open', stake: '6' }])
+    expect(await balance(id)).toBe(40n * CHIP)
+    expect(await rounds(id)).toMatchObject([{ status: 'open', stake: '60' }])
     // The hand plays on.
     stack('Kc')
     ok(await move(client, dealt.body.round, 'stand'))
@@ -404,7 +409,7 @@ describe('POST /api/blackjack/move', () => {
     ).toMatchObject({ code: 'no_round' })
 
     stack('9s', '7h', '5d')
-    const dealt = await deal(client, '10')
+    const dealt = await deal(client, '25')
     const split = await move(client, dealt.body.round, 'split')
     expect(split.status).toBe(400)
     expect(split.body.error).toMatchObject({
@@ -428,7 +433,7 @@ describe('POST /api/blackjack/move', () => {
   it('refuses a move from a tab that fell behind, and shows the hand as it is', async () => {
     const { client } = await player(100n)
     stack('5s', '9h', '3d')
-    const dealt = await deal(client, '10')
+    const dealt = await deal(client, '25')
     stack('2c')
     ok(await move(client, dealt.body.round, 'hit'))
     // The old tab still shows the hand before the hit.
@@ -449,7 +454,7 @@ describe('POST /api/blackjack/move', () => {
   it('answers a repeated move with the first answer and draws nothing more', async () => {
     const { client } = await player(100n)
     stack('5s', '9h', '3d')
-    const dealt = await deal(client, '10')
+    const dealt = await deal(client, '25')
     const headers = key()
     stack('2c')
     const first = await move(client, dealt.body.round, 'hit', headers)
@@ -471,7 +476,7 @@ describe('POST /api/blackjack/move', () => {
       const ending = await createSeason(testDb)
       const { id, client } = await player(100n, ending)
       stack('8s', '6h', '8d')
-      const dealt = await deal(client, '10')
+      const dealt = await deal(client, '25')
       ok(dealt)
       await testDb.query(`update seasons set ends_at = now() - interval '1 second' where id = $1`, [
         ending,
@@ -485,7 +490,7 @@ describe('POST /api/blackjack/move', () => {
       const stood = await move(client, dealt.body.round, 'stand')
       ok(stood)
       expect(stood.body.round).toMatchObject({ status: 'settled', payout: 0 })
-      expect(await balance(id, ending)).toBe(90n * CHIP)
+      expect(await balance(id, ending)).toBe(75n * CHIP)
     } finally {
       await testDb.query(
         `update seasons set status = 'active', starts_at = now() - interval '1 day',
@@ -532,7 +537,7 @@ describe('the slow reveal', () => {
     try {
       const { client } = await player(100n)
       stack('9s', '7h', '2d')
-      expect((await deal(client, '21')).body.round.detail.slowReveal).toBe(true)
+      expect((await deal(client, '25')).body.round.detail.slowReveal).toBe(true)
     } finally {
       await set(5_000)
     }
@@ -541,12 +546,12 @@ describe('the slow reveal', () => {
 
 describe('GET /api/blackjack/room', () => {
   it("shows each player's hand and nothing hidden", async () => {
-    const alice = await player(50n)
-    const bob = await player(50n)
+    const alice = await player(500n)
+    const bob = await player(500n)
     stack('9s', 'Kh', '5d', '7c')
-    const alices = await deal(alice.client, '2')
+    const alices = await deal(alice.client, '25')
     stack('Ts', '8h', 'Td')
-    const bobs = await deal(bob.client, '3')
+    const bobs = await deal(bob.client, '30')
     const room = await bob.client.get<RoomState<BlackjackDetail>>('/api/blackjack/room')
     expect(room.status).toBe(200)
     const byPlayer = new Map(room.body.rounds.map((r) => [r.userId, r]))
@@ -559,7 +564,7 @@ describe('GET /api/blackjack/room', () => {
   it('stands a hand left idle, and the dealer plays it out', async () => {
     const { id, client } = await player(100n)
     stack('Ts', '9h', '6d')
-    const dealt = await deal(client, '10')
+    const dealt = await deal(client, '25')
     await testDb.query(
       `update game_rounds set acted_at = now() - interval '2 hours' where id = $1`,
       [dealt.body.round.id],
@@ -573,16 +578,16 @@ describe('GET /api/blackjack/room', () => {
       summary: '19 beats 16 (stood for an idle hand)',
       detail: { idle: true, dealer: ['9h', 'Tc'] },
     })
-    expect(await balance(id)).toBe(90n * CHIP)
+    expect(await balance(id)).toBe(75n * CHIP)
   })
 })
 
 describe('a session of real hands', () => {
   it('plays 40 random hands, and every chip adds up', async () => {
-    const { id, client } = await player(1_000n)
-    let expected = 1_000n * CHIP
+    const { id, client } = await player(10_000n)
+    let expected = 10_000n * CHIP
     for (let i = 0; i < 40; i++) {
-      let res = await deal(client, '5')
+      let res = await deal(client, '50')
       ok(res)
       while (res.body.round.status === 'open') {
         res = await move(client, res.body.round, simpleMove(res.body.round.detail))

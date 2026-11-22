@@ -483,7 +483,7 @@ function Editor({ state }: { state: AdminConfigState }) {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 24, opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="sticky bottom-[calc(3.6rem+env(safe-area-inset-bottom)+0.75rem)] z-10 md:bottom-3"
+            className="sticky bottom-3 z-10"
           >
             <div className="flex flex-wrap items-center gap-2.5 rounded-lg border border-border-strong bg-glass p-3 shadow-pop backdrop-blur">
               <p className="min-w-0 text-sm font-semibold" aria-live="polite">

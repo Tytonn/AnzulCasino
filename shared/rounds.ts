@@ -5,6 +5,8 @@
  */
 import { z } from 'zod'
 
+import type { ChatMessage } from './chat.ts'
+
 /** Every round of every game moves through these states. */
 export const ROUND_STATUSES = ['open', 'settled', 'void'] as const
 export type RoundStatus = (typeof ROUND_STATUSES)[number]
@@ -75,4 +77,9 @@ export interface PlayResult<D = unknown> {
   round: RoundView<D>
   /** The player's wallet after the request, so the top bar moves without waiting. */
   wallet: { seasonId: number; balance: number; vault: number; version: number }
+  /**
+   * The round's card in the stream (spec: The stream), on the request that
+   * opened the round, so it shows at once without waiting for the live echo.
+   */
+  card?: ChatMessage & { round: RoundView<D> }
 }

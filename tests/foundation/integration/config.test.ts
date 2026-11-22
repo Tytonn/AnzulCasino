@@ -55,9 +55,9 @@ describe('loadConfig', () => {
 describe('changeConfig', () => {
   it('applies a game setting at once and writes it to the audit log', async () => {
     const now = await dbNow()
-    const { effectiveAt } = await change('min_bet', 5, now, 'Testing bigger bets')
+    const { effectiveAt } = await change('min_bet', 50, now, 'Testing bigger bets')
     expect(effectiveAt).toEqual(now)
-    expect((await loadConfig(db())).min_bet).toBe(5n)
+    expect((await loadConfig(db())).min_bet).toBe(50n)
 
     const [audit] = await testDb.query<{
       action: string
@@ -72,8 +72,8 @@ describe('changeConfig', () => {
     expect(audit).toEqual({
       action: 'config.changed',
       target: 'min_bet',
-      before: { value: 1 },
-      after: { value: 5, effectiveAt: now.toISOString() },
+      before: { value: 25 },
+      after: { value: 50, effectiveAt: now.toISOString() },
       reason: 'Testing bigger bets',
     })
   })
@@ -115,20 +115,20 @@ describe('changeConfig', () => {
 
   it('refuses a minimum above its maximum, from either side', async () => {
     const now = await dbNow()
-    await expect(change('work_pay_min', 7, now)).rejects.toMatchObject({
+    await expect(change('work_pay_min', 70, now)).rejects.toMatchObject({
       status: 400,
-      message: 'work_pay_min cannot be more than work_pay_max, which is 6 chips.',
+      message: 'work_pay_min cannot be more than work_pay_max, which is 60 chips.',
     })
-    await expect(change('work_pay_max', 1, now)).rejects.toMatchObject({
+    await expect(change('work_pay_max', 10, now)).rejects.toMatchObject({
       status: 400,
-      message: 'work_pay_max cannot be less than work_pay_min, which is 2 chips.',
+      message: 'work_pay_max cannot be less than work_pay_min, which is 20 chips.',
     })
     // Raising the maximum first makes room, even while it waits for the reset.
-    await change('work_pay_max', 10, now)
-    await change('work_pay_min', 7, now)
+    await change('work_pay_max', 100, now)
+    await change('work_pay_min', 70, now)
     expect(await pendingConfigChanges(db())).toHaveLength(2)
     // A minimum equal to the maximum is a fixed amount, which is fine.
-    await change('crime_fine_min', 30, now)
+    await change('crime_fine_min', 300, now)
   })
 
   it('refuses unknown keys and bad values, and stores nothing', async () => {
@@ -149,12 +149,12 @@ describe('GET /api/config', () => {
   })
 
   it('sends every value, chips as whole numbers', async () => {
-    await change('min_bet', 5, await dbNow())
+    await change('min_bet', 50, await dbNow())
     const player = await loggedIn(coreApi, await createPlayer(testDb))
     const res = await player.get('/api/config')
     expect(res.status).toBe(200)
-    expect(res.body.config.min_bet).toBe(5)
-    expect(res.body.config.starting_balance).toBe(100)
+    expect(res.body.config.min_bet).toBe(50)
+    expect(res.body.config.starting_balance).toBe(1_000)
     expect(res.body.config.steal_base_rate).toBe(150)
   })
 })

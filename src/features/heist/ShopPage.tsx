@@ -6,7 +6,7 @@
  */
 import type { ReactNode } from 'react'
 
-import { formatChips, formatShare } from '../../../shared/chips.ts'
+import { chipCount, formatChips, formatShare } from '../../../shared/chips.ts'
 import { Button } from '../../kit/Button.tsx'
 import { BagIcon, ChipIcon } from '../../kit/icons.tsx'
 import { Kbd, useShortcuts } from '../../kit/Kbd.tsx'
@@ -81,10 +81,12 @@ function HowItWorks({ heist }: { heist: Heist }) {
       A steal works <b>{formatShare(cfg.steal_success_pct)}</b> of the time. It takes{' '}
       {formatShare(cfg.steal_base_rate)} of their wallet, plus {formatShare(cfg.steal_per_rank)} for
       each place they are above you, up to {formatShare(cfg.steal_max_rate)}. Robbing someone below
-      you takes {formatShare(cfg.steal_down_rate)}.
+      you takes {formatShare(cfg.steal_down_rate)}. A steal that would take under{' '}
+      {chipCount(cfg.steal_min_take)} cannot be tried.
     </>,
     <>
-      Get caught and you pay them <b>{formatShare(cfg.steal_fine_pct)} of your wallet</b>.
+      Get caught and you pay them <b>{formatShare(cfg.steal_fine_pct)} of your wallet</b>, at least{' '}
+      {chipCount(cfg.steal_min_fine)} (or all of it, if you have less).
     </>,
     <>
       A shield charge blocks a steal outright. After a block or a successful steal, the target is

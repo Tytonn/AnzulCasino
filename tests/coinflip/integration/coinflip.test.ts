@@ -99,16 +99,16 @@ describe('POST /api/coinflip/play', () => {
     expect(await ledgerMismatches(db(), seasonId)).toEqual([])
   })
 
-  it('rounds a win down to a whole chip: 1.96x of 1 chip pays the 1 back', async () => {
-    const { id, client } = await player(100n)
+  it('rounds a win down to a whole chip: 1.96x of 30 chips pays 58', async () => {
+    const { id, client } = await player(2_000n)
     let win: Flip | null = null
     for (let i = 0; i < 40 && !win; i++) {
-      const res = await client.post<Flip>('/api/coinflip/play', { bet: '1', call: 'heads' }, key())
+      const res = await client.post<Flip>('/api/coinflip/play', { bet: '30', call: 'heads' }, key())
       expect(res.status, JSON.stringify(res.body)).toBe(200)
       if (res.body.round.detail.face === 'heads') win = res.body
     }
-    expect(win?.round).toMatchObject({ stake: 1, payout: 1, multiplier: 100 })
-    // Even: no chat post, and the ledger still adds up.
+    expect(win?.round).toMatchObject({ stake: 30, payout: 58, multiplier: 193 })
+    // Not a big win: no chat post, and the ledger still adds up.
     const posts = await testDb.query(`select id from chat_messages where meta->>'userId' = $1`, [
       id,
     ])
@@ -118,7 +118,7 @@ describe('POST /api/coinflip/play', () => {
 
   it('tells the room, the ticker and the top bar, and nothing hidden leaves the server', async () => {
     const { id, client } = await player(100n)
-    const res = await client.post<Flip>('/api/coinflip/play', { bet: '5', call: 'tails' }, key())
+    const res = await client.post<Flip>('/api/coinflip/play', { bet: '50', call: 'tails' }, key())
     expect(res.status).toBe(200)
     await client.settle()
 
@@ -138,7 +138,7 @@ describe('POST /api/coinflip/play', () => {
     const ticker = capture.events.find(
       (e) => e.name === 'round.settled' && !e.channel.includes('room:'),
     )
-    expect(ticker?.envelope.data).toMatchObject({ userId: id, game: 'coinflip', stake: 5 })
+    expect(ticker?.envelope.data).toMatchObject({ userId: id, game: 'coinflip', stake: 50 })
     // One wallet update, after the payout.
     const wallets = capture.events.filter((e) => e.name === 'wallet.updated')
     expect(wallets).toHaveLength(1)
@@ -156,12 +156,12 @@ describe('POST /api/coinflip/play', () => {
     const headers = key()
     const first = await client.post<Flip>(
       '/api/coinflip/play',
-      { bet: '10', call: 'heads' },
+      { bet: '25', call: 'heads' },
       headers,
     )
     const again = await client.post<Flip>(
       '/api/coinflip/play',
-      { bet: '10', call: 'heads' },
+      { bet: '25', call: 'heads' },
       headers,
     )
     expect(first.status).toBe(200)
@@ -172,7 +172,7 @@ describe('POST /api/coinflip/play', () => {
   })
 
   it('never overdraws when bets arrive at once', async () => {
-    const { id, client } = await player(10n)
+    const { id, client } = await player(100n)
     const responses = await Promise.all(
       Array.from({ length: 16 }, (_, i) =>
         client.post<Flip>('/api/coinflip/play', { bet: 'all', call: SIDES[i % 2] }, key()),
@@ -190,17 +190,18 @@ describe('POST /api/coinflip/play', () => {
     // Each "all" bet staked the whole wallet at its moment: the chain of
     // answers adds up to the final balance.
     const net = placed.reduce((sum, r) => sum + (r.body.round.payout ?? 0) - r.body.round.stake, 0)
-    expect(final).toBe(10n * CHIP + BigInt(net))
+    expect(final).toBe(100n * CHIP + BigInt(net))
     expect(await ledgerMismatches(db(), seasonId)).toEqual([])
   })
 
   it('refuses a bad call, a bad amount and more than the wallet, in plain words', async () => {
-    const { id, client } = await player(10n)
+    const { id, client } = await player(100n)
     const cases: [unknown, string][] = [
       [{ bet: '1', call: 'edge' }, 'Call heads or tails.'],
       [{ bet: 'lots', call: 'heads' }, '"lots" is not an amount. Try 50, 2.5k, half or all.'],
-      [{ bet: '11', call: 'heads' }, 'You only have 10 chips.'],
-      [{ bet: '0.5', call: 'heads' }, 'The smallest bet is 1.'],
+      [{ bet: '101', call: 'heads' }, 'You only have 100 chips.'],
+      [{ bet: '0.5', call: 'heads' }, 'The smallest bet is 25.'],
+      [{ bet: '24', call: 'heads' }, 'The smallest bet is 25.'],
       [{ bet: '1', call: 'heads', face: 'heads' }, ''],
     ]
     for (const [body, message] of cases) {
@@ -209,7 +210,7 @@ describe('POST /api/coinflip/play', () => {
       expect(res.body.error.message).toContain(message)
     }
     expect(await rounds(id)).toHaveLength(0)
-    expect(await balance(id)).toBe(10n * CHIP)
+    expect(await balance(id)).toBe(100n * CHIP)
   })
 
   it('needs a session and an idempotency key', async () => {
@@ -223,7 +224,7 @@ describe('POST /api/coinflip/play', () => {
   })
 
   it('posts an all-in to chat, win or lose', async () => {
-    const { id, client } = await player(10n)
+    const { id, client } = await player(100n)
     const res = await client.post<Flip>('/api/coinflip/play', { bet: 'all', call: 'heads' }, key())
     expect(res.status).toBe(200)
     expect(res.body.round).toMatchObject({ allIn: true, bigBet: true })
@@ -234,26 +235,27 @@ describe('POST /api/coinflip/play', () => {
     )
     expect(post?.kind).toBe('system')
     expect(post?.body).toMatch(
-      won ? /went all in on Coin flip and won 9$/ : /went all in on Coin flip and lost 10$/,
+      won ? /went all in on Coin flip and won 96$/ : /went all in on Coin flip and lost 100$/,
     )
   })
 })
 
 describe('GET /api/coinflip/room', () => {
   it("shows each player's latest flip and nothing hidden", async () => {
-    const alice = await player(50n)
-    const bob = await player(50n)
-    await alice.client.post('/api/coinflip/play', { bet: '1', call: 'heads' }, key())
+    const alice = await player(500n)
+    const bob = await player(500n)
+    await alice.client.post('/api/coinflip/play', { bet: '25', call: 'heads' }, key())
     const last = await alice.client.post<Flip>(
       '/api/coinflip/play',
-      { bet: '2', call: 'tails' },
+      { bet: '40', call: 'tails' },
       key(),
     )
     const bobs = await bob.client.post<Flip>(
       '/api/coinflip/play',
-      { bet: '3', call: 'heads' },
+      { bet: '30', call: 'heads' },
       key(),
     )
+    expect([last.status, bobs.status]).toEqual([200, 200])
 
     const room = await bob.client.get<RoomState<CoinflipDetail>>('/api/coinflip/room')
     expect(room.status).toBe(200)
@@ -267,7 +269,7 @@ describe('GET /api/coinflip/room', () => {
 describe('the house edge setting', () => {
   it('pays by the edge in force when the bet is placed, and saves it with the round', async () => {
     const admin = await createPlayer(testDb)
-    const { client } = await player(100n)
+    const { client } = await player(1_000n)
     const set = (value: number) =>
       db().transaction((tx) =>
         changeConfig(tx, { key: 'coinflip_edge_pct', value, actorId: admin, now: new Date() }),
@@ -278,13 +280,13 @@ describe('the house edge setting', () => {
       for (let i = 0; i < 40 && !win; i++) {
         const res = await client.post<Flip>(
           '/api/coinflip/play',
-          { bet: '1', call: 'heads' },
+          { bet: '25', call: 'heads' },
           key(),
         )
         expect(res.body.round.detail.edgePct).toBe(0)
         if (res.body.round.detail.face === 'heads') win = res.body
       }
-      expect(win?.round).toMatchObject({ payout: 2, multiplier: 200 })
+      expect(win?.round).toMatchObject({ payout: 50, multiplier: 200 })
     } finally {
       await set(200)
     }

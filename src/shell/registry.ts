@@ -4,7 +4,9 @@
  */
 import type { Icon } from '../kit/icons.tsx'
 import { CoinflipIcon } from '../kit/icons.tsx'
+import { type CommandKey, isConfigKey } from '../../shared/config.ts'
 import type {
+  CommandSpec,
   FeatureManifest,
   FeatureRoute,
   GameManifest,
@@ -140,3 +142,24 @@ export function slotEntries<K extends SlotName>(name: K): readonly SlotEntry<Slo
   }
   return found.sort((a, b) => a.order - b.order || a.id.localeCompare(b.id))
 }
+
+/** A game's command setting by its id: blackjack is command_blackjack. */
+export function gameCommandKey(gameId: string): CommandKey | null {
+  const key = `command_${gameId.replace(/-/g, '_')}`
+  return isConfigKey(key) && key.startsWith('command_') ? (key as CommandKey) : null
+}
+
+/** Every command the games and features declare, with where it came from. */
+export interface CommandEntry extends CommandSpec {
+  /** The game or feature that declared it. */
+  source: string
+}
+
+export const manifestCommands: readonly CommandEntry[] = [
+  ...games.flatMap((game) =>
+    (game.manifest?.commands ?? []).map((command) => ({ ...command, source: game.id })),
+  ),
+  ...features.flatMap((feature) =>
+    (feature.commands ?? []).map((command) => ({ ...command, source: feature.id })),
+  ),
+]

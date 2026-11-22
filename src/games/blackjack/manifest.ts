@@ -1,12 +1,13 @@
 /**
- * Blackjack's manifest: how the shell finds the room (spec: Manifests). The
- * room loads only when a player walks in; the colors and the Floor card's
- * art load with the Floor.
+ * Blackjack's manifest: how the shell finds the game (spec: Manifests). Its
+ * card in the stream and the classic room load only when first needed; the
+ * command, the colors and the Floor card's art load with the shell.
  */
 import '../../theme/games/blackjack.css'
 
 import { BlackjackIcon } from '../../kit/icons.tsx'
 import { defineGame } from '../../shell/manifests.ts'
+import { BLACKJACK_COMMANDS } from './commands.ts'
 import FloorArt from './FloorArt.tsx'
 
 export default defineGame({
@@ -17,6 +18,9 @@ export default defineGame({
   room: () => import('./Room.tsx'),
   cardArt: FloorArt,
   replay: () => import('./Replay.tsx'),
+  card: () => import('./StreamCard.tsx'),
+  commands: BLACKJACK_COMMANDS,
+  roundName: ['hand', 'hands'],
   howToPlay: [
     'Get closer to 21 than the dealer without going over. Cards 2 to 10 count their number, jacks, queens and kings count 10, and an ace counts 1 or 11, whichever helps.',
     'Type a bet and deal. Then hit (H) for another card, stand (S) to keep your total, double (D) to double your bet and take exactly one more card, or split (P) two cards of the same value into two hands, with a second bet on the new one.',

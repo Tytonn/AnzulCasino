@@ -73,7 +73,7 @@ describe('the season moving on', () => {
     await client.get('/api/economy/state')
     await client.settle()
     expect(posts()).toEqual([
-      '🔓 Bronze rank is open: 150 chips for 15 a day in income. Buy it in the Shop.',
+      '🔓 Bronze rank is open: 1,500 chips for 150 a day in income. Buy it in the Shop.',
     ])
 
     // Silver brought forward to day 1 (an admin change): announced on the next look, Bronze not again.
@@ -86,7 +86,7 @@ describe('the season moving on', () => {
     await client.get('/api/economy/state')
     await client.settle()
     expect(posts()).toEqual([
-      '🔓 Silver rank is open: 1,000 chips for 100 a day in income. Buy it in the Shop.',
+      '🔓 Silver rank is open: 10,000 chips for 1,000 a day in income. Buy it in the Shop.',
     ])
 
     // Over: end this season so the next tests have the clock to themselves.

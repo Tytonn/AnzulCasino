@@ -16,6 +16,7 @@ import {
   checkTarget,
   dailyLossCap,
   extraAttemptPrice,
+  fineBasis,
   rateLabel,
   seasonWeek,
   shieldPrice,
@@ -89,7 +90,7 @@ describe('the spec’s worked example', () => {
   })
 
   it('costs the thief 200 chips on a failure', () => {
-    expect(stealFine(thiefWallet, cfg.steal_fine_pct)).toBe(chips(200))
+    expect(stealFine(thiefWallet, cfg)).toBe(chips(200))
   })
 })
 
@@ -116,28 +117,49 @@ describe('the daily loss cap and the take', () => {
     expect(stealAmount(chips(600), 180, 0n)).toBe(0n)
   })
 
-  it('fines a share of the thief’s own wallet, and nothing from an empty one', () => {
-    // 5% of 50 is 2.5 chips, and of 333 it is 16.65: rounded down.
-    expect(stealFine(chips(50), 500)).toBe(chips(2))
-    expect(stealFine(chips(333), 500)).toBe(chips(16))
-    expect(stealFine(0n, 500)).toBe(0n)
+  it('fines a share of the thief’s own wallet, rounded down, and nothing from an empty one', () => {
+    // 5% of 333 is 16.65 chips, and of 1,999 it is 99.95: rounded down.
+    expect(stealFine(chips(333), cfg)).toBe(chips(16))
+    expect(stealFine(chips(1_999), cfg)).toBe(chips(99))
+    expect(stealFine(0n, cfg)).toBe(0n)
+  })
+
+  it('fines at least the smallest fine, or the whole wallet when it holds less', () => {
+    expect(cfg.steal_min_fine).toBe(chips(10))
+    // 5% of 50 is 2.5 and of 199 is 9.95: both under 10, so the fine is 10.
+    expect(stealFine(chips(50), cfg)).toBe(chips(10))
+    expect(stealFine(chips(199), cfg)).toBe(chips(10))
+    expect(stealFine(chips(200), cfg)).toBe(chips(10))
+    expect(stealFine(chips(10), cfg)).toBe(chips(10))
+    expect(stealFine(chips(7), cfg)).toBe(chips(7))
+    expect(stealFine(chips(1), cfg)).toBe(chips(1))
+    // A smallest fine of 0 leaves the share alone.
+    expect(stealFine(chips(50), { steal_fine_pct: 500, steal_min_fine: 0n })).toBe(chips(2))
+  })
+
+  it('says why the fine is what it is', () => {
+    expect(fineBasis(chips(4_000), cfg)).toBe('5% of yours')
+    expect(fineBasis(chips(200), cfg)).toBe('5% of yours')
+    expect(fineBasis(chips(50), cfg)).toBe('the smallest fine')
+    expect(fineBasis(chips(10), cfg)).toBe('your whole wallet')
+    expect(fineBasis(chips(7), cfg)).toBe('your whole wallet')
   })
 })
 
 describe('prices', () => {
-  it('charges 2% of the wallet for a shield charge, at least 3 chips', () => {
-    expect(shieldPrice(chips(1_000), cfg)).toBe(chips(20))
-    expect(shieldPrice(chips(150), cfg)).toBe(chips(3))
-    expect(shieldPrice(chips(100), cfg)).toBe(chips(3))
-    expect(shieldPrice(0n, cfg)).toBe(chips(3))
-    // 2% of 199 is 3.98, rounded down to the 3 minimum; 2% of 12,345 is 246.9.
-    expect(shieldPrice(chips(199), cfg)).toBe(chips(3))
+  it('charges 2% of the wallet for a shield charge, at least 30 chips', () => {
+    expect(shieldPrice(chips(10_000), cfg)).toBe(chips(200))
+    expect(shieldPrice(chips(1_500), cfg)).toBe(chips(30))
+    expect(shieldPrice(chips(1_000), cfg)).toBe(chips(30))
+    expect(shieldPrice(0n, cfg)).toBe(chips(30))
+    // 2% of 1,549 is 30.98, rounded down to the 30 minimum; 2% of 12,345 is 246.9.
+    expect(shieldPrice(chips(1_549), cfg)).toBe(chips(30))
     expect(shieldPrice(chips(12_345), cfg)).toBe(chips(246))
   })
 
   it('prices the extra steal attempt the same way from its own settings', () => {
-    expect(extraAttemptPrice(chips(1_000), cfg)).toBe(chips(20))
-    expect(extraAttemptPrice(chips(10), cfg)).toBe(chips(3))
+    expect(extraAttemptPrice(chips(10_000), cfg)).toBe(chips(200))
+    expect(extraAttemptPrice(chips(100), cfg)).toBe(chips(30))
     expect(
       extraAttemptPrice(chips(1_000), {
         extra_steal_price_pct: 500,
@@ -226,15 +248,58 @@ describe('who can be robbed', () => {
   })
 
   it('limits the take to what is left of the cap', () => {
-    expect(checkTarget(facts({ capLeft: chips(9) }))).toMatchObject({ ok: true, amount: chips(9) })
+    expect(checkTarget(facts({ capLeft: chips(12) }))).toMatchObject({
+      ok: true,
+      amount: chips(12),
+    })
   })
 
-  it('refuses a steal that would take less than a whole chip', () => {
-    // 2.4% of 41 chips is 0.984: nothing to take yet, so no attempt is spent on it.
-    const small = { id: 'target', rank: 1, balance: chips(41), netWorth: chips(300) }
+  it('refuses a steal the cap would hold under the smallest steal', () => {
+    // 14 chips by the rate, but only 9 left of the cap: under the 10-chip smallest steal.
+    expect(checkTarget(facts({ capLeft: chips(9) }))).toEqual({ ok: false, reason: 'cap' })
+    expect(checkTarget(facts({ capLeft: chips(10) }))).toMatchObject({
+      ok: true,
+      amount: chips(10),
+    })
+  })
+
+  it('refuses a steal that would take less than the smallest steal', () => {
+    expect(cfg.steal_min_take).toBe(chips(10))
+    // 2.4% of 416 chips is 9.98: under 10, so no attempt is spent on it. Of 417 it is 10.
+    const small = { id: 'target', rank: 1, balance: chips(416), netWorth: chips(416) }
     expect(checkTarget(facts({ target: small }))).toEqual({ ok: false, reason: 'too_little' })
+    const enough = { ...small, balance: chips(417) }
+    expect(checkTarget(facts({ target: enough }))).toMatchObject({ ok: true, amount: chips(10) })
+  })
+
+  it('needs 2,000 in the wallet of a player ranked below you, at the 0.5% down rate', () => {
+    const thief = { id: 'thief', rank: 1 }
+    const below = { id: 'target', rank: 4, balance: chips(1_999), netWorth: chips(1_999) }
+    expect(checkTarget(facts({ thief, target: below, capLeft: chips(80) }))).toEqual({
+      ok: false,
+      reason: 'too_little',
+    })
+    const enough = { ...below, balance: chips(2_000), netWorth: chips(2_000) }
+    expect(checkTarget(facts({ thief, target: enough, capLeft: chips(80) }))).toMatchObject({
+      ok: true,
+      rate: 50,
+      amount: chips(10),
+    })
+  })
+
+  it('still refuses a steal of less than a whole chip with no smallest steal', () => {
+    // 2.4% of 41 chips is 0.984: nothing to take.
+    const none = { ...cfg, steal_min_take: 0n }
+    const small = { id: 'target', rank: 1, balance: chips(41), netWorth: chips(300) }
+    expect(checkTarget(facts({ target: small, cfg: none }))).toEqual({
+      ok: false,
+      reason: 'too_little',
+    })
     const enough = { ...small, balance: chips(42) }
-    expect(checkTarget(facts({ target: enough }))).toMatchObject({ ok: true, amount: chips(1) })
+    expect(checkTarget(facts({ target: enough, cfg: none }))).toMatchObject({
+      ok: true,
+      amount: chips(1),
+    })
   })
 
   it('refuses for each reason the spec lists', () => {
@@ -248,7 +313,7 @@ describe('who can be robbed', () => {
       [{ attemptsLeft: 0 }, 'no_attempts'],
       [{ triedToday: true }, 'tried'],
       [{ immuneUntil: now + 60_000 }, 'immune'],
-      [{ target: { id: 'target', rank: 1, balance: chips(24), netWorth: chips(24) } }, 'floor'],
+      [{ target: { id: 'target', rank: 1, balance: chips(249), netWorth: chips(249) } }, 'floor'],
       [{ capLeft: 0n }, 'cap'],
       [{ target: { id: 'target', rank: 1, balance: 0n, netWorth: chips(500) } }, 'empty'],
     ]
@@ -263,13 +328,13 @@ describe('who can be robbed', () => {
   })
 
   it('counts the floor on net worth, so chips in the vault keep a player robbable', () => {
-    // 20 in the wallet is under the floor of 25, but 30 in all is not. At 10%
-    // (the default rates take under a chip of 20) a success takes 2.
-    const vaulted = { id: 'target', rank: 1, balance: chips(20), netWorth: chips(30) }
+    // 200 in the wallet is under the floor of 250, but 300 in all is not. At 10%
+    // a success takes 20.
+    const vaulted = { id: 'target', rank: 1, balance: chips(200), netWorth: chips(300) }
     const rates = { ...cfg, steal_base_rate: 1_000, steal_per_rank: 0, steal_max_rate: 1_000 }
     expect(checkTarget(facts({ target: vaulted, cfg: rates }))).toMatchObject({
       ok: true,
-      amount: chips(2),
+      amount: chips(20),
     })
   })
 
@@ -321,6 +386,12 @@ describe('the words a player sees', () => {
       'Bob has nothing in their wallet to take.',
       'Bob has too little in their wallet for a steal to take a whole chip.',
     ])
+  })
+
+  it('names the smallest steal when a wallet is too small for it', () => {
+    expect(blockMessage('too_little', { name: 'Bob', minTake: chips(10) })).toBe(
+      'Bob has too little in their wallet for a steal to take 10 chips.',
+    )
   })
 
   it('points to the reset once the extra attempt is used', () => {

@@ -10,6 +10,7 @@ import { randomUUID } from 'node:crypto'
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
+import { retellLine } from '../../../shared/chat.ts'
 import { CHIP } from '../../../shared/chips.ts'
 import type {
   ChallengeClaimResponse,
@@ -151,17 +152,17 @@ describe('GET /api/economy/state', () => {
     const state = res.body.state
     if (!state) throw new Error('no state')
     expect(state.seasonId).toBe(seasonId)
-    expect(state.income).toMatchObject({ tier: 'base', perDay: 5, capHours: 24 })
+    expect(state.income).toMatchObject({ tier: 'base', perDay: 50, capHours: 24 })
     expect(state.streak).toEqual({
       claimedToday: false,
       days: 1,
-      bonus: 1,
-      nextBonus: 2,
-      maxBonus: 10,
+      bonus: 10,
+      nextBonus: 20,
+      maxBonus: 100,
     })
     expect(state.cooldowns).toEqual({ work: null, hustle: null, crime: null })
     expect(state.ranks.boughtToday).toBe(false)
-    expect(state.ranks.next).toMatchObject({ tier: 'bronze', price: 150, perDay: 15 })
+    expect(state.ranks.next).toMatchObject({ tier: 'bronze', price: 1_500, perDay: 150 })
     expect(state.ranks.ladder.map((t) => t.tier)).toEqual([
       'base',
       'bronze',
@@ -173,7 +174,7 @@ describe('GET /api/economy/state', () => {
     ])
     expect(state.challenges.list).toHaveLength(3)
     expect(state.challenges.list.map((c) => c.level)).toEqual([1, 2, 3])
-    expect(state.challenges.list.map((c) => c.reward)).toEqual([2, 3, 4])
+    expect(state.challenges.list.map((c) => c.reward)).toEqual([20, 30, 40])
     expect(state.challenges.list.every((c) => c.game === null)).toBe(true)
     expect(state.activity).toEqual([])
   })
@@ -187,14 +188,16 @@ describe('GET /api/economy/state', () => {
 })
 
 describe('POST /api/economy/work', () => {
-  it('pays 2 to 6 whole chips with a line, then cools down for 5 minutes', async () => {
+  it('pays 20 to 60 whole chips with a line, then cools down for 5 minutes', async () => {
     const { id, client } = await player(0n)
     const res = await client.post<IncomeResponse>('/api/economy/work', {}, key())
     expect(res.status, JSON.stringify(res.body)).toBe(200)
     const { result, wallet, state } = res.body
     expect(result.command).toBe('work')
     expect(result.outcome).toBe('paid')
-    expect([2, 3, 4, 5, 6]).toContain(result.amount)
+    expect(Number.isInteger(result.amount)).toBe(true)
+    expect(result.amount).toBeGreaterThanOrEqual(20)
+    expect(result.amount).toBeLessThanOrEqual(60)
     expect(CONFIG.work_lines.default).toContain(result.line)
     expect(wallet.balance).toBe(result.amount)
     expect(await balance(id)).toBe(BigInt(result.amount))
@@ -241,12 +244,17 @@ describe('POST /api/economy/work', () => {
     expect(await balance(id)).toBe(BigInt(paid[0]?.body.result.amount ?? -1))
   })
 
-  it("tells the player's other tabs and the leaderboard, and keeps it out of chat", async () => {
+  it("tells the player's other tabs, the leaderboard and the stream", async () => {
     const { id, client } = await player(5n)
     const res = await client.post<IncomeResponse>('/api/economy/work', {}, key())
     await client.settle()
     const names = capture.events.map((e) => e.name)
-    expect(names).toEqual(['wallet.updated', 'standing.changed', 'economy.changed'])
+    expect(names).toEqual(['chat.message', 'wallet.updated', 'standing.changed', 'economy.changed'])
+    const line = capture.events.find((e) => e.name === 'chat.message')
+    expect(line?.envelope.data).toMatchObject({
+      kind: 'system',
+      meta: { userId: id, category: 'game', income: { command: 'work', outcome: 'paid' } },
+    })
     const changed = capture.events.find((e) => e.name === 'economy.changed')
     expect(changed?.channel).toBe(`user:${id}`)
     expect(changed?.envelope.version).toBe(res.body.state.version)
@@ -255,22 +263,22 @@ describe('POST /api/economy/work', () => {
 })
 
 describe('POST /api/economy/hustle and /crime', () => {
-  it('fines 5 to 15 chips on a miss, stopping at an empty wallet', async () => {
+  it('fines 50 to 150 chips on a miss, stopping at an empty wallet', async () => {
     await setConfig('hustle_success_pct', 0)
-    const { id, client } = await player(3n)
+    const { id, client } = await player(30n)
     const res = await client.post<IncomeResponse>('/api/economy/hustle', {}, key())
     expect(res.status).toBe(200)
     const { result } = res.body
     expect(result.outcome).toBe('fined')
-    expect(result.drawn).toBeGreaterThanOrEqual(5)
-    expect(result.drawn).toBeLessThanOrEqual(15)
-    expect(result.amount).toBe(3)
+    expect(result.drawn).toBeGreaterThanOrEqual(50)
+    expect(result.drawn).toBeLessThanOrEqual(150)
+    expect(result.amount).toBe(30)
     expect(CONFIG.hustle_fine_lines.default).toContain(result.line)
     expect(await balance(id)).toBe(0n)
     expect(await ledgerRows(id)).toEqual([
       {
         reason: 'hustle_fine',
-        delta: '-3',
+        delta: '-30',
         meta: { line: result.line, drawn: result.drawn },
       },
     ])
@@ -285,14 +293,14 @@ describe('POST /api/economy/hustle and /crime', () => {
     expect(broke.body.state.cooldowns.crime).toBe(broke.body.result.readyAt)
   })
 
-  it('pays 20 to 50 chips when the third button works, under its own name', async () => {
+  it('pays 200 to 500 chips when the third button works, under its own name', async () => {
     await setConfig('hustle_success_pct', 10_000)
     const { client } = await player(0n)
     const res = await client.post<IncomeResponse>('/api/economy/hustle', {}, key())
     expect(res.body.result.outcome).toBe('paid')
     expect(Number.isInteger(res.body.result.amount)).toBe(true)
-    expect(res.body.result.amount).toBeGreaterThanOrEqual(20)
-    expect(res.body.result.amount).toBeLessThanOrEqual(50)
+    expect(res.body.result.amount).toBeGreaterThanOrEqual(200)
+    expect(res.body.result.amount).toBeLessThanOrEqual(500)
     expect(CONFIG.hustle_win_lines.default).toContain(res.body.result.line)
 
     await setConfig('hustle_name', 'Moonlight')
@@ -300,24 +308,65 @@ describe('POST /api/economy/hustle and /crime', () => {
     expect(again.body.error.message).toMatch(/^Moonlight is ready again in/)
   })
 
-  it('posts a crime that pays crime_chat_min or more, and nothing else', async () => {
+  it('posts every result for everyone, and marks a crime of crime_chat_min or more as big', async () => {
     await setConfig('crime_success_pct', 10_000)
-    await setConfig('crime_pay_min', 150)
+    await setConfig('crime_pay_min', 1_500)
     const { id, client } = await player(0n)
     const res = await client.post<IncomeResponse>('/api/economy/crime', {}, key())
     await client.settle()
-    expect(res.body.result).toMatchObject({ outcome: 'paid', amount: 150, posted: true })
+    expect(res.body.result).toMatchObject({ outcome: 'paid', amount: 1_500, posted: true })
     const posts = capture.events.filter((e) => e.name === 'chat.message')
     expect(posts).toHaveLength(1)
     const post = posts[0]?.envelope.data as { body: string; meta: Record<string, unknown> }
-    expect(post.body).toMatch(/pulled off a big crime and got away with 150 chips\.$/)
-    expect(post.meta).toEqual({ tone: 'win', userId: id })
+    // The flavor line retold about the player, then the amount.
+    const name = (
+      await testDb.query<{ n: string }>(`select display_name as n from users where id = $1`, [id])
+    )[0]?.n
+    expect(post.body).toBe(`${retellLine(res.body.result.line, name ?? '')} +1,500`)
+    expect(post.meta).toEqual({
+      tone: 'win',
+      userId: id,
+      category: 'game',
+      income: {
+        command: 'crime',
+        outcome: 'paid',
+        amount: 1_500,
+        line: res.body.result.line,
+        big: true,
+      },
+    })
 
-    await setConfig('crime_pay_min', 60)
-    await setConfig('crime_pay_max', 60)
+    await setConfig('crime_pay_min', 600)
+    await setConfig('crime_pay_max', 600)
     const small = await player(0n)
+    capture.events.length = 0
     const quiet = await small.client.post<IncomeResponse>('/api/economy/crime', {}, key())
-    expect(quiet.body.result).toMatchObject({ amount: 60, posted: false })
+    await small.client.settle()
+    expect(quiet.body.result).toMatchObject({ amount: 600, posted: false })
+    const line = capture.events.find((e) => e.name === 'chat.message')?.envelope.data as {
+      meta: { income: { big: boolean; amount: number } }
+    }
+    expect(line.meta.income).toMatchObject({ amount: 600, big: false })
+  })
+
+  it('posts a fine too, with its flavor line and the amount lost', async () => {
+    await setConfig('crime_success_pct', 0)
+    const { id, client } = await player(5_000n)
+    const res = await client.post<IncomeResponse>('/api/economy/crime', {}, key())
+    await client.settle()
+    expect(res.body.result.outcome).toBe('fined')
+    const post = capture.events.find((e) => e.name === 'chat.message')?.envelope.data as {
+      body: string
+      meta: Record<string, unknown>
+    }
+    expect(post.body).toMatch(/ −\d[\d,]*$/)
+    expect(post.body).not.toMatch(/\byour?\b/i)
+    expect(post.meta).toMatchObject({
+      tone: 'loss',
+      userId: id,
+      category: 'game',
+      income: { command: 'crime', outcome: 'fined', amount: res.body.result.amount, big: false },
+    })
   })
 })
 
@@ -327,13 +376,13 @@ describe('POST /api/economy/collect', () => {
     // Income builds from the season's start a day ago, and caps at 24 hours.
     const res = await client.post<CollectResponse>('/api/economy/collect', {}, key())
     expect(res.status, JSON.stringify(res.body)).toBe(200)
-    expect(res.body.collected).toEqual({ income: 5, bonus: 1, streak: 1 })
-    expect(await balance(id)).toBe(6n)
+    expect(res.body.collected).toEqual({ income: 50, bonus: 10, streak: 1 })
+    expect(await balance(id)).toBe(60n)
     expect((await ledgerRows(id)).map((r) => [r.reason, r.delta])).toEqual([
-      ['rank_income', '5'],
-      ['daily_bonus', '1'],
+      ['rank_income', '50'],
+      ['daily_bonus', '10'],
     ])
-    expect(res.body.state.streak).toMatchObject({ claimedToday: true, days: 1, bonus: 1 })
+    expect(res.body.state.streak).toMatchObject({ claimedToday: true, days: 1, bonus: 10 })
     expect(res.body.state.activity.map((a) => [a.reason, a.note])).toEqual([
       ['daily_bonus', 'Day 1'],
       ['rank_income', 'Base'],
@@ -355,8 +404,8 @@ describe('POST /api/economy/collect', () => {
       id,
     ])
     const res = await client.post<CollectResponse>('/api/economy/collect', {}, key())
-    // Silver pays 100 a day: 12 hours is 50 chips. The seconds since wait for the next chip.
-    expect(res.body.collected.income).toBe(50)
+    // Silver pays 1,000 a day: 12 hours is 500 chips. The seconds since wait for the next chip.
+    expect(res.body.collected.income).toBe(500)
   })
 
   it('keeps the part of a chip still building for the next collect', async () => {
@@ -365,17 +414,17 @@ describe('POST /api/economy/collect', () => {
       `insert into economy_players (season_id, user_id, collected_at) values ($1, $2, now() - interval '7 hours')`,
       [seasonId, id],
     )
-    // 5 a day is a chip every 4.8 hours: 7 hours pays 1, and 2.2 hours carry over.
+    // 50 a day is a chip every 28.8 minutes: 7 hours pays 14, and 16.8 minutes carry over.
     const first = await client.post<CollectResponse>('/api/economy/collect', {}, key())
-    expect(first.body.collected.income).toBe(1)
-    expect(await sinceCollectMs(id)).toBeGreaterThanOrEqual(7_920_000)
-    expect(await sinceCollectMs(id)).toBeLessThan(7_930_000)
+    expect(first.body.collected.income).toBe(14)
+    expect(await sinceCollectMs(id)).toBeGreaterThanOrEqual(1_008_000)
+    expect(await sinceCollectMs(id)).toBeLessThan(1_018_000)
     const none = await client.post('/api/economy/collect', {}, key())
     expect(none.body.error.code).toBe('nothing_to_collect')
 
-    // 2.6 hours later the carried part has grown into the next whole chip.
+    // 12 minutes later the carried part has grown into the next whole chip.
     await testDb.query(
-      `update economy_players set collected_at = collected_at - interval '156 minutes'
+      `update economy_players set collected_at = collected_at - interval '12 minutes'
        where season_id = $1 and user_id = $2`,
       [seasonId, id],
     )
@@ -384,7 +433,7 @@ describe('POST /api/economy/collect', () => {
     expect(await sinceCollectMs(id)).toBeLessThan(10_000)
   })
 
-  it('grows the streak a chip a day to 10, posting the day it maxes out', async () => {
+  it('grows the streak 10 chips a day to 100, posting the day it maxes out', async () => {
     const { id, client } = await player(0n)
     const day = await today()
     await testDb.query(
@@ -393,10 +442,10 @@ describe('POST /api/economy/collect', () => {
     )
     const res = await client.post<CollectResponse>('/api/economy/collect', {}, key())
     await client.settle()
-    expect(res.body.collected).toMatchObject({ bonus: 10, streak: 10 })
+    expect(res.body.collected).toMatchObject({ bonus: 100, streak: 10 })
     const post = capture.events.find((e) => e.name === 'chat.message')
     expect((post?.envelope.data as { body: string }).body).toMatch(
-      /has collected 10 days in a row\. The streak bonus is maxed at 10 chips a day\.$/,
+      /has collected 10 days in a row\. The streak bonus is maxed at 100 chips a day\.$/,
     )
 
     // A missed day starts the streak over.
@@ -406,46 +455,46 @@ describe('POST /api/economy/collect', () => {
       [seasonId, other.id, addGameDays(day, -2)],
     )
     const reset = await other.client.post<CollectResponse>('/api/economy/collect', {}, key())
-    expect(reset.body.collected).toMatchObject({ bonus: 1, streak: 1 })
+    expect(reset.body.collected).toMatchObject({ bonus: 10, streak: 1 })
   })
 })
 
 describe('POST /api/economy/tier', () => {
   it('buys the next rank: the price leaves the game and the new rank shows everywhere', async () => {
-    const { id, client } = await player(200n)
+    const { id, client } = await player(2_000n)
     const res = await client.post<TierResponse>('/api/economy/tier', { tier: 'bronze' }, key())
     await client.settle()
     expect(res.status, JSON.stringify(res.body)).toBe(200)
-    expect(res.body.bought).toEqual({ tier: 'bronze', price: 150, income: 15 })
-    expect(await balance(id)).toBe(50n)
-    expect(res.body.state.income).toMatchObject({ tier: 'bronze', perDay: 15 })
+    expect(res.body.bought).toEqual({ tier: 'bronze', price: 1_500, income: 150 })
+    expect(await balance(id)).toBe(500n)
+    expect(res.body.state.income).toMatchObject({ tier: 'bronze', perDay: 150 })
     expect(res.body.state.ranks).toMatchObject({ boughtToday: true, next: { tier: 'silver' } })
     const standing = capture.events.find((e) => e.name === 'standing.changed')
-    expect(standing?.envelope.data).toMatchObject({ userId: id, tier: 'bronze', balance: 50 })
+    expect(standing?.envelope.data).toMatchObject({ userId: id, tier: 'bronze', balance: 500 })
     const post = capture.events.find((e) => e.name === 'chat.message')
     expect((post?.envelope.data as { body: string }).body).toMatch(
-      /ranked up to Bronze: 15 a day in income\.$/,
+      /ranked up to Bronze: 150 a day in income\.$/,
     )
     expect((await ledgerRows(id)).map((r) => [r.reason, r.delta])).toEqual([
-      ['rank_purchase', '-150'],
+      ['rank_purchase', '-1500'],
     ])
   })
 
   it('collects income at the old rate before the new rank starts paying', async () => {
-    const { id, client } = await player(200n)
+    const { id, client } = await player(2_000n)
     await testDb.query(
-      `insert into economy_players (season_id, user_id, collected_at) values ($1, $2, now() - interval '12 hours')`,
+      `insert into economy_players (season_id, user_id, collected_at) values ($1, $2, now() - interval '12 hours 14 minutes 24 seconds')`,
       [seasonId, id],
     )
     await client.post('/api/economy/tier', { tier: 'bronze' }, key())
     const rows = await ledgerRows(id)
     expect(rows.map((r) => r.reason)).toEqual(['rank_income', 'rank_purchase'])
-    // Half a day at the base rate of 5 a day is 2.5 chips: 2 are paid.
-    expect(rows[0]?.delta).toBe('2')
+    // Half a day and 14.4 minutes at the base rate of 50 a day is 25.5 chips: 25 are paid.
+    expect(rows[0]?.delta).toBe('25')
     expect(rows[0]?.meta).toEqual({ tier: 'base' })
-    // The half chip left is 2.4 hours at 5 a day, so 48 minutes at Bronze's 15 a day.
-    expect(await sinceCollectMs(id)).toBeGreaterThanOrEqual(2_880_000)
-    expect(await sinceCollectMs(id)).toBeLessThan(2_890_000)
+    // The half chip left is 14.4 minutes at 50 a day, so 4.8 minutes at Bronze's 150 a day.
+    expect(await sinceCollectMs(id)).toBeGreaterThanOrEqual(288_000)
+    expect(await sinceCollectMs(id)).toBeLessThan(298_000)
   })
 
   it('refuses a rank that is not next, still locked, already bought today, or too dear', async () => {
@@ -465,23 +514,23 @@ describe('POST /api/economy/tier', () => {
     expect(twice.status).toBe(409)
     expect(twice.body.error.code).toBe('tier_bought_today')
 
-    const poor = await player(20n)
+    const poor = await player(200n)
     const dear = await poor.client.post('/api/economy/tier', { tier: 'bronze' }, key())
     expect(dear.status).toBe(400)
     expect(dear.body.error.message).toBe(
-      'Bronze costs 150 chips. You have 20 chips in your wallet.',
+      'Bronze costs 1,500 chips. You have 200 chips in your wallet.',
     )
-    expect(await balance(poor.id)).toBe(20n)
-    expect(await balance(id)).toBe(100_000n - 150n)
+    expect(await balance(poor.id)).toBe(200n)
+    expect(await balance(id)).toBe(100_000n - 1_500n)
   })
 
   it('buys one rank when two requests race', async () => {
-    const { id, client } = await player(1_000n)
+    const { id, client } = await player(10_000n)
     const results = await Promise.all(
       [0, 1, 2].map(() => client.post('/api/economy/tier', { tier: 'bronze' }, key())),
     )
     expect(results.filter((r) => r.status === 200)).toHaveLength(1)
-    expect(await balance(id)).toBe(1_000n - 150n)
+    expect(await balance(id)).toBe(10_000n - 1_500n)
   })
 })
 
@@ -626,10 +675,10 @@ describe('chat drops', () => {
       meta: { drop: { id: number } }
     }
     // Shares round down to a whole chip, so the pot is never overpaid.
-    expect(message.body).toBe('💰 Chat drop! 10 chips for the first 3 to grab it: 3 each.')
+    expect(message.body).toBe('💰 Chat drop! 100 chips for the first 3 to grab it: 33 each.')
     expect(message.meta).toEqual({
       tone: 'win',
-      drop: { id: message.meta.drop.id, pot: 10, winners: 3, share: 3 },
+      drop: { id: message.meta.drop.id, pot: 100, winners: 3, share: 33 },
     })
     const dropId = message.meta.drop.id
     expect(await waitingDrop()).toBeDefined()
@@ -659,7 +708,7 @@ describe('chat drops', () => {
 
     const winner = players[claims.findIndex((r) => r.status === 200)]
     if (!winner) throw new Error('no winner')
-    expect(await balance(winner.id)).toBe(3n)
+    expect(await balance(winner.id)).toBe(33n)
     const again = await winner.client.post('/api/economy/drops/claim', { dropId }, key())
     expect(again.status).toBe(409)
     const after = (await winner.client.get<EconomyStateResponse>('/api/economy/state')).body.state

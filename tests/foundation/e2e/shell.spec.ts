@@ -1,7 +1,10 @@
 /**
- * The shell in real browsers, at 1440 and at 375 (Stage 1 exit check): two
- * players see each other online and where they are, chat both ways, and
- * open each other's cards. Screenshots land in tests/foundation/screenshots.
+ * The classic shell in real browsers, at 1440 and at 375 (Stage 1 exit
+ * check): two players see each other online and where they are, chat both
+ * ways, and open each other's cards. Since the stream took over the home
+ * page (Tyton, Nov 22, 2026), the Floor and its rooms live under /classic
+ * until the stream replaces them; tests/shell/e2e covers the stream.
+ * Screenshots land in tests/foundation/screenshots.
  */
 import { expect, type Locator, type Page, test } from '@playwright/test'
 
@@ -39,7 +42,7 @@ test('two players see each other online and chat', async ({ browser }, testInfo)
 
   await test.step('Bob walks into a room, Alice stays on the Floor', async () => {
     await bob.page.goto('/room/coinflip')
-    await alice.page.goto('/')
+    await alice.page.goto('/classic')
     await expect(alice.page.getByRole('heading', { level: 1, name: 'The Floor' })).toBeVisible()
     await expect(alice.page).toHaveTitle('The Floor · Anzul Casino')
     // The room card counts who is inside.
@@ -111,7 +114,7 @@ test('the Floor, a room and the setup page at both sizes', async ({ browser }, t
   const admin = await openAs(browser, 'admin')
   const { page } = admin
 
-  await page.goto('/')
+  await page.goto('/classic')
   await expect(page.getByRole('heading', { level: 1, name: 'The Floor' })).toBeVisible()
   await expect(page.getByRole('main').getByRole('listitem')).toHaveCount(9)
   await snap(page, 'foundation', 'shell-floor', testInfo)
@@ -132,17 +135,20 @@ test('the Floor, a room and the setup page at both sizes', async ({ browser }, t
     await snap(page, 'foundation', 'shell-room', testInfo)
   }
 
-  // Admins reach setup from the account menu.
+  // Admins reach setup from the account menu. It opens over the stream.
   await page.getByRole('button', { name: 'Your account' }).click()
   await page.getByRole('menuitem', { name: /Setup/ }).click()
   await expect(page).toHaveURL(/\/setup$/)
-  await expect(page.getByRole('heading', { level: 1, name: 'Setup' })).toBeVisible()
-  await expect(page.locator('.skeleton')).toHaveCount(0)
+  const panel = page.getByRole('region', { name: 'Setup' })
+  await expect(panel.getByRole('heading', { level: 1, name: 'Setup' })).toBeVisible()
+  await expect(panel.locator('.skeleton')).toHaveCount(0)
   await snap(page, 'foundation', 'shell-setup', testInfo)
 
   // An unknown address gets a friendly page, not a blank one.
   await page.goto('/nowhere')
-  await expect(page.getByRole('link', { name: /Floor/ }).first()).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: 'Nothing here' })).toBeVisible()
+  await page.getByRole('link', { name: 'Back to the stream' }).click()
+  await expect(page).toHaveURL(/\/$/)
 
   await admin.close()
 })
@@ -167,7 +173,7 @@ test('the top bar keeps every widget in view, or fades the edge it scrolls past'
   const { page } = alice
   const phone = onPhone(testInfo)
 
-  await page.goto('/')
+  await page.goto('/classic')
   const bar = page.getByRole('banner')
   const row = bar.locator('[data-slot="top-bar"]')
   await expect(row.locator('[data-top-bar-content] > *').first()).toBeVisible()

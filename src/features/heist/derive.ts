@@ -28,8 +28,10 @@ export type HeistConfig = Pick<
   | 'steal_down_rate'
   | 'daily_loss_cap_pct'
   | 'steal_fine_pct'
+  | 'steal_min_fine'
   | 'immunity_hours'
   | 'steal_floor'
+  | 'steal_min_take'
   | 'extra_steal_price_pct'
   | 'extra_steal_price_min'
   | 'shield_max_charges'
@@ -50,8 +52,10 @@ export function heistConfig(wire: Wire<ConfigValues> | ConfigValues): HeistConfi
     steal_down_rate: wire.steal_down_rate,
     daily_loss_cap_pct: wire.daily_loss_cap_pct,
     steal_fine_pct: wire.steal_fine_pct,
+    steal_min_fine: BigInt(wire.steal_min_fine),
     immunity_hours: wire.immunity_hours,
     steal_floor: BigInt(wire.steal_floor),
+    steal_min_take: BigInt(wire.steal_min_take),
     extra_steal_price_pct: wire.extra_steal_price_pct,
     extra_steal_price_min: BigInt(wire.extra_steal_price_min),
     shield_max_charges: wire.shield_max_charges,

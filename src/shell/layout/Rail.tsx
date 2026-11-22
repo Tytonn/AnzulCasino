@@ -42,7 +42,7 @@ export function Rail({ wide }: { wide: boolean }) {
       <NavLink
         to="/"
         className={`mb-6 flex h-10 items-center ${wide ? 'px-3' : 'justify-center'}`}
-        aria-label="Anzul Casino, the Floor"
+        aria-label="Anzul Casino, back to the stream"
       >
         <Logo compact={!wide} />
       </NavLink>
@@ -103,7 +103,7 @@ export function Rail({ wide }: { wide: boolean }) {
             <li key={link.to}>
               <NavLink
                 to={link.to}
-                end={link.to === '/'}
+                end={link.to === FLOOR_NAV.to}
                 className={(state) => `${itemClass(state)} ${wide ? '' : 'justify-center px-0'}`}
                 title={wide ? undefined : link.label}
               >

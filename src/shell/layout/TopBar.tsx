@@ -44,7 +44,7 @@ import { Slot, useSlot } from '../Slot.tsx'
 import { useUi } from '../ui.ts'
 import { SeasonClock } from './SeasonClock.tsx'
 
-function Wallet({ compact }: { compact: boolean }) {
+export function Wallet({ compact }: { compact: boolean }) {
   const wallet = useWallet()
   return (
     <div className="flex min-w-0 items-center gap-2" aria-label="Your chips">
@@ -73,7 +73,7 @@ function Wallet({ compact }: { compact: boolean }) {
   )
 }
 
-function SoundToggle({ className = '' }: { className?: string }) {
+export function SoundToggle({ className = '' }: { className?: string }) {
   const muted = useSound((s) => s.muted)
   return (
     <button
@@ -89,7 +89,25 @@ function SoundToggle({ className = '' }: { className?: string }) {
   )
 }
 
-function MeMenu({ withSound }: { withSound: boolean }) {
+/** Ends the session and starts the page over at the login. */
+export async function logOut() {
+  try {
+    await api.post('/api/auth/logout')
+  } catch (error) {
+    // A 4xx means there is no session left to end. Anything else (offline,
+    // a server error) may have left the session cookie in place.
+    const gone = error instanceof ApiError && error.status >= 400 && error.status < 500
+    if (!gone) {
+      toast.error(`Could not log out. ${errorMessage(error)}`)
+      return
+    }
+  }
+  // A fresh page load, so nothing of this player stays in memory on a
+  // shared device: caches, the live connection and every store start over.
+  window.location.replace('/login')
+}
+
+export function MeMenu({ withSound }: { withSound: boolean }) {
   const me = useMe()
   const player = usePlayer(me.id)
   const [open, setOpen] = useState(false)
@@ -114,23 +132,6 @@ function MeMenu({ withSound }: { withSound: boolean }) {
       window.removeEventListener('keydown', close)
     }
   }, [open])
-
-  async function logout() {
-    try {
-      await api.post('/api/auth/logout')
-    } catch (error) {
-      // A 4xx means there is no session left to end. Anything else (offline,
-      // a server error) may have left the session cookie in place.
-      const gone = error instanceof ApiError && error.status >= 400 && error.status < 500
-      if (!gone) {
-        toast.error(`Could not log out. ${errorMessage(error)}`)
-        return
-      }
-    }
-    // A fresh page load, so nothing of this player stays in memory on a
-    // shared device: caches, the live connection and every store start over.
-    window.location.replace('/login')
-  }
 
   const who = player ?? { ...me, tier: 'base' }
   return (
@@ -190,7 +191,7 @@ function MeMenu({ withSound }: { withSound: boolean }) {
           <button
             type="button"
             role="menuitem"
-            onClick={() => void logout()}
+            onClick={() => void logOut()}
             className="flex w-full items-center gap-2.5 rounded-sm px-2.5 py-2 text-left text-sm text-muted hover:bg-surface-3 hover:text-text"
           >
             <LogoutIcon className="size-4" />
@@ -456,7 +457,7 @@ export function PhoneTopBar() {
   return (
     <header className="sticky top-0 z-20 shrink-0 border-b border-border bg-glass pt-[env(safe-area-inset-top)] backdrop-blur-md">
       <div className="flex h-14 items-center gap-3 px-4">
-        <Link to="/" aria-label="Floor" className="shrink-0 text-text">
+        <Link to="/" aria-label="The stream" className="shrink-0 text-text">
           <LogoMark className="size-7" />
         </Link>
         <div className="min-w-0 flex-1">

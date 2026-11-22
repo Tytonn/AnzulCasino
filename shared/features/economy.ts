@@ -65,7 +65,7 @@ export function accruedIncome(perDay: bigint, elapsedMs: bigint, capHours: numbe
  * The time a collect leaves on the income clock: what `paid` whole chips did
  * not use up, so the part of a chip still building carries over to the next
  * collect instead of being lost to the rounding. Less than a chip's worth of
- * time (4.8 hours at 5 a day). Time past the cap is still lost, as the cap
+ * time (28.8 minutes at 50 a day). Time past the cap is still lost, as the cap
  * says.
  */
 export function incomeCarryMs(
@@ -518,7 +518,7 @@ export function describeProgress(c: ChallengeSpec, progress: number): string {
 
 // ---------------------------------------------------------------- chat drops
 
-/** Each winner's share of a drop, rounded down to a whole chip: 10 between 3 is 3 each. */
+/** Each winner's share of a drop, rounded down to a whole chip: 100 between 3 is 33 each. */
 export function dropShare(pot: bigint, winners: number): bigint {
   if (winners <= 0 || pot <= 0n) return 0n
   return pot / BigInt(winners)

@@ -177,7 +177,7 @@ function RobTab({ heist }: { heist: Heist }) {
           <p className="mt-3 text-xs text-muted">
             {formatShare(heist.cfg.steal_success_pct)} chance. The higher they rank above you, the
             more you take. Get caught and you pay them {formatShare(heist.cfg.steal_fine_pct)} of
-            your wallet.
+            your wallet, at least {chipCount(heist.cfg.steal_min_fine)}.
           </p>
         )}
       </div>
@@ -212,6 +212,7 @@ function TargetItem({ row, heist }: { row: TargetRow; heist: Heist }) {
           name,
           freezeHours: heist.cfg.final_freeze_hours,
           floor: heist.cfg.steal_floor,
+          minTake: heist.cfg.steal_min_take,
           immuneFor: shortDuration(row.immuneLeft),
         })
       : undefined

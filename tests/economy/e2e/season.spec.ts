@@ -52,7 +52,7 @@ test('the final day shows a banner and a countdown, and the end says so', async 
   // The page sets its clock against the server's as it loads: let that finish
   // before moving the clock, or the offset it measures spans the jump.
   const synced = page.waitForResponse((r) => r.url().endsWith('/api/time'))
-  await page.goto('/')
+  await page.goto('/classic')
   await synced
   await expect(page.getByRole('button', { name: /^Daily: / })).toBeVisible()
   const { current } = (await (await page.request.get('/api/season')).json()) as SeasonState

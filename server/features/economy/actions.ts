@@ -10,6 +10,7 @@
 import { and, eq, sql } from 'drizzle-orm'
 
 import { wallets } from '../../../db/schema/core.ts'
+import { retellLine } from '../../../shared/chat.ts'
 import { chipCount, formatChips } from '../../../shared/chips.ts'
 import { type ConfigValues, tierSettings } from '../../../shared/config.ts'
 import { userChannel } from '../../../shared/events.ts'
@@ -160,16 +161,24 @@ const READY_AT = {
   crime: { column: wallets.crimeReadyAt, key: 'crimeReadyAt' },
 } as const
 
-export function crimePostText(name: string, amount: bigint): string {
-  return `🦹 ${name} pulled off a big crime and got away with ${chipCount(amount)}.`
+/**
+ * A work, slut or crime result as everyone reads it (Tyton, Nov 22, 2026):
+ * the flavor line retold about the player, then the amount, such as
+ * "tyton parked cars for the high rollers. +4". The stream draws it from
+ * the post's `income` meta; this text is what the classic chat shows.
+ */
+export function incomePostText(name: string, line: string, paid: boolean, amount: bigint): string {
+  const sign = paid ? '+' : '−'
+  return `${retellLine(line, name)} ${sign}${formatChips(amount)}`
 }
 
 /**
  * POST /api/economy/work, /hustle, /crime. Refused while the button cools
  * down, before the season starts and after it ends; open on the final day.
  * Work always pays, even at an empty wallet. The other two pay or fine, and
- * a fine stops at an empty wallet. Nothing reaches chat except a crime that
- * pays `crime_chat_min` or more.
+ * a fine stops at an empty wallet. Every result posts a line in the stream
+ * for everyone (Tyton, Nov 22, 2026); a crime that pays `crime_chat_min` or
+ * more is marked big there and celebrates.
  */
 export function pressButton(ctx: EconomyRequest, command: IncomeCommand) {
   return economyTransaction(ctx, async (e): Promise<IncomeResponse> => {
@@ -220,14 +229,20 @@ export function pressButton(ctx: EconomyRequest, command: IncomeCommand) {
       .returning({ readyAt: column })
 
     const posted = command === 'crime' && paid && amount >= e.config.crime_chat_min
-    if (posted) {
-      e.emit(
-        await systemPost(e.tx, crimePostText(e.displayName, amount), {
-          tone: 'win',
-          userId: e.userId,
-        }),
-      )
-    }
+    e.emit(
+      await systemPost(e.tx, incomePostText(e.displayName, line, paid, amount), {
+        tone: paid ? 'win' : 'loss',
+        userId: e.userId,
+        category: 'game',
+        income: {
+          command,
+          outcome: paid ? 'paid' : 'fined',
+          amount: Number(amount),
+          line,
+          big: posted,
+        },
+      }),
+    )
 
     const done = await finish(e, balances)
     return {

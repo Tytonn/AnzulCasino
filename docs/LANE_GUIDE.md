@@ -4,6 +4,8 @@ How this repo fits together, and how to add a game or a feature without touching
 
 Read `docs/SPEC.md` first, then this guide, then every file in `docs/progress/`. Where this guide and the spec's folder map (Build plan > Folder map) differ, this guide wins. For everything else the spec is the source of truth. If either is unclear or looks wrong, ask Tyton instead of guessing.
 
+_(Nov 22, 2026: Tyton moved the site to one chat stream. Every game is now a card in the stream, started by a command typed in the message box, never a room. Read section 20 before you build a game. The classic Floor and rooms stay under `/classic` until every game has its card, so sections 6 to 8 still show a room beside the server code that stays the same.)_
+
 ## Contents
 
 1. [Start here](#1-start-here)
@@ -25,6 +27,7 @@ Read `docs/SPEC.md` first, then this guide, then every file in `docs/progress/`.
 17. [Environment variables](#17-environment-variables)
 18. [Commands](#18-commands)
 19. [Notes for each lane](#19-notes-for-each-lane)
+20. [The stream: cards and commands](#20-the-stream-cards-and-commands)
 
 ## 1. Start here
 
@@ -99,13 +102,15 @@ server/
   games/<game>/api.ts                    a game's routes (that lane)
   features/<name>/                       a feature's logic and routes (that lane)
 src/
-  shell/                                 layout, routing, top bar, sidebar, manifests, slots, placeholders (Foundation)
+  shell/                                 layout, routing, manifests, slots, placeholders, the classic top bar and sidebar (Foundation)
+  shell/stream/                          the stream, the message box, the pinned card, the panels and the shell's commands (Foundation)
   kit/                                   the game kit and the shared UI pieces (Foundation)
   live/                                  the live client (Foundation)
   theme/midnight.css                     the theme's tokens (Foundation)
   theme/games/<game>.css                 a game's own colors (that lane)
   theme/features/<name>.css              a feature's own colors (that lane)
-  games/<game>/manifest.ts, Room.tsx     a game's manifest, room and its parts (that lane)
+  games/<game>/manifest.ts, StreamCard.tsx, commands.ts
+                                         a game's manifest, its card, its commands and their parts, and its classic Room.tsx until rooms go (that lane)
   features/<name>/manifest.ts, ...       a feature's manifest, pages and slot components (that lane)
 scripts/                                 local databases, the dev server, the token check (Foundation); simulate-season.ts (heist)
 tests/
@@ -171,14 +176,16 @@ The rules in `CLAUDE.md` apply to every line. Most of them are built into the to
 
 The coin flip is the template. It uses each piece of the kit once. Copy its files and rename.
 
+_(Nov 22, 2026: a game is a card in the stream, started by a command (section 20). Steps 5 and 6 now build the coin flip's command and card. Its classic room, `Room.tsx`, stays under `/classic` only until the classic rooms go: never build one for a new game.)_
+
 | Step | Coin flip's file | What it holds |
 | --- | --- | --- |
 | 1 | `shared/games/coinflip.ts` | The id, the detail type, the input schema, the payout math |
 | 2 | `server/games/coinflip/rules.ts` | The pure rules, with server randomness |
-| 3 | `server/games/coinflip/api.ts` | The routes: the room and the play |
+| 3 | `server/games/coinflip/api.ts` | The routes: the play (and the classic room's state) |
 | 4 | `netlify/functions/coinflip-api.ts` | The function: exports the API, lists its paths |
-| 5 | `src/games/coinflip/manifest.ts` | How the shell finds the room |
-| 6 | `src/games/coinflip/Room.tsx`, `Coin.tsx` | The room, built on the kit |
+| 5 | `src/games/coinflip/manifest.ts` | How the shell finds the game: its card, command, replay and how to play |
+| 6 | `src/games/coinflip/commands.ts`, `stream.ts`, `StreamCard.tsx`, `Coin.tsx`, `Replay.tsx` | `.flip 50 heads`, the request, the card for everyone with buttons for its player, the coin, and the replay |
 | 7 | `src/theme/games/coinflip.css` | The coin's colors |
 | 8 | `tests/coinflip/{unit,integration,e2e}/` | Rules and return to player; endpoints; two real browsers |
 
@@ -285,64 +292,102 @@ One function per name keeps one warm instance answering all of a game's requests
 import '../../theme/games/coinflip.css'
 
 export default defineGame({
-  id: 'coinflip', // the room /room/coinflip, the channel room:coinflip, the API /api/coinflip/*
+  id: 'coinflip', // the channel room:coinflip, the API /api/coinflip/*, the rounds' game
   name: 'Coin flip',
-  order: 90, // place on the rail and the Floor
+  order: 90, // place in lists
   icon: CoinflipIcon,
-  room: () => import('./Room.tsx'), // loads when a player walks in
-  howToPlay: ['Call heads or tails, type a bet and flip. ...', '...'],
+  card: () => import('./StreamCard.tsx'), // loads the first time a flip shows in the stream
+  replay: () => import('./Replay.tsx'), // a folded card, History
+  commands: COINFLIP_COMMANDS, // .flip 50 heads
+  roundName: ['flip', 'flips'], // "2 Coin flips" in a run's line
+  howToPlay: ['Call heads or tails and flip at your bet: type .flip 50 heads, or .flip t 50. ...', '...'],
 })
 ```
 
-Every spec game already has a placeholder, an icon, an order and a one-line pitch in `src/shell/planned.ts`. A manifest with the same id takes the placeholder's place. Optional fields: `pitch` (to change the Floor's line), `cardArt` (art for the Floor card's top half) and `replay` (a lazy component that redraws a saved round from its detail, for History and the ticker).
+Every spec game already has a placeholder, an icon, an order, a one-line pitch and a `command_<id>` setting with its words (`src/shell/planned.ts`, `shared/config.ts`). A manifest with the same id takes the placeholder's place. The coin flip also keeps `room: () => import('./Room.tsx')` for `/classic` until the classic rooms go; `room` is optional, and a game without one plays in the stream alone (`/room/<id>` goes to the stream).
 
-### Step 6: the room
+### Step 6: the command and the card
+
+**The command** (`commands.ts`) names its setting, what it takes, and what it runs. `choices` lets the player name a side next to the bet, before or after it: the shell takes the side out, hands the rest to `run` as `args` and the side's name as `choice`, refuses two sides ("Pick one: heads or tails."), and offers each side as a quick pick beside 50, half and all.
+
+```ts
+// src/games/coinflip/commands.ts
+export const COINFLIP_COMMANDS: readonly CommandSpec[] = [
+  {
+    key: 'command_coinflip', // its words: flip, coinflip, cf
+    args: 'bet side', // what the list shows; the first word is what `needs` asks for
+    example: '50 heads',
+    needs: 'amount', // ".flip needs a bet, like .flip 50 heads or .flip all." before anything is sent
+    choices: [
+      ['heads', 'h'],
+      ['tails', 't'],
+    ],
+    description: 'Flip a coin at your bet, calling heads or tails.',
+    run: ({ queryClient, me, args, choice }) =>
+      flipCoin(queryClient, me.id, args, isSide(choice) ? choice : lastCalled()),
+  },
+]
+```
+
+**The request** (`stream.ts`) is section 20's: hold your news, post with a fresh idempotency key, put the round in the card store, hand the hold to the card and show it. With no side typed, `.flip 50` calls the side you called last in this tab.
+
+**The card** (`StreamCard.tsx`) draws the coin at stream size, with the outcome beside it:
 
 ```tsx
-// src/games/coinflip/Room.tsx (trimmed)
-export default function CoinflipRoom() {
-  const reduced = useReducedMotion()
-  const revealMs = reduced ? 150 : 600
-  const room = useRoom<CoinflipDetail>(COINFLIP, { revealMs })
-  const play = usePlay<CoinflipDetail>()
-  const { data: config } = useConfig()
-  const edge = config?.coinflip_edge_pct ?? 200
-  const [call, setCall] = useState<Side>('heads')
+// src/games/coinflip/StreamCard.tsx (trimmed)
+export default function CoinflipCard({ round, mine, pinned, keys }: CardProps) {
+  const flip = round as RoundView<CoinflipDetail>
+  const revealMs = useReducedMotion() ? 150 : 600
   const coin = useRef<CoinHandle>(null)
+  // A flip that already played in this tab, or ended over 8 seconds ago, lies on its face.
+  const [still] = useState(() => playedHere(flip) || endedAgo(flip) > 8_000)
+  const [landed, setLanded] = useState(still)
+  const [call, setCall] = useState<Side>(flip.detail.call)
 
-  useShortcuts({ h: () => setCall('heads'), t: () => setCall('tails') })
-
-  async function flip(bet: string) {
-    coin.current?.toss() // something moves within 100ms
-    playSound('flip')
-    const result = await play.send('/api/coinflip/play', { bet, call }, { revealMs })
-    const face = result?.round.detail.face
-    if (!result || !face) return coin.current?.rest(room.mine?.detail.face ?? 'heads')
-    coin.current?.land(face, revealMs, () => reveal(result.round)) // then celebrate or play 'loss'
+  function down() {
+    setLanded(true)
+    markShown(flip.id) // the header shows the result; the card folds 4 seconds later
+    hold.current?.(0) // the hold its command left (takeCardHold): your wallet moves now
+    if (mine) celebrate(...) // or playSound('loss'): sounds are for the player alone
   }
 
+  // Open (a watcher can see it before the result): spin. Settled: land on the server's face.
+  useEffect(() => {
+    if (!settled) return coin.current?.toss()
+    coin.current?.land(flip.detail.face, revealMs, down)
+  }, [settled])
+
+  const canFlipAgain = mine && pinned && landed
+  useEffect(() => {
+    if (keys && mine) claimKeys(canFlipAgain ? ['h', 't'] : []) // other letters type in the box
+  }, [keys, mine, canFlipAgain])
+  useShortcuts(
+    { h: () => setCall('heads'), t: () => setCall('tails'), Space: onward, Enter: onward },
+    { enabled: keys && mine },
+  )
+
   return (
-    <RoomLayout
-      game={manifest}
-      room={room}
-      info={`Win pays ${formatMultiplier(winMultiplier(edge))} · ${formatShare(edge)} house edge`}
-      seat={(seat) => <MiniCoin round={seat.round} />} // drawn on each other player's seat
-      table={<Coin ref={coin} initialFace={room.mine?.detail.face ?? 'heads'} />} // your seat
-      controls={
-        <BetBox game={COINFLIP} label="Flip" busy={play.busy} onBet={(bet) => void flip(bet)}>
+    <>
+      <Coin ref={coin} rise={pinned ? 18 : 26} label="The coin landed Tails" ... />
+      <Outcome flip={flip} landed={landed} mine={mine} /> {/* "Tails! +24 you called tails" */}
+      {canFlipAgain && (
+        <>
           {/* Heads [H] and Tails [T] as pressed buttons */}
-        </BetBox>
-      }
-    />
+          <Button onClick={flipAgain}>Flip again · 25 <Kbd>Space</Kbd></Button>
+          <span>or type a new bet below</span>
+        </>
+      )}
+    </>
   )
 }
 ```
 
-- **`useRoom(game, { revealMs })`** loads `GET /api/<game>/room` and keeps it current from `room:<game>` events. It gives `seats` (you first), `mine` (your latest round) and `open` (your open round, to resume after a refresh). Another player's result shows on their seat `revealMs` after it settled, so their seat spins while yours does.
-- **`usePlay().send(path, body, { revealMs })`** sends one move at a time with a fresh idempotency key, answers at once from the response, and holds every piece of news that would give the result away (your seat, the top bar, the leaderboard, the ticker, the chat post) until the reveal ends. Errors become toasts, and it returns null. The path must start with `/api/<game>/`.
-- **`RoomLayout`** draws the header with the how-to-play card (opened with `?`), the other players' seats, your seat with your table inside it, and the controls, which stay in thumb reach on a phone.
-- **`BetBox`** is the typed bet box every game uses. It reads 50, 2.5k, half, all and max, shows mistakes as you type, remembers the last bet per game, and owns Enter, Space and M. After each round the cursor returns to the box on desktop.
-- **The reveal** runs up to 600ms (`--speed-reveal`), 150ms under reduced motion. A new bet while the coin is landing finishes the landing at once, so a fast player never waits.
+- **Everyone sees the coin; only its player gets buttons.** A watcher's card mounts when the flip is posted and lands the coin on the result. The coin flip settles in the same request as the bet, so most cards arrive settled: they still toss and land over `revealMs`.
+- **Something moves at once.** Flip again tosses this card's coin as the request goes out, and the new flip's card takes the pin and lands it. Space or Enter while a coin is still landing finishes the landing first (`CoinHandle.finish()`), so a fast player never waits.
+- **The reveal** runs up to 600ms (`--speed-reveal`), 150ms under reduced motion. `Coin`'s `rise` keeps the toss inside a card: 120 pixels suit a room, 18 to 26 a card.
+- **The replay** (`Replay.tsx`) is the coin on its face and the call: "Called Tails, landed Heads." A folded line opens to it, and History shows it.
+
+The classic room (`Room.tsx`) is built on `useRoom`, `usePlay`, `RoomLayout`, `BetBox` and `Seat` (section 13). It stays as it is until the classic rooms go; a new game builds none of it.
 
 ### Step 7: colors
 
@@ -362,7 +407,7 @@ The coin's silver is not a shared token, so it lives in the game's own file:
 
 - **Unit** (`tests/coinflip/unit/rules.test.ts`): payouts and rounding, the multiplier shown, the exact return at every edge, a million real flips returning 98% within half a percent, and the input schema's messages.
 - **Integration** (`tests/coinflip/integration/coinflip.test.ts`): both outcomes pay right and the ledger matches; the room, the ticker and one wallet update are published, with no `secret` anywhere; a replayed key changes nothing; 16 parallel "all" bets never overdraw; bad input is refused in plain words; no session or no key is refused; an all-in reaches chat; the room state; and the edge setting.
-- **Browser** (`tests/coinflip/e2e/coinflip.spec.ts`): alice and bob sit at the table, flip (by keyboard on desktop, by taps on the phone), and watch each other's seats, the ticker and the leaderboard update, at 1440 and 375, with screenshots.
+- **Browser** (`tests/coinflip/e2e/card.spec.ts`), at 1440 and 375 with screenshots: the box offers a bet and a side and asks for what is missing; alice types `.flip 25 t` and the coin lands on her pinned card; she calls heads and flips again (by keyboard on desktop, by taps on the phone); bob watches both land without the buttons; and the flips fold to a line that opens to the replay. `coinflip.spec.ts` covers the classic room until it goes.
 
 Section 15 lists what every game's tests must cover.
 
@@ -435,13 +480,14 @@ export default defineFeature({
 
 | Slot | Where | Props | Meant for |
 | --- | --- | --- | --- |
-| `top-bar` | The top bar, every page, desktop and phone | `{ compact }`: true on a phone, and on desktop while the bar is short of room, so it should only make a widget smaller. On desktop the widgets sit beside the wallet. When they do not fit, the bar tightens first (compact widgets and clock, the sound toggle in the account menu), and only then moves them to a second line under the header; a phone always gives them that second line. A row too narrow for them scrolls sideways with a faded edge, so keep each widget small (about 2.75 to 3.1rem) | Work, slut and crime, shield pips, steal attempts |
+| `top-bar` | You, beside the stream on a desktop and in the You sheet on a phone, with `compact` false. In the classic rooms, the top bar | `{ compact }`: true on a phone, and on desktop while the bar is short of room, so it should only make a widget smaller. On desktop the widgets sit beside the wallet. When they do not fit, the bar tightens first (compact widgets and clock, the sound toggle in the account menu), and only then moves them to a second line under the header; a phone always gives them that second line. A row too narrow for them scrolls sideways with a faded edge, so keep each widget small (about 2.75 to 3.1rem) | Work, slut and crime, shield pips, steal attempts |
 | `profile-actions` | A player's profile card, not your own | `{ player }` | Steal |
 | `profile-sections` | A player's profile card | `{ player }` | Season stats |
 | `chat-composer` | Beside the chat box | `{ sent(message) }`: call it with what the server saved | The GIF picker |
-| `chat-message` | Under each chat message | `{ message }` | Reactions |
+| `chat-message` | Under each chat message, result line and card in the stream | `{ message }` | Reactions |
 | `seat` | On every seat in every room | `{ game, userId, me }`; the seat is `relative`, so draw inside it | Seat emotes |
-| `banner` | Above the page in the center column | none | The final-day banner |
+| `banner` | Above the stream, or above a page's panel | none | The final-day banner |
+| `stream-status` | The phone's strip, after the wallet | none | One short status, such as "Work 2:41" |
 | `overlay` | Mounted once for the session | none | Notification toasts, celebrations |
 | `shop-items` | The Shop page (heist's) | none | Shields, ranks, the extra steal attempt |
 
@@ -627,6 +673,7 @@ One import: `import { ... } from '../../kit/index.ts'`. Icons come from `src/kit
 | `usePlay()` | `send(path, body, { revealMs })` and `busy` |
 | `holdReveal({ players })`, `afterReveal(player, fn)` | The reveal hold. News about the players it names (their seats, the top bar, the leaderboard, the ticker, chat posts about their results) waits until it is released. `usePlay` holds your own; a shared round holds its bettors from the close until the wheel lands |
 | `applyRound`, `roomKey` | Put a round into the room's cache; the room's query key |
+| `putRound`, `useCardRound`, `markShown`, `showCard`, `holdForCard`, `takeCardHold`, `claimKeys`, `CommandRefusal` | Cards in the stream, from `src/kit/cards.ts` (section 20): the card store, the moment a result has shown, showing your new card at once, the hold your command hands its card, the keys your card answers to, and a command's refusal |
 | `RoomLayout` | The room: header, how-to-play, other seats, your seat with the table, controls |
 | `BetBox` | The typed bet box, with ½, 2× and Max, and `children` for your own controls |
 | `closedReason(season)` | Why bets are closed, or null |
@@ -687,10 +734,11 @@ const res = await client.post('/api/roulette/bet', { bet: '5', spot: 'red' }, { 
 - No response and no live event contains `secret` or anything drawn early.
 - No session gets 401, bad input gets 400 in plain words, and a missing idempotency key is refused.
 - Big results reach chat, and the round's detail replays it.
+- Every payout is checked for rounding at the smallest bet (Tyton, Nov 22, 2026). Payouts round down to a whole chip, and `min_bet` is 25, so on a 25-chip bet a multiplier under 1.04x pays back the stake and nothing more, and 1.5x pays 37, not 37.5. A unit test pays `min_bet` at every multiplier the game can show (each crash or mines step, each plinko slot, each slots line), and the progress file lists any that come out at no profit or round away more than the house edge, with what you did about it.
 
 **Browser tests** run one at a time against one fresh database with admin, alice, bob and carol (password `password123`) and a running season, in a desktop project (1440) and a phone project (375, touch). `openAs(browser, 'alice')` gives a signed-in page; close it with `player.close()`, which closes the tab the way a person does so the player leaves the online list at once (closing only `player.context` drops the connection, and on a preview Ably keeps the player online for 15 more seconds, into the next test). `onPhone(testInfo)` tells the projects apart, and `snap(page, '<name>', 'what', testInfo)` saves a screenshot in `tests/<name>/screenshots/`. Every lane's browser tests share those players, and on a preview they keep their chips and chat from run to run, so never assume a balance, an empty room or an empty chat, bet small, and finish any round you open.
 
-**Test accounts** (Tyton, 2026-11-20): `test` and `test2`, password `test`, for trying a preview by hand. They work on deploy previews, branch deploys and in local development, and never on a production deploy, published or not, because those share the live database (`testAccountsOn` in `server/core/test-accounts.ts`, from Netlify's `context.deploy`, which routes get as `ctx.deploy`). A build of `main` opened by its own link is such a production deploy: Netlify applies migrations to the live database only when a deploy is published, so until then its requests answer "This deploy is not published..." (`isUnpublishedProduction` in `server/lib/deploy.ts`), and once the live database has tables, a failed sign-in as a test account there says they only work on deploy previews. Try things on a deploy preview, never on a deploy link of `main`. Signing in as either one creates both if they are missing, starts a 30-day test season if none is running, and fills both wallets back up to 1,000 chips with an `admin_adjust` ledger row, so a broke tester signs in again. They are players, not admins. Give Tyton these, not the sample players' preview password. A preview can therefore hold players your tests did not make, richer than the sample players: pick sample players by name (`SEED_PLAYERS`), never "the first one in the list", and do not expect one in the sidebar's five leaderboard rows (the phone's leaderboard sheet has everyone).
+**Test accounts** (Tyton, 2026-11-20): `test` and `test2`, password `test`, for trying a preview by hand. They work on deploy previews, branch deploys and in local development, and never on a production deploy, published or not, because those share the live database (`testAccountsOn` in `server/core/test-accounts.ts`, from Netlify's `context.deploy`, which routes get as `ctx.deploy`). A build of `main` opened by its own link is such a production deploy: Netlify applies migrations to the live database only when a deploy is published, so until then its requests answer "This deploy is not published..." (`isUnpublishedProduction` in `server/lib/deploy.ts`), and once the live database has tables, a failed sign-in as a test account there says they only work on deploy previews. Try things on a deploy preview, never on a deploy link of `main`. Signing in as either one creates both if they are missing, starts a 30-day test season if none is running, and fills both wallets back up to 10,000 chips (ten starting balances) with an `admin_adjust` ledger row, so a broke tester signs in again. They are players, not admins. Give Tyton these, not the sample players' preview password. A preview can therefore hold players your tests did not make, richer than the sample players: pick sample players by name (`SEED_PLAYERS`), never "the first one in the list", and do not expect one in the sidebar's five leaderboard rows (the phone's leaderboard sheet has everyone).
 
 Run one lane's tests with `npx vitest run tests/<name>` and `npx playwright test tests/<name>`. Run everything with `npm run check` and `npm run test:e2e`.
 
@@ -735,6 +783,8 @@ Secrets live in Netlify only, never in the repo or in browser code. The server r
 
 Starting points, not rules. Your spec sections decide.
 
+- **Every game.** A card and a command first (section 20), with the rules, routes and tests of sections 6 to 8. Your command's setting is already in `shared/config.ts`. Check every payout for rounding at the smallest bet, 25 chips (section 15): crash, mines, plinko and slots show multipliers in hundredths, and the small ones can round to no profit.
+
 - **Blackjack.** A multi-move round (section 7). Draw each card when it is dealt, from what is left of the six decks (the dealt cards are in the detail). Only a hole card the peek needs waits in `secret`. A double down or a split takes more stake with `play.raise`, and a split's two hands live in one round's detail. Pick the safe rule for `finishIdleRounds` and write it in your progress file. The slow reveal's threshold and timings are config (`blackjack_slow_reveal_pct`, `blackjack_slow_lift_ms`, `blackjack_slow_flip_ms`), and since a hand's reveal runs its own length, pass `useRoom` a `revealMs` function of the round.
 - **Roulette.** A shared round on the clock (section 8). The quick-bet box parses amounts with `parseBetAmount` from `shared/bet-amount.ts`. A player's bets on one spin share one game round: `start` the first, `raise` the rest after checking each with `checkBetAmount`. Clearing every bet before the close fits `play.refund`, and taking one bet off fits `play.lower`. At the close, hold the spin's bettors with `holdReveal({ players })` until the wheel lands (section 8).
 - **Crash.** A shared round with its crash point in `shared_rounds.secret`, drawn with `randomUnit()` by the formula in the spec. Cash-outs are decided by the server's receive time against the round's start, in SQL. The browser draws the curve from the start time and `serverNow()`, and the crash reveals everyone still in at once, so hold them with `holdReveal({ players })` until the curve has crashed on screen. The spec's runner is a Background Function: check the current Netlify docs for its limits.
@@ -742,8 +792,121 @@ Starting points, not rules. Your spec sections decide.
 - **Slots.** One request per spin, like the coin flip. The return-to-player test is the heart of it.
 - **Russian roulette.** Chips between players use the `pvp_ante` and `pvp_pot` ledger reasons through `wallet.ts`. The solo mode and a cancelled lobby use the round helper like any game (`bet`, `payout`, `refund`). If you want the round helper to write the player-against-player reasons too, so those rounds reach the ticker and History by themselves, ask for it as a shared change. A turn timer that runs out is acted on by the next request after the deadline, like a roulette close.
 - **Race.** A shared round on the clock, about every 75 seconds. Draw the field of six when the race is created and the winner with `pickWeighted` when betting closes, never earlier. Typed bets work like roulette's, and so does holding the bettors' news until the finish line (section 8).
-- **Economy.** Work, slut and crime are `top-bar` slot widgets (`compact` on a phone). Their cooldowns are the `*_ready_at` columns on the wallet, compared with `now()`. The daily bonus, streaks, challenges and the rank purchase use `daily_state`. Challenge progress comes from querying settled rounds, so no game needs challenge code. The final-day banner is a `banner` slot, and `/hall-of-fame` replaces its placeholder. The full flavor-line pools the lane wrote are the config defaults (`shared/config-lines.ts`), and `SystemMeta.drop` in `shared/chat.ts` types a chat drop's system post.
-- **Heist.** Steal from the `profile-actions` slot, the Shop page at `/shop` drawing the `shop-items` slot, the vault through `moveBetweenAccounts`, and shields in their core tables. `net_worth_at_reset` can be worked out from the ledger as of the reset. `scripts/simulate-season.ts` can import `shared/config.ts` and the rules directly.
+- **Economy.** Work, slut and crime are `top-bar` slot widgets (`compact` on a phone), and commands in `src/features/economy/commands.ts` (`.work`, `.slut`, `.crime`, `.collect`); each result posts a public line (spec: Work and crime). Their cooldowns are the `*_ready_at` columns on the wallet, compared with `now()`. The daily bonus, streaks, challenges and the rank purchase use `daily_state`. Challenge progress comes from querying settled rounds, so no game needs challenge code. The final-day banner is a `banner` slot, and `/hall-of-fame` replaces its placeholder. The full flavor-line pools the lane wrote are the config defaults (`shared/config-lines.ts`), and `SystemMeta.drop` in `shared/chat.ts` types a chat drop's system post.
+- **Heist.** `.rob`, `.dep` and `.with` are in `src/features/heist/commands.ts`. Steal from the `profile-actions` slot, the Shop page at `/shop` drawing the `shop-items` slot, the vault through `moveBetweenAccounts`, and shields in their core tables. `net_worth_at_reset` can be worked out from the ledger as of the reset. `scripts/simulate-season.ts` can import `shared/config.ts` and the rules directly.
   - **Steals in the ticker** (Steal rules, rule 7). `steal.result` is a core feed event, and its types `StealView` and `StealResult` are in `shared/steals.ts`, so the shell's ticker can listen before heist merges. Publish it after each attempt's commit, versioned by the steal id. `GET /api/ticker` reads the `steals` table, so a page load shows the latest attempts among the rounds. The ticker adds a live attempt after the thief's reveal (`afterReveal(thiefId, ...)`), so hold the thief, and the target if you like, with `holdReveal` while the steal plays. Clicking a steal in the ticker opens the thief's profile card, where the Rob button is. `MaskIcon` in `src/kit/icons.tsx` is a thief's mask.
 - **Social.** The GIF picker is a `chat-composer` slot and reactions a `chat-message` slot. Seat emotes are a `seat` slot that publishes `seat.emote` through your API. History and replays find each game's `replay` with `gameById(id)?.manifest?.replay` from `src/shell/registry.ts`. The pages `/leaderboard`, `/history`, `/history/:roundId`, `/profile` and `/players/:username` replace their placeholders.
 - **Admin.** `/admin` and `/audit` replace their placeholders. The config editor uses `changeConfig` and `pendingConfigChanges`, every action writes `writeAudit`, and the existing `/api/invites` and `/api/seasons` endpoints cover invite codes and seasons. The foundation's stopgap page `/setup` can go once the panel covers it (a shared change at integration).
+
+## 20. The stream: cards and commands
+
+_(Added Nov 22, 2026, with Tyton's move to one chat stream: spec, Site layout and feel, and Games > Cards and commands.)_ Every game is a card in the stream, started by a command typed in the message box. The server side of a game does not change: the round helper puts every round in the stream by itself. What a lane builds for the browser is a command and a card.
+
+The coin flip's card is the one to copy, walked through in section 6. Blackjack's shows a round with several moves, and its code is quoted below.
+
+| Piece | Coin flip's file | Blackjack's file | What it holds |
+| --- | --- | --- | --- |
+| The command | `src/games/coinflip/commands.ts` | `src/games/blackjack/commands.ts` | `.flip 50 heads`, `.bj 50`: the setting that holds its words, what it takes, one line for the list, and what it runs |
+| The request | `src/games/coinflip/stream.ts` | `src/games/blackjack/stream.ts` | Plays the round, shows its card at once, and holds the player's news until the card has shown the result |
+| The card | `src/games/coinflip/StreamCard.tsx` | `src/games/blackjack/StreamCard.tsx` | The game at stream size for everyone, with buttons and keys for its player |
+| The replay | `src/games/coinflip/Replay.tsx` | `src/games/blackjack/Replay.tsx` | The finished round, for a folded line and History |
+| The manifest | `src/games/coinflip/manifest.ts` | `src/games/blackjack/manifest.ts` | `card`, `commands`, `replay` and `roundName`, beside `howToPlay`; no `room` for a new game |
+| The server | nothing new | nothing new | The round helper writes the card with the round |
+
+### The server: nothing to add
+
+`play.start()` writes the round's card, a `chat_messages` row of kind `card` with `{ game, roundId }` as its meta (`CardMeta` in `shared/chat.ts`), in the same transaction as the bet, and publishes it on `chat` with the round's public view. The answer to the request that started the round carries it as `PlayResult.card`, with the round as it stands, so the player's browser shows the card without waiting for the echo. Later moves reach every card on the room events your game already publishes, and the newest version wins (`roundVersion`).
+
+- `GET /api/stream?filter=all|chat|games` gives the newest 100 items of a filter with each card's round, and `before=<id>` pages back. The newest page also lists the player's own open cards (`mine`), so they pin again after a reload.
+- A round's `detail` is on show to the whole stream, as it was to the whole room: never put anything there you would not show everyone. Hidden things stay in `secret`.
+- A big win or a big loss still writes its system post (spec: Results travel). For a player's own round the post carries `onCard: true`, and the stream leaves it out, since the card shows the result.
+- A shared round (roulette, crash, race, a lobby) gives no card to each bet. Its one shared card comes with the roulette conversion, which adds it to section 8's pattern.
+
+### The command
+
+```ts
+// src/games/blackjack/commands.ts
+export const BLACKJACK_COMMANDS: readonly CommandSpec[] = [
+  {
+    key: 'command_blackjack', // the setting with its words: bj, blackjack
+    args: 'bet', // what the list shows after the word
+    example: '50', // the first quick pick, and the example in hints
+    needs: 'amount', // refused in the box, before anything is sent, without one
+    description: 'Deal a hand of blackjack at your bet.',
+    run: ({ queryClient, me, args }) => dealHand(queryClient, me.id, args),
+  },
+]
+```
+
+- **The words are settings.** Every game in the spec already has its `command_<id>` setting in `shared/config.ts` (`command_russian_roulette` for `russian-roulette`), so the admin panel renames it with no code. A feature asks for a new key as a shared change. Until a game's manifest has commands, the shell lists a stand-in that says the game is coming soon.
+- **Send what was typed.** `args` is the text after the word, such as `50`, `half` or `2.5k`. Send it as typed and let the server resolve it against the locked wallet with `parseBetAmount`, as the bet box did.
+- **Refusing.** Throw a `CommandRefusal` (`src/kit/cards.ts`) with a sentence, or let an `ApiError` through: the text stays in the box and the sentence shows just above it, for that player alone. Nothing is posted.
+- **Answering privately.** `context.reply({ label, content })` puts an "Only you" item at the bottom of the player's own stream. It is never stored.
+- **Nothing else to post.** The command's text is never posted; the card is the post.
+- `needs: 'player'` makes the box offer players after the word, as `.rob` does. `adminOnly` hides a command from players, and the server still refuses them.
+- **A side to pick.** `choices: [['heads', 'h'], ['tails', 't']]` lets the player name one of a few sides next to the bet, in either order: `run` gets the side's first word as `choice` (null when none was typed) and the bet alone as `args`. A side's words must not read as an amount. Roulette's colors, and any game with a pick before the round, use the same.
+
+### The request
+
+```ts
+// src/games/blackjack/stream.ts
+export async function dealHand(queryClient: QueryClient, me: string, bet: string) {
+  const release = holdReveal({ players: [me] }) // the wallet, the leaderboard and posts about you wait
+  let handed = false
+  try {
+    const result = await api.post<PlayResult<BlackjackDetail>>(
+      '/api/blackjack/deal',
+      { bet },
+      { key: requestKey() },
+    )
+    putRound(result.round) // the card store has the round before the card draws
+    if (result.card) {
+      holdForCard(result.round.id, release) // the card lets go once the cards are down
+      handed = true
+      showCard(result.card) // into the stream, pinned above the box, with the keys
+    }
+    afterReveal(me, () => {
+      applyRound(queryClient, result.round)
+      applyWallet(queryClient, result.wallet)
+    })
+  } finally {
+    if (!handed) release(0)
+  }
+}
+```
+
+### The card
+
+The stream draws each card's header (the player, the game, the bet, an ALL IN or BIG BET tag, and the result once it has shown) and hands the rest to your `card` component, loaded the first time one shows:
+
+```ts
+export interface CardProps<D = unknown> {
+  round: RoundView<D> // the newest version: the page, the live events and your own answers
+  message: ChatMessage // the card's chat row
+  mine: boolean // your round: its buttons work for you
+  pinned: boolean // above the message box, in thumb reach
+  keys: boolean // it has the keyboard: its shortcuts work and the box waits
+}
+```
+
+What the coin flip's and blackjack's cards do, and every card must:
+
+- **Draw the game for everyone.** Reuse your table's parts at stream size (blackjack reuses `Table.tsx` and its timeline). Only `mine` gets working buttons; everyone else watches the game play, with a word such as "Their move…". Sounds and celebrations are for `mine` alone: ten hands at once would be noise.
+- **Play each new version.** The card renders again with each newer `round`. Animate from what is on screen to the new version. A round that ended a while ago (blackjack uses 8 seconds) and never showed in this tab shows as it ended.
+- **Say when the result has shown.** Call `markShown(round.id)` once the result is on screen. The header and the glow show the result only from then, the stream folds the card a few seconds later, and its pin lets go. A card that never calls it folds at the latest 20 seconds after its round settles.
+- **Release the hold.** On first show, `takeCardHold(round.id)` gives you the hold your command left. Release it (`release(0)`) once the cards are down, so the player's news lands with the reveal and not before.
+- **Send moves as the room did.** A move is `api.post(path, body, { key: requestKey() })` inside `holdReveal`, then `putRound(result.round)` and the animation: see `send()` in `StreamCard.tsx`.
+- **Keys.** With `keys && mine`, give your shortcuts to `useShortcuts(map, { enabled: keys && mine })` and name the letters you use with `claimKeys(['h', 's', 'd', 'p'])`: any other letter goes back to typing in the box. Space and Enter are the card's too: turn a slow card, finish an animation, or play again. Escape and a click in the box take the keys back.
+- **Play again.** While `pinned` and the round is over, offer the same bet again ("Deal again · 50", "Flip again · 50", with Space). It calls the same request as the command, and something on the card moves at once (the coin flip tosses its coin).
+- **A card can unmount mid-reveal.** A newer card takes the pin from a finished one at once, and the older one shows again in the stream. Release the hold when it unmounts mid-reveal, and play the reveal again where it shows next (the coin flip's card does both).
+- **Fit.** A card is at most 42rem wide, 375px on a phone, and pinned it sits above the box: keep the game short (blackjack's felt is 11 to 15rem tall) and the buttons in one row. The card's `article` is a size container, so use container queries (`@max-[24rem]:`) rather than screen sizes.
+
+Without a `card`, the stream shows a plain card with the bet and the result.
+
+### Folding, runs and big moments
+
+The shell does these from `round`, `markShown` and the settings. A finished card folds to one line a few seconds after its result shows, a run of one player's finished rounds folds into one line (`stream_round_runs`), and a big win or an all-in stays open with a gold or red edge. A folded line opens to your manifest's `replay`, so every game needs one, and `roundName: ['hand', 'hands']` names the rounds in a run's line ("6 Blackjack hands"). A name that already ends in the round's word is said once: `['flip', 'flips']` gives "2 Coin flips".
+
+### Testing a card
+
+Write a browser test like `tests/coinflip/e2e/card.spec.ts` (or `tests/shell/e2e/stream.spec.ts` for blackjack): one player types the command and plays from the pinned card (keys on a desktop, taps on a phone), a second watches the same card live without its buttons, and the finished card folds to its line and opens to the replay. On a preview the stream keeps what earlier runs posted, so find your own items by round id: `[data-round="<id>"]` is a live card, `[data-folded="<id>"]` its folded line, and `[data-rounds~="<id>"]` a run's line that holds it. The message box is the combobox named "Message or command", the stream the log named "The stream: Everything", and a pinned card sits in the region named "Your game".

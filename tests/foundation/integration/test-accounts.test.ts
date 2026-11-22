@@ -164,7 +164,7 @@ describe('on production', () => {
 describe('on a deploy preview', () => {
   let seasonId: number
 
-  it('the first sign-in makes both accounts, a test season and 1,000 chips each', async () => {
+  it('the first sign-in makes both accounts, a test season and 10,000 chips each', async () => {
     const res = await signIn(PREVIEW)
     expect(res.status, JSON.stringify(res.body)).toBe(200)
     expect(res.body.user).toMatchObject({ username: 'test', displayName: 'Test', role: 'player' })
@@ -192,8 +192,8 @@ describe('on a deploy preview', () => {
     // (in user id order, so either account can come first).
     const rows = (await topUps(seasonId)).map((r) => [r.username, BigInt(r.delta)])
     expect(rows.sort()).toEqual([
-      ['test', TEST_BALANCE - 100n * CHIP],
-      ['test2', TEST_BALANCE - 100n * CHIP],
+      ['test', TEST_BALANCE - 1_000n * CHIP],
+      ['test2', TEST_BALANCE - 1_000n * CHIP],
     ])
     expect(await ledgerMismatches(db(), seasonId)).toEqual([])
 
@@ -222,7 +222,7 @@ describe('on a deploy preview', () => {
     expect(capture.events).toEqual([])
   })
 
-  it('fills a spent wallet back up to exactly 1,000, and a wrong password moves nothing', async () => {
+  it('fills a spent wallet back up to exactly 10,000, and a wrong password moves nothing', async () => {
     const [test] = (await testUsers()).filter((u) => u.username === 'test')
     await db().transaction((tx) =>
       debit(tx, { seasonId, userId: test?.id as string, amount: 742n * CHIP + 50n, reason: 'bet' }),
@@ -257,7 +257,7 @@ describe('on a deploy preview', () => {
     expect(await ledgerMismatches(db(), seasonId)).toEqual([])
   })
 
-  it('a wallet above 1,000 keeps what it won', async () => {
+  it('a wallet above 10,000 keeps what it won', async () => {
     const [test] = await testUsers()
     await testDb.query(
       `with won as (

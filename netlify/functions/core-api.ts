@@ -24,5 +24,7 @@ export const config: Config = {
     '/api/ticker',
     '/api/chat',
     '/api/chat/*',
+    '/api/stream',
+    '/api/stream/*',
   ],
 }

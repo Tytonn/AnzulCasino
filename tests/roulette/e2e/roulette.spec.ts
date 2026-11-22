@@ -75,7 +75,7 @@ test('two players bet on one wheel and see the same number', async ({ browser },
   const before = { alice: await balance(alice.page), bob: await balance(bob.page) }
 
   await test.step('alice clicks the felt, bob types a quick bet', async () => {
-    await alice.page.getByRole('radio', { name: 'Chip size 1', exact: true }).click()
+    await alice.page.getByRole('radio', { name: 'Chip size 25', exact: true }).click()
     const placed = alice.page.waitForResponse((r) => r.url().endsWith('/api/roulette/bet'))
     const seventeen = alice.page.getByRole('button', { name: '17, pays 35 to 1' })
     if (phone) await seventeen.tap()
@@ -83,8 +83,8 @@ test('two players bet on one wheel and see the same number', async ({ browser },
     expect((await placed).status()).toBe(200)
 
     const box = bob.page.getByRole('textbox', { name: /Quick bet/ })
-    await box.fill('1 red')
-    await expect(bob.page.getByText('= 1 on Red, pays 1 to 1')).toBeVisible()
+    await box.fill('25 red')
+    await expect(bob.page.getByText('= 25 on Red, pays 1 to 1')).toBeVisible()
     const typed = bob.page.waitForResponse((r) => r.url().endsWith('/api/roulette/bet'))
     if (phone) await bob.page.getByRole('button', { name: /^Bet/ }).click()
     else await box.press('Enter')
@@ -92,9 +92,9 @@ test('two players bet on one wheel and see the same number', async ({ browser },
   })
 
   await test.step('each sees the other’s chips on their seat', async () => {
-    await expect(alice.page.getByRole('article', { name: "Bob's seat" })).toContainText('Red 1')
-    await expect(bob.page.getByRole('article', { name: "Alice's seat" })).toContainText('17 1')
-    await expect(alice.page.getByRole('article', { name: 'Your seat' })).toContainText('In play 1')
+    await expect(alice.page.getByRole('article', { name: "Bob's seat" })).toContainText('Red 25')
+    await expect(bob.page.getByRole('article', { name: "Alice's seat" })).toContainText('17 25')
+    await expect(alice.page.getByRole('article', { name: 'Your seat' })).toContainText('In play 25')
     await snap(alice.page, 'roulette', 'bets', testInfo)
   })
 
@@ -115,12 +115,12 @@ test('two players bet on one wheel and see the same number', async ({ browser },
     await snap(alice.page, 'roulette', 'landed', testInfo)
     await snap(bob.page, 'roulette', 'landed-bob', testInfo)
 
-    // Each wallet is paid by that number: 36 for 17, 2 for red.
-    const one = Number(CHIP)
-    const aliceBack = n === 17 ? 36 * one : 0
-    const bobBack = pocketColor(n) === 'red' ? 2 * one : 0
-    await expect.poll(() => balance(alice.page)).toBe(before.alice - one + aliceBack)
-    await expect.poll(() => balance(bob.page)).toBe(before.bob - one + bobBack)
+    // Each wallet is paid by that number: 36 times the bet for 17, twice it for red.
+    const bet = 25 * Number(CHIP)
+    const aliceBack = n === 17 ? 36 * bet : 0
+    const bobBack = pocketColor(n) === 'red' ? 2 * bet : 0
+    await expect.poll(() => balance(alice.page)).toBe(before.alice - bet + aliceBack)
+    await expect.poll(() => balance(bob.page)).toBe(before.bob - bet + bobBack)
   })
 
   await alice.close()
@@ -136,7 +136,7 @@ test('bets can be undone and cleared until the close', async ({ browser }, testI
   await bettingSpin(page, 8_000)
   const before = await balance(page)
 
-  await page.getByRole('radio', { name: 'Chip size 1', exact: true }).click()
+  await page.getByRole('radio', { name: 'Chip size 25', exact: true }).click()
   const press = async (name: string) => {
     const target = page.getByRole('button', { name })
     if (phone) await target.tap()
@@ -145,15 +145,15 @@ test('bets can be undone and cleared until the close', async ({ browser }, testI
   await press('Red, pays 1 to 1')
   await press('Black, pays 1 to 1')
   await press('Split 17/20, pays 17 to 1')
-  await expect.poll(() => balance(page)).toBe(before - 3 * Number(CHIP))
+  await expect.poll(() => balance(page)).toBe(before - 75 * Number(CHIP))
   const seat = page.getByRole('article', { name: 'Your seat' })
-  await expect(seat).toContainText('In play 3')
+  await expect(seat).toContainText('In play 75')
 
   // Undo takes the split back off; Clear takes everything. On a keyboard, U and C.
   if (phone) await page.getByRole('button', { name: 'Undo' }).tap()
   else await page.keyboard.press('u')
-  await expect.poll(() => balance(page)).toBe(before - 2 * Number(CHIP))
-  await expect(seat).toContainText('In play 2')
+  await expect.poll(() => balance(page)).toBe(before - 50 * Number(CHIP))
+  await expect(seat).toContainText('In play 50')
   if (phone) await page.getByRole('button', { name: 'Clear your bets' }).tap()
   else await page.keyboard.press('c')
   await expect.poll(() => balance(page)).toBe(before)

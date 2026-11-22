@@ -18,7 +18,7 @@ Copied from `docs/SPEC.md`. They apply to every line of code in every lane.
 
 1. **The server decides everything.** The browser sends intents: bet 500, hit, cash out. It never sends an outcome, a balance, a multiplier or a card.
 2. **Chips are whole numbers.** Store them as `bigint`. No floats in chip math. Payouts round down to a whole chip.
-   _(Changed by Tyton, Nov 18, 2026, to hundredths of a chip with cents shown; changed back by Tyton, Nov 22, 2026.)_ Chips are whole numbers again, and a season still starts with 100. Every amount is a `bigint` count of whole chips, and nothing shows decimals. Payouts, steals, fines, income and giveaway shares round down to a whole chip, so small ones can come to 0 or 1: a right call on a 1-chip coin flip pays back just the 1 chip.
+   _(Changed by Tyton, Nov 18, 2026, to hundredths of a chip with cents shown; changed back by Tyton, Nov 22, 2026, and the same day rescaled so a season starts with 1,000.)_ Chips are whole numbers, and a season starts with 1,000. Every amount is a `bigint` count of whole chips, and nothing shows decimals. Payouts, steals, fines, income and giveaway shares round down to a whole chip: a right call on a 30-chip coin flip pays 58, not 58.8.
 3. **Every balance change is one ledger row**, written in the same database transaction as the thing that caused it. A wallet's balance must always equal the sum of its ledger rows. A test checks this.
 4. **Lock before you spend.** Every transaction that moves chips locks the wallet row first (`SELECT ... FOR UPDATE`), then checks the balance. Two fast clicks must never spend the same chips twice.
 5. **Every chip-moving request is idempotent.** The browser sends a unique key with it. A repeated key returns the first result and changes nothing.
@@ -55,6 +55,7 @@ Copied from `docs/SPEC.md`. They apply to every line of code in every lane.
 
 ## Conventions that are easy to miss
 
+- **Games are cards started by commands, never rooms.** _(Tyton, Nov 22, 2026.)_ The site is one chat stream, and every game plays on a card in it, started by a command typed in the message box (`docs/LANE_GUIDE.md`, section 20). The classic Floor and rooms under `/classic` stay only until every game has its card: never build a new room.
 - **Chips are whole.** Every amount in code, the database and the API is a `bigint` count of whole chips (`CHIP` is `1n`). Round down with `mulDiv` and `basisPoints`, and format only with `shared/chips.ts`. Multipliers are still hundredths (196 is 1.96x) and shares are basis points (150 is 1.5%).
 - **"Tier" in code, "Rank" on screen.** `rank` means a player's leaderboard place. The spec's purchasable Ranks are `tier` in code.
 - **Database safety.** Never run `drizzle-kit push`, never run `drizzle-kit migrate` against a hosted database, and never run DDL through a direct connection. Migrations reach Netlify only as committed files that Netlify applies on deploy. The scripts in `scripts/db/` refuse any database that is not on localhost.
@@ -63,4 +64,4 @@ Copied from `docs/SPEC.md`. They apply to every line of code in every lane.
 - **Theme tokens only.** Components use the token classes and variables from `src/theme/`. Tailwind's own palette is switched off, and `npm run lint` fails on raw colors outside `src/theme/`.
 - **Keep the database asleep.** Netlify bills the database for every hour it is awake. No browser polling, no scheduled function that touches the database more than once a day, and live news goes through Ably, which never wakes the database.
 - **Production deploys cost credits.** Work in deploy previews. Only Tyton merges to `main`.
-- **Test accounts.** On deploy previews and locally, `test` and `test2` sign in with the password `test`, with a running season and 1,000 chips (`docs/LANE_GUIDE.md`, Test accounts). Give Tyton these to try a preview. Production deploys never have them, and that includes a build of `main` opened by its own link: it uses the live database, which Netlify sets up only when a deploy is published, so send Tyton a deploy preview link, never a `main` deploy link.
+- **Test accounts.** On deploy previews and locally, `test` and `test2` sign in with the password `test`, with a running season and 10,000 chips (`docs/LANE_GUIDE.md`, Test accounts). Give Tyton these to try a preview. Production deploys never have them, and that includes a build of `main` opened by its own link: it uses the live database, which Netlify sets up only when a deploy is published, so send Tyton a deploy preview link, never a `main` deploy link.

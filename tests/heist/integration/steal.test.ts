@@ -158,6 +158,26 @@ describe('POST /api/heist/steal: outcomes', () => {
     await expectLedgerClean()
   })
 
+  it('a failure fines at least the smallest fine, or the whole wallet when it holds less', async () => {
+    await fx.setConfig('steal_success_pct', NEVER)
+    const target = await fx.player(10_000)
+    // 5% of 100 is 5, under the 10-chip smallest fine.
+    const poor = await fx.player(100)
+    const small = await steal(poor, target)
+    expect(small.status, JSON.stringify(small.body)).toBe(200)
+    expect(small.body.steal).toMatchObject({ outcome: 'failed', amount: 0, fine: 10 })
+    expect(await fx.wallet(poor.id)).toEqual({ balance: 90n, vault: 0n })
+
+    // Under 10 in the wallet: the whole wallet, and no further.
+    const broke = await fx.player(7)
+    const all = await steal(broke, target)
+    expect(all.status, JSON.stringify(all.body)).toBe(200)
+    expect(all.body.steal).toMatchObject({ outcome: 'failed', amount: 0, fine: 7 })
+    expect(await fx.wallet(broke.id)).toEqual({ balance: 0n, vault: 0n })
+    expect(await fx.wallet(target.id)).toEqual({ balance: 10_017n, vault: 0n })
+    await expectLedgerClean()
+  })
+
   it('a thief with an empty wallet who fails pays nothing', async () => {
     await fx.setConfig('steal_success_pct', NEVER)
     const target = await fx.player(10_000)
@@ -336,7 +356,7 @@ describe('POST /api/heist/steal: who can be robbed', () => {
   it('refuses yourself, unknown players, players under the floor and immune players, using no attempt', async () => {
     await fx.setConfig('steal_success_pct', ALWAYS)
     const thief = await fx.player(5_000)
-    const poor = await fx.player(24)
+    const poor = await fx.player(249)
     const rich = await fx.player(50_000)
     const other = await fx.player(6_000)
 
@@ -354,7 +374,7 @@ describe('POST /api/heist/steal: who can be robbed', () => {
     const floor = await steal(thief, poor)
     expect(floor.status).toBe(409)
     expect(floor.body.error.code).toBe('steal_floor')
-    expect(floor.body.error.message).toMatch(/under 25 chips net worth/)
+    expect(floor.body.error.message).toMatch(/under 250 chips net worth/)
 
     expect((await steal(other, rich)).status).toBe(200)
     const immune = await steal(thief, rich)
@@ -365,20 +385,28 @@ describe('POST /api/heist/steal: who can be robbed', () => {
     expect((await state(thief)).me.attemptsUsed).toBe(0)
   })
 
-  it('refuses a steal that would take less than a whole chip, using no attempt', async () => {
+  it('refuses a steal that would take less than the smallest steal, using no attempt', async () => {
     await fx.setConfig('steal_success_pct', ALWAYS)
-    // Ranked above the thief, so the 0.5% down rate: under a chip of 150.
+    // Ranked below the thief, so the 0.5% down rate: 9.995 chips of 1,999, under
+    // the 10-chip smallest steal.
     const thief = await fx.player(5_000)
-    const small = await fx.player(150)
+    const small = await fx.player(1_999)
     const res = await steal(thief, small)
     expect(res.status).toBe(409)
     expect(res.body.error).toMatchObject({
       code: 'steal_too_little',
-      message: `${small.name} has too little in their wallet for a steal to take a whole chip.`,
+      message: `${small.name} has too little in their wallet for a steal to take 10 chips.`,
     })
     expect((await state(thief)).me.attemptsUsed).toBe(0)
-    expect(await fx.wallet(small.id)).toEqual({ balance: 150n, vault: 0n })
+    expect(await fx.wallet(small.id)).toEqual({ balance: 1_999n, vault: 0n })
     expect(await stealRows()).toHaveLength(0)
+
+    // At 2,000 the down rate takes exactly 10.
+    const enough = await fx.player(2_000)
+    const taken = await steal(thief, enough)
+    expect(taken.status, JSON.stringify(taken.body)).toBe(200)
+    expect(taken.body.steal).toMatchObject({ outcome: 'success', amount: 10 })
+    await expectLedgerClean()
   })
 
   it('refuses every steal in the final day, and outside a season', async () => {

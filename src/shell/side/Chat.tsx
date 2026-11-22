@@ -298,7 +298,7 @@ function MessageRow({
   )
 }
 
-function DeleteButton({ onDelete }: { onDelete: () => void }) {
+export function DeleteButton({ onDelete }: { onDelete: () => void }) {
   const [sure, setSure] = useState(false)
   return (
     <button
@@ -313,7 +313,7 @@ function DeleteButton({ onDelete }: { onDelete: () => void }) {
 }
 
 /** Only https images and videos, sized before they load so nothing jumps. */
-function GifView({ message }: { message: ChatMessage }) {
+export function GifView({ message }: { message: ChatMessage }) {
   const gif = (message.meta as Partial<GifMeta> | null)?.gif
   const src = gif?.previewUrl ?? gif?.url
   if (!gif || !src || !src.startsWith('https://') || !(gif.width > 0) || !(gif.height > 0)) {

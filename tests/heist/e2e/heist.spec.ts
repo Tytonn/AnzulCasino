@@ -1,20 +1,21 @@
 /**
  * Heist in real browsers, at 1440 and 375: the Shop (a shield charge and a
- * vault move), the heist panel from the top bar, and a steal from start to
- * finish while the target watches, whatever the dice say. Screenshots land
- * in tests/heist/screenshots.
+ * vault move), the heist panel from the top bar of the classic rooms, and a
+ * steal from start to finish while the target watches, whatever the dice
+ * say. Screenshots land in tests/heist/screenshots.
  *
  * The same tests run on a deploy preview, whose database keeps what earlier
  * runs did: a player may already hold two charges, have moved their vault
  * today or used their steal attempts. Each step checks the player's heist
  * state first and tests what the page should say instead.
  *
- * Steals round down to a whole chip, so a sample player ranked below the
- * thief with about 100 chips is worth nothing to rob ("Small wallet"). The
- * steal falls back to the test accounts, which hold 1,000 chips or more, and
- * which the foundation's test-account spec has signed in by then.
+ * A steal must take at least 10 chips, so a sample player ranked below the
+ * thief with under 2,000 chips in the wallet cannot be robbed at the 0.5% down
+ * rate ("Small wallet"). The steal falls back to the test accounts, which hold
+ * 10,000 chips or more, and which the foundation's test-account spec has
+ * signed in by then.
  */
-import { expect, type Page, test } from '@playwright/test'
+import { expect, type Locator, type Page, test } from '@playwright/test'
 
 import { chipCount, formatChips } from '../../../shared/chips.ts'
 import type { HeistState, StealResponse, VaultResponse } from '../../../shared/features/heist.ts'
@@ -41,11 +42,29 @@ async function heistReady(page: Page) {
   await expect(page.getByRole('button', { name: /^Steals/ })).toBeVisible()
 }
 
+/**
+ * Pages such as the Shop open over the stream (Tyton, Nov 22, 2026), where
+ * the heist widgets sit in You: beside the stream on a desktop, in a sheet
+ * on a phone. `look` runs with You open, and the sheet closes after.
+ */
+async function inYou(page: Page, phone: boolean, look: (you: Locator) => Promise<void>) {
+  if (!phone) {
+    await look(page.getByRole('complementary', { name: 'You' }))
+    return
+  }
+  await page.getByRole('button', { name: /^You: / }).click()
+  const sheet = page.getByRole('dialog', { name: 'You' })
+  await look(sheet)
+  await sheet.getByRole('button', { name: 'Close' }).click()
+  await expect(sheet).toBeHidden()
+}
+
 test('the Shop sells a shield charge, and the vault keeps chips out of reach', async ({
   browser,
 }, testInfo) => {
   // Each screen size shops as its own player, so both find a shield to buy.
-  const player = await openAs(browser, onPhone(testInfo) ? 'carol' : 'bob')
+  const phone = onPhone(testInfo)
+  const player = await openAs(browser, phone ? 'carol' : 'bob')
   const { page } = player
 
   await test.step('the Shop shows what is for sale and how heists work', async () => {
@@ -56,11 +75,13 @@ test('the Shop sells a shield charge, and the vault keeps chips out of reach', a
     await expect(page.getByRole('heading', { name: 'Extra steal attempt' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'How heists work' })).toBeVisible()
     await expect(page.getByText(/A steal works 55% of the time/)).toBeVisible()
-    await heistReady(page)
     await snap(page, LANE, 'shop', testInfo)
+    await inYou(page, phone, (you) =>
+      expect(you.getByRole('button', { name: /^Steals/ })).toBeVisible(),
+    )
   })
 
-  await test.step('a shield charge lights up a pip in the top bar', async () => {
+  await test.step('a shield charge lights up a pip beside the stream', async () => {
     const before = (await heistState(page)).me
     const buy = page.getByRole('button', { name: /^Buy a charge/ })
     if (before.charges >= 2 || before.shieldsThisWeek >= 3) {
@@ -73,11 +94,13 @@ test('the Shop sells a shield charge, and the vault keeps chips out of reach', a
     expect((await answer).status()).toBe(200)
     await expect(page.getByText(/^Shield up/)).toBeVisible()
     const charges = before.charges + 1
-    await expect(
-      page.getByRole('button', {
-        name: new RegExp(`^${charges === 1 ? '1 shield charge' : `${charges} shield charges`}`),
-      }),
-    ).toBeVisible()
+    await inYou(page, phone, (you) =>
+      expect(
+        you.getByRole('button', {
+          name: new RegExp(`^${charges === 1 ? '1 shield charge' : `${charges} shield charges`}`),
+        }),
+      ).toBeVisible(),
+    )
   })
 
   await test.step('half the vault room goes in, and the day’s move is used', async () => {
@@ -117,8 +140,8 @@ test('a steal plays out for the thief, and the target sees it as it lands', asyn
   const page = thief.page
   const thiefName = phone ? 'Admin' : 'Alice'
 
-  const targetName = await test.step('the heist panel opens from the top bar', async () => {
-    await page.goto('/')
+  const targetName = await test.step('the heist panel opens from the classic top bar', async () => {
+    await page.goto('/classic')
     await heistReady(page)
     await page.getByRole('button', { name: /^Steals/ }).click()
     const panel = page.getByRole('dialog', { name: 'Heist' })
@@ -155,7 +178,7 @@ test('a steal plays out for the thief, and the target sees it as it lands', asyn
   const account = TARGETS.find((p) => p.displayName === targetName)
   if (!account) throw new Error(`${targetName} is not a sample player or a test account.`)
   const target = await openAs(browser, account.username, account.password)
-  await target.page.goto('/')
+  await target.page.goto('/classic')
   await heistReady(target.page)
 
   const answer = await test.step('the thief sees the odds, then cracks the vault', async () => {

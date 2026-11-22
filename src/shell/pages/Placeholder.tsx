@@ -32,7 +32,7 @@ export function Placeholder({
         </p>
         <div className="mt-6">
           <Link to="/" className="text-sm text-accent hover:underline">
-            Back to the Floor
+            Back to the stream
           </Link>
         </div>
       </div>
@@ -46,12 +46,12 @@ export function NotFound() {
     <div className="grid flex-1 place-items-center p-6 text-center">
       <div>
         <h1 className="text-2xl font-bold">Nothing here</h1>
-        <p className="mt-2 text-muted">That page does not exist. The tables are this way.</p>
+        <p className="mt-2 text-muted">That page does not exist. The game is this way.</p>
         <Link
           to="/"
           className="mt-6 inline-flex h-10 items-center rounded-md bg-accent px-4 text-sm font-semibold text-on-accent hover:bg-accent-strong"
         >
-          Go to the Floor
+          Back to the stream
         </Link>
       </div>
     </div>
@@ -66,7 +66,7 @@ export function AdminOnly() {
         <h1 className="text-2xl font-bold">Admins only</h1>
         <p className="mt-2 text-muted">This page is for the people who run the casino.</p>
         <Link to="/" className="mt-6 inline-block text-sm text-accent hover:underline">
-          Back to the Floor
+          Back to the stream
         </Link>
       </div>
     </div>

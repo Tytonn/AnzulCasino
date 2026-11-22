@@ -16,8 +16,8 @@ import { chips } from './chips.ts'
 /** Both accounts' password. Short on purpose: these accounts hold nothing worth taking. */
 export const TEST_PASSWORD = 'test'
 
-/** What a test account's wallet is filled back up to when one signs in: 1,000 chips. */
-export const TEST_BALANCE = chips(1_000)
+/** What a test account's wallet is filled back up to when one signs in: 10,000 chips, ten starts. */
+export const TEST_BALANCE = chips(10_000)
 
 export const TEST_ACCOUNTS = [
   { username: 'test', displayName: 'Test', avatar: 'bolt', avatarColor: 'lime' },

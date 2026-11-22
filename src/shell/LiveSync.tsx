@@ -1,7 +1,7 @@
 /**
  * Keeps the shared caches current from live events (spec: Live events >
  * Recovery): the wallet, the leaderboard, the ticker (rounds and steal
- * attempts), chat and the season.
+ * attempts), chat, the stream and the season.
  * Whenever events may have been missed, it fetches again; events older than
  * what was fetched are dropped by their versions.
  */
@@ -13,12 +13,16 @@ import { userChannel } from '../../shared/events.ts'
 import type { PlayerSummary } from '../../shared/players.ts'
 import type { LeaderboardView } from '../../shared/seasons.ts'
 import { isTier } from '../../shared/tiers.ts'
+import { useCardRounds } from '../kit/cards.ts'
 import { addTickerItem, applyWallet, queryKeys, useConfig } from '../kit/queries.ts'
 import { afterReveal } from '../kit/reveal.ts'
 import { toast } from '../kit/toast.tsx'
 import { useAwayAfter, useLiveEvent, useResync } from '../live/index.ts'
 import { addMessage, removeMessage } from './chat-cache.ts'
 import { applyStanding } from './standings.ts'
+import { cardRoundId } from './stream/fold.ts'
+import { addToStream, removeFromStream } from './stream/live.ts'
+import { pinCard } from './stream/pins.ts'
 
 const SHARED = [
   queryKeys.season,
@@ -26,6 +30,8 @@ const SHARED = [
   queryKeys.players,
   queryKeys.ticker,
   queryKeys.chat,
+  // Every filter's list of the stream.
+  ['stream'],
 ]
 
 export function LiveSync({ me }: { me: Me }) {
@@ -90,8 +96,18 @@ export function LiveSync({ me }: { me: Me }) {
   })
 
   useLiveEvent('chat', 'chat.message', (message) => {
-    const add = () =>
-      queryClient.setQueryData<ChatPage>(queryKeys.chat, (old) => addMessage(old, message))
+    const add = () => {
+      addToStream(queryClient, message)
+      // The classic chat has no cards: those live in the stream.
+      if (message.kind !== 'card') {
+        queryClient.setQueryData<ChatPage>(queryKeys.chat, (old) => addMessage(old, message))
+      }
+    }
+    // A card of yours from another tab pins here too while its round is open.
+    if (message.kind === 'card' && message.userId === me.id) {
+      const round = useCardRounds.getState().rounds[cardRoundId(message)] ?? message.round
+      if (round?.status === 'open') pinCard(message)
+    }
     // A post about a big result waits for that player's reveal.
     const about = message.kind === 'system' ? (message.meta as SystemMeta | null)?.userId : null
     if (about) afterReveal(about, add)
@@ -104,6 +120,7 @@ export function LiveSync({ me }: { me: Me }) {
 
   useLiveEvent('chat', 'chat.deleted', ({ id }) => {
     queryClient.setQueryData<ChatPage>(queryKeys.chat, (old) => removeMessage(old, id))
+    removeFromStream(queryClient, id)
   })
 
   useAwayAfter(awayMinutes)

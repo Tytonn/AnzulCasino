@@ -59,8 +59,9 @@ function Outcome({ shown, last }: { shown: Shown; last: RoundView<CoinflipDetail
     return <p className="text-muted">Call heads or tails, type a bet, and flip.</p>
   }
   const net = (round.payout ?? 0) - round.stake
-  // Chips are whole, so a right call on a small bet can round down to the
-  // stake itself: 1.96x of 1 chip pays 1. That is even, not a loss.
+  // Chips are whole, so a right call on a tiny bet can round down to the
+  // stake itself: 1.96x of 1 chip pays 1 (with the smallest bet set to 1).
+  // That is even, not a loss.
   const even = net <= 0 && round.detail.face === round.detail.call
   const face = SIDE_NAMES[round.detail.face]
   return (

@@ -1,6 +1,6 @@
 /**
  * The blackjack room in real browsers, at 1440 and 375: two players sit at
- * the same table, each plays a hand of 10 chips from the keyboard (desktop) or
+ * the same table, each plays a hand of 25 chips from the keyboard (desktop) or
  * with taps (phone), sees the cards land and the result, and watches the
  * other's hand play out on their seat. Screenshots land in
  * tests/blackjack/screenshots.
@@ -30,11 +30,11 @@ async function expectOk(res: { status(): number; text(): Promise<string> }) {
   expect(res.status(), await res.text()).toBe(200)
 }
 
-/** Deals a 10-chip hand and returns the server's answer. */
+/** Deals a 25-chip hand and returns the server's answer. */
 async function deal(page: Page, phone: boolean): Promise<Hand> {
   const box = page.getByRole('textbox', { name: 'Bet amount' })
   const answer = page.waitForResponse((r) => r.url().endsWith('/api/blackjack/deal'))
-  await box.fill('10')
+  await box.fill('25')
   if (phone) await page.getByRole('button', { name: /^Deal/ }).click()
   else await box.press('Enter')
   const res = await answer
@@ -64,7 +64,7 @@ async function playOut(page: Page, hand: Hand, phone: boolean): Promise<Hand> {
   return result
 }
 
-/** How a result reads on a seat: "+10", "+15" for a blackjack, "−10" or "Push". */
+/** How a result reads on a seat: "+25", "+37" for a blackjack (3 to 2 of 25, rounded down), "−25" or "Push". */
 function seatAmount(hand: Hand): string {
   const net = (hand.round.payout ?? 0) - hand.round.stake
   if (net > 0) return `+${formatChips(net)}`
@@ -94,7 +94,7 @@ test('two players play a hand each and watch each other live', async ({ browser 
   const alices = await test.step('Alice deals, and her cards land on the table', async () => {
     const dealt = await deal(alice.page, phone)
     const [first] = dealt.round.detail.hands
-    expect(dealt.round).toMatchObject({ stake: 10, detail: { bet: 10 } })
+    expect(dealt.round).toMatchObject({ stake: 25, detail: { bet: 25 } })
     expect(first?.cards).toHaveLength(2)
     expect(dealt.round.detail.dealer.length).toBeGreaterThanOrEqual(1)
     const seat = alice.page.getByRole('article', { name: 'Your seat' })

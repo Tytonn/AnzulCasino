@@ -25,7 +25,12 @@ import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 're
 import { createPortal } from 'react-dom'
 
 import { chipCount, formatChips, formatChipsShort, formatShare } from '../../../shared/chips.ts'
-import { blockMessage, type StealResponse, stealFine } from '../../../shared/features/heist.ts'
+import {
+  blockMessage,
+  fineBasis,
+  type StealResponse,
+  stealFine,
+} from '../../../shared/features/heist.ts'
 import type { StandingView } from '../../../shared/seasons.ts'
 import { api, errorMessage, requestKey } from '../../kit/api.ts'
 import { Button } from '../../kit/Button.tsx'
@@ -91,7 +96,7 @@ function StealFlow({ targetId }: { targetId: string }) {
   const name = player?.displayName ?? row?.standing.displayName ?? 'That player'
   const check = row?.check
   const reason = check && !check.ok ? check.reason : null
-  const fine = stealFine(BigInt(heist.balance), heist.cfg.steal_fine_pct)
+  const fine = stealFine(BigInt(heist.balance), heist.cfg)
 
   function skip() {
     skipped.current = true
@@ -272,7 +277,7 @@ function StealFlow({ targetId }: { targetId: string }) {
                     <span className="font-semibold">−{formatChips(Number(fine))}</span>
                     <span className="text-faint">
                       {' '}
-                      · {formatShare(heist.cfg.steal_fine_pct)} of yours, paid to {name}
+                      · {fineBasis(BigInt(heist.balance), heist.cfg)}, paid to {name}
                     </span>
                   </Odds>
                 </dl>
@@ -283,6 +288,7 @@ function StealFlow({ targetId }: { targetId: string }) {
                         name,
                         freezeHours: heist.cfg.final_freeze_hours,
                         floor: heist.cfg.steal_floor,
+                        minTake: heist.cfg.steal_min_take,
                         immuneFor: row ? shortDuration(row.immuneLeft) : undefined,
                         canBuyExtra: heist.canBuyExtra,
                       })

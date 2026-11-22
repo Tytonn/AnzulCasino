@@ -118,11 +118,38 @@
   }
 }
 
+@keyframes tag-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, currentColor 0%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 12px 1px color-mix(in oklab, currentColor 45%, transparent);
+  }
+}
+
 /* Shared classes. In the components layer, so utilities still win over them. */
 @layer components {
   /* A seat with a big bet or an all-in on it (spec: Big bets get noticed). */
   .seat-glow {
     animation: seat-glow 1.6s ease-in-out infinite;
+  }
+
+  /* An ALL IN or BIG BET tag on a card in the stream, until the outcome. */
+  .tag-glow {
+    animation: tag-glow 1.4s ease-in-out infinite;
+  }
+
+  /* A big result that stays open in the stream (spec: The stream > Cards). */
+  .card-glow-gold {
+    box-shadow:
+      0 0 0 1px color-mix(in oklab, var(--gold) 45%, transparent),
+      0 10px 40px -12px color-mix(in oklab, var(--gold) 55%, transparent);
+  }
+  .card-glow-loss {
+    box-shadow:
+      0 0 0 1px color-mix(in oklab, var(--loss) 40%, transparent),
+      0 10px 40px -14px color-mix(in oklab, var(--loss) 50%, transparent);
   }
 
   /* The table in the middle of a room. A theme restyles it with --felt. */
@@ -177,6 +204,10 @@
     box-shadow:
       0 0 0 1px color-mix(in oklab, var(--gold) 80%, transparent),
       0 0 24px -4px color-mix(in oklab, var(--gold) 50%, transparent);
+  }
+  .tag-glow {
+    animation: none;
+    box-shadow: 0 0 10px 0 color-mix(in oklab, currentColor 35%, transparent);
   }
   /* Arrows stay until the next move instead of fading. */
   .fade-late {
