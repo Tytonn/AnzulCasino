@@ -288,7 +288,9 @@ export const RunLine = memo(function RunLine({ messages }: { messages: readonly 
   const games = new Set(messages.map((m) => cardGame(m)?.id ?? ''))
   const game = games.size === 1 ? cardGame(first) : undefined
   const total = rounds.reduce((sum, r) => sum + (r ? net(r) : 0), 0)
-  const noun = game?.manifest?.roundName ?? ['round', 'rounds']
+  const what = game
+    ? roundWords(game.name, game.manifest?.roundName ?? ['round', 'rounds'], true)
+    : 'rounds'
   return (
     <div
       data-rounds={messages.map(cardRoundId).join(' ')}
@@ -303,8 +305,7 @@ export const RunLine = memo(function RunLine({ messages }: { messages: readonly 
         <FoldedOwner userId={first.userId} />
         <span className="text-faint">·</span>
         <span className="min-w-0 truncate text-muted">
-          {messages.length} {game ? `${game.name} ` : ''}
-          {noun[1]}
+          {messages.length} {what}
         </span>
         <span className="ml-auto flex shrink-0 items-center gap-2">
           <Amount value={total} className="text-xs" />
@@ -333,12 +334,25 @@ function useRunRounds(messages: readonly ChatMessage[]): (RoundView | null)[] {
 /** Where your pinned card sits in the stream: a slim line pointing at it. */
 export function PinnedStub({ message }: { message: ChatMessage }): ReactNode {
   const game = cardGame(message)
-  const noun = game?.manifest?.roundName?.[0] ?? 'card'
+  const what = game
+    ? roundWords(game.name, game.manifest?.roundName ?? ['card', 'cards'], false).toLowerCase()
+    : 'card'
   return (
     <p className="flex items-center gap-1.5 px-2 py-1 text-xs text-faint">
       <span aria-hidden="true">↓</span>
-      Your {game ? `${game.name.toLowerCase()} ` : ''}
-      {noun} is pinned below
+      Your {what} is pinned below
     </p>
   )
+}
+
+/**
+ * A game's name with what its rounds are called: "Blackjack hands",
+ * "Coin flips" (not "Coin flip flips": the name says it already).
+ */
+export function roundWords(name: string, noun: readonly [string, string], plural: boolean): string {
+  const [one, many] = noun
+  const word = plural ? many : one
+  const lower = name.toLowerCase()
+  if (lower === one || lower.endsWith(` ${one}`)) return `${name.slice(0, -one.length)}${word}`
+  return `${name} ${word}`
 }

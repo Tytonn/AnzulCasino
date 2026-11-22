@@ -110,18 +110,28 @@ Plan, approved by Tyton on 2026-11-22: https://claude.ai/artifact/Sj3mrj6zpw6mgh
   at the smallest bet), the tests and the season simulation follow. The tests that bet
   10 now bet 25 or more; the blackjack and coin flip lanes' tests changed amounts only.
 
+- **The coin flip's card** (2026-11-22, after Tyton approved blackjack's card and asked for
+  the coin flip next, then the merge): `.flip 50 heads` (`src/games/coinflip/commands.ts`,
+  `stream.ts`, `StreamCard.tsx`, `Replay.tsx`), the side before or after the bet, and with
+  none the side called last in the tab. Everyone sees the coin toss and land; while pinned,
+  its player gets Heads and Tails (H, T) and Flip again (Space, Enter), which tosses the
+  coin at once. Space while the coin lands finishes the landing first. The shell learned
+  `choices` for commands (a side next to the amount, quick picks for each, "Pick one: heads
+  or tails." for two), `room` is optional in `GameManifest` (a game without one sends
+  `/room/<id>` to the stream), and a run's line says "2 Coin flips". The lane guide's
+  section 6 walks through the card, section 20 lists both games' files, and the spec's coin
+  flip section says how it plays. Tests: `splitChoice` and `checkArgs` units, and
+  `tests/coinflip/e2e/card.spec.ts` at 1440 and 375.
+
 ## Not done yet
 
-- Tyton tries the preview with `test` and `test2` (link sent 2026-11-22); nothing merges
-  before Tyton approves it. The test logins are players, and this branch's preview
-  database already used the admin code on PR #17's preview, so Tyton needs the sample
-  admin's login, or this thread, to flip the two Stream switches there.
-- Then, in order: the coin flip as a card (and the lane guide's worked example, section
-  6); merge the shell; roulette as one shared card per spin (shared-round cards in the
-  round helper); heist on cards; economy cards (the chat drop with Grab, Daily in You);
-  remove the classic interface (Floor, rooms, rail, ticker, the kit's room-only parts).
-- With the coin flip step, make `room` optional in `GameManifest`, so lanes that start
-  after the merge build no room.
+- Merge the shell (PR #19) once CI and the preview's browser tests pass, as Tyton asked
+  on 2026-11-22, and tell Tyton when the preview is ready to try and when it is merged.
+  The test logins are players; to flip the two Stream switches on the preview, Tyton needs
+  the sample admin's login, or this thread.
+- Then, in order: roulette as one shared card per spin (shared-round cards in the round
+  helper); heist on cards; economy cards (the chat drop with Grab, Daily in You); remove
+  the classic interface (Floor, rooms, rail, ticker, the kit's room-only parts).
 - Under Chat only, your own `.work` result does not show (the public line is a game
   item). Consider a private echo if Tyton finds it confusing.
 

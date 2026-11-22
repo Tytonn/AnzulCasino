@@ -333,7 +333,7 @@ _(Changed by Tyton, Nov 22, 2026: this replaces the room model. Room pages, seat
 
 **Commands.** Anything typed after the prefix in the message box is a command; everything else is chat.
 
-- Typing the prefix at the start of the box opens the command list: each command with its aliases, what to type after it, and one line on what it does. It narrows as you type, and arrows and Tab complete. After the command it prompts the next part: an amount with quick picks (the example, half, all), or a player.
+- Typing the prefix at the start of the box opens the command list: each command with its aliases, what to type after it, and one line on what it does. It narrows as you type, and arrows and Tab complete. After the command it prompts the next part: an amount with quick picks (the example, half, all), a side where the game has one (heads or tails, as quick picks too), or a player.
 - Amounts use the shared bet parser, resolved on the server against the locked wallet: `50`, `2.5k`, `5k`, `half`, `all`, `max`.
 - Only the prefix followed by a letter counts as a command, so `...` and `.5` stay chat.
 - A command that cannot run is never posted. Its text stays in the box, and a hint for that player alone shows just above it: "There is no .bjj. Did you mean .bj?" or ".bj needs a bet, like .bj 50 or .bj all." The server's refusals, such as too few chips or a cooldown, show the same way.
@@ -479,6 +479,7 @@ _(Decided by Tyton, Nov 19, 2026: the reference game stays on the Floor. Owner: 
 
 - Call heads or tails and type a bet. One request takes the bet and flips the coin, which the server draws after the stake is taken.
 - A right call pays twice the bet less a 2% house edge (1.96x). The edge is config (`coinflip_edge_pct`).
+- In the stream: `.flip 50 heads`, the side before or after the bet (`.flip t 50`), and with no side the one you called last. Everyone watches the coin land on the card. While it is pinned, its player can change the call (H, T) and flip again at the same bet (Space), or type a new bet. _(Nov 22, 2026.)_
 
 ## Steal, shields and vault
 

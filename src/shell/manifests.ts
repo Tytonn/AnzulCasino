@@ -37,8 +37,12 @@ export interface GameManifest {
   name: string
   /** Place on the rail and the Floor: smaller first. */
   order: number
-  /** The room, loaded when a player walks in. */
-  room: Lazy
+  /**
+   * The classic room under /classic, loaded when a player walks in. Only the
+   * games built before the stream have one; a new game is a card and its
+   * commands, never a room (docs/LANE_GUIDE.md, section 20).
+   */
+  room?: Lazy
   /** The how-to-play card: a few short paragraphs. */
   howToPlay: readonly string[]
   /**
@@ -90,8 +94,10 @@ export interface PrivateReply {
 }
 
 export interface CommandContext {
-  /** Everything typed after the command's word, trimmed: "50", "alice". */
+  /** Everything typed after the command's word, trimmed, less a side it names: "50", "alice". */
   args: string
+  /** The side named after the word (CommandSpec.choices), by its first word, or null for none. */
+  choice: string | null
   /** How the player called it, with the prefix: ".bj". */
   called: string
   queryClient: QueryClient
@@ -112,7 +118,10 @@ export interface CommandContext {
 export interface CommandSpec {
   /** The setting with its words, such as 'command_blackjack' (shared/config.ts). */
   key: CommandKey
-  /** What goes after the word, as the command list shows it: "bet", "player". */
+  /**
+   * What goes after the word, as the command list shows it: "bet", "player",
+   * "bet side". Its first word is what `needs` asks for.
+   */
   args?: string
   /** An example of what goes after the word, such as "50". */
   example?: string
@@ -120,6 +129,15 @@ export interface CommandSpec {
   description: string
   /** Refused before it runs without one: a bet or amount, or a player's name. */
   needs?: 'amount' | 'player'
+  /**
+   * Sides the player can name next to the amount, each by any of its words,
+   * the first its name: [['heads', 'h'], ['tails', 't']]. The shell takes
+   * the side out before it reads the amount, in either order (.flip 50 heads,
+   * .flip t 50), refuses two sides at once, offers each side as a quick pick,
+   * and hands the side's name to `run` as `choice`. A side's words must not
+   * read as an amount.
+   */
+  choices?: readonly (readonly [string, ...string[]])[]
   adminOnly?: boolean
   /** A game still to come: the command list shows it only once its word is typed. */
   soon?: boolean

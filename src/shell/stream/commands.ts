@@ -145,15 +145,52 @@ export function listFor(
   return rows.sort((a, b) => a.rank - b.rank || a.order - b.order).map((r) => r.row)
 }
 
+export type ChoiceSplit =
+  { ok: true; rest: string; choice: string | null } | { ok: false; error: string }
+
+/**
+ * Takes the side a command's player named (CommandSpec.choices) out of what
+ * they typed after its word, wherever it stands: "50 heads" and "t 50" both
+ * leave the amount. Two different sides are refused.
+ *
+ *   splitChoice('t 50', [['heads', 'h'], ['tails', 't']])  // { ok, rest: '50', choice: 'tails' }
+ */
+export function splitChoice(args: string, choices: CommandSpec['choices']): ChoiceSplit {
+  if (!choices?.length) return { ok: true, rest: args, choice: null }
+  let choice: string | null = null
+  const rest: string[] = []
+  for (const token of args.split(/\s+/).filter(Boolean)) {
+    const named = choices.find((words) => words.includes(token.toLowerCase()))
+    if (!named) {
+      rest.push(token)
+      continue
+    }
+    if (choice !== null && choice !== named[0]) {
+      return { ok: false, error: `Pick one: ${orList(choices.map((words) => words[0]))}.` }
+    }
+    choice = named[0]
+  }
+  return { ok: true, rest: rest.join(' '), choice }
+}
+
+/** "heads or tails", "red, black or green". */
+function orList(words: readonly string[]): string {
+  if (words.length < 2) return words.join('')
+  return `${words.slice(0, -1).join(', ')} or ${words.at(-1)}`
+}
+
 /** Why a command cannot run with these arguments yet, before anything is sent. */
 export function checkArgs(command: Command, called: string, args: string): string | null {
   const { needs, args: what, example } = command.spec
+  const split = splitChoice(args, command.spec.choices)
+  if (!split.ok) return split.error
   if (needs === 'amount') {
-    const noun = what ?? 'amount'
-    if (!args) {
+    // "bet side" asks for a bet: the side can be left out.
+    const noun = what?.split(/\s+/)[0] || 'amount'
+    if (!split.rest) {
       return `${called} needs ${article(noun)} ${noun}, like ${called} ${example ?? '50'} or ${called} all.`
     }
-    const parsed = parseBetAmount(args, 0n)
+    const parsed = parseBetAmount(split.rest, 0n)
     if (!parsed.ok) return parsed.error
   }
   if (needs === 'player' && !args) {

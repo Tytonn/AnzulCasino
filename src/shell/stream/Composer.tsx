@@ -42,6 +42,7 @@ import {
   parseInput,
   type Parsed,
   playerMatches,
+  splitChoice,
   unknownHint,
 } from './commands.ts'
 import { addToStream, newestId } from './live.ts'
@@ -240,12 +241,14 @@ export function Composer({ active }: { active: boolean }) {
       setHint({ text: problem })
       return
     }
+    const split = splitChoice(args, command.spec.choices)
     running.current = true
     setBusy(true)
     toBottom()
     try {
       await command.spec.run({
-        args,
+        args: split.ok ? split.rest : args,
+        choice: split.ok ? split.choice : null,
         called,
         queryClient,
         me,
@@ -584,7 +587,14 @@ function Option({
   )
 }
 
-/** The command typed so far: what it takes, what it does, and quick picks for an amount. */
+/** A quick pick: what it says, and what goes after the command's word when it is pressed. */
+interface Pick {
+  label: string
+  args: string
+  on: boolean
+}
+
+/** The command typed so far: what it takes, what it does, and quick picks for an amount and a side. */
 function Usage({
   command,
   word,
@@ -603,8 +613,26 @@ function Usage({
   onArgs: (args: string) => void
 }) {
   const { spec } = command
-  const amount = spec.needs === 'amount' && args ? parseBetAmount(args, BigInt(balance ?? 0)) : null
-  const picks = spec.needs === 'amount' ? [spec.example ?? '50', 'half', 'all'] : []
+  const split = splitChoice(args, spec.choices)
+  const rest = split.ok ? split.rest : args
+  const choice = split.ok ? split.choice : null
+  const amount = spec.needs === 'amount' && rest ? parseBetAmount(rest, BigInt(balance ?? 0)) : null
+  // An amount pick keeps the side typed, and a side pick keeps the amount.
+  const example = splitChoice(spec.example ?? '50', spec.choices)
+  const amounts =
+    spec.needs === 'amount' ? [example.ok && example.rest ? example.rest : '50', 'half', 'all'] : []
+  const groups: Pick[][] = [
+    amounts.map((pick) => ({
+      label: pick,
+      args: [pick, choice].filter(Boolean).join(' '),
+      on: rest === pick,
+    })),
+    (spec.choices ?? []).map(([name]) => ({
+      label: name,
+      args: [rest, name].filter(Boolean).join(' '),
+      on: choice === name,
+    })),
+  ].filter((group) => group.length > 0)
   return (
     <div className={`${className} flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-2 text-sm`}>
       <span className="font-mono text-[0.82rem] font-semibold text-text">
@@ -616,21 +644,22 @@ function Usage({
       {amount?.ok && amount.keyword && balance !== undefined && (
         <span className="text-xs text-faint tabular-nums">= {formatChips(amount.amount)}</span>
       )}
-      {picks.length > 0 && (
-        <span className="flex gap-1">
-          {picks.map((pick) => (
+      {groups.map((group) => (
+        <span key={group[0]?.label} className="flex gap-1">
+          {group.map((pick) => (
             <button
-              key={pick}
+              key={pick.label}
               type="button"
+              aria-pressed={pick.on}
               onMouseDown={(event) => event.preventDefault()}
-              onClick={() => onArgs(pick)}
-              className={`rounded-full border px-2 py-0.5 font-mono text-xs ${args === pick ? 'border-accent text-accent' : 'border-border text-muted hover:border-border-strong hover:text-text'}`}
+              onClick={() => onArgs(pick.args)}
+              className={`rounded-full border px-2 py-0.5 font-mono text-xs ${pick.on ? 'border-accent text-accent' : 'border-border text-muted hover:border-border-strong hover:text-text'}`}
             >
-              {pick}
+              {pick.label}
             </button>
           ))}
         </span>
-      )}
+      ))}
     </div>
   )
 }

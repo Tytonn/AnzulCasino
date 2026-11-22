@@ -8,7 +8,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MotionConfig } from 'motion/react'
 import { type ComponentType, lazy, useEffect } from 'react'
-import { createBrowserRouter, type RouteObject, RouterProvider } from 'react-router'
+import { createBrowserRouter, Navigate, type RouteObject, RouterProvider } from 'react-router'
 
 import { ApiError, onSignedOut } from '../kit/api.ts'
 import { queryKeys, useMe } from '../kit/queries.ts'
@@ -87,10 +87,17 @@ const router = createBrowserRouter([
           { path: 'classic', element: <FloorPage /> },
           ...games.map((game) => ({
             path: `room/${game.id}`,
-            // Each room loads the first time someone walks in.
-            element: (
-              <RoomPage game={game} room={game.manifest ? lazy(game.manifest.room) : null} />
-            ),
+            // Each room loads the first time someone walks in. A game built
+            // after the stream has no room: it plays in the stream.
+            element:
+              game.manifest && !game.manifest.room ? (
+                <Navigate to="/" replace />
+              ) : (
+                <RoomPage
+                  game={game}
+                  room={game.manifest?.room ? lazy(game.manifest.room) : null}
+                />
+              ),
           })),
         ],
       },

@@ -6,6 +6,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { PlayerSummary } from '../../../shared/players.ts'
+import { COINFLIP_COMMANDS } from '../../../src/games/coinflip/commands.ts'
 import type { CommandSpec } from '../../../src/shell/manifests.ts'
 import {
   checkArgs,
@@ -14,6 +15,7 @@ import {
   parseInput,
   playerMatches,
   resolveCommands,
+  splitChoice,
   suggest,
   unknownHint,
 } from '../../../src/shell/stream/commands.ts'
@@ -145,6 +147,53 @@ describe('checkArgs', () => {
   it('asks for a player', () => {
     expect(checkArgs(rob, '.rob', '')).toBe('.rob needs a player, like .rob alice.')
     expect(checkArgs(rob, '.rob', 'bob')).toBeNull()
+  })
+
+  it('reads the amount around a side, and refuses two sides', () => {
+    const flip = resolveCommands(COINFLIP_COMMANDS, undefined)[0]
+    if (!flip) throw new Error('missing .flip')
+    expect(checkArgs(flip, '.flip', '50 heads')).toBeNull()
+    expect(checkArgs(flip, '.flip', 'T 2.5k')).toBeNull()
+    expect(checkArgs(flip, '.flip', 'all')).toBeNull()
+    expect(checkArgs(flip, '.flip', 'heads')).toBe(
+      '.flip needs a bet, like .flip 50 heads or .flip all.',
+    )
+    expect(checkArgs(flip, '.flip', '50 heads t')).toBe('Pick one: heads or tails.')
+    expect(checkArgs(flip, '.flip', '50 head')).toMatch(/is not an amount/)
+  })
+})
+
+describe('splitChoice', () => {
+  const sides = COINFLIP_COMMANDS[0]?.choices
+
+  it('takes the side out wherever it stands, by any of its words', () => {
+    expect(splitChoice('50 heads', sides)).toEqual({ ok: true, rest: '50', choice: 'heads' })
+    expect(splitChoice('t 50', sides)).toEqual({ ok: true, rest: '50', choice: 'tails' })
+    expect(splitChoice('  Tails   half ', sides)).toEqual({
+      ok: true,
+      rest: 'half',
+      choice: 'tails',
+    })
+    expect(splitChoice('2.5 k h', sides)).toEqual({ ok: true, rest: '2.5 k', choice: 'heads' })
+    expect(splitChoice('h heads 50', sides)).toEqual({ ok: true, rest: '50', choice: 'heads' })
+  })
+
+  it('leaves the amount alone without a side, or for a command with no sides', () => {
+    expect(splitChoice('50', sides)).toEqual({ ok: true, rest: '50', choice: null })
+    expect(splitChoice('50 heads', undefined)).toEqual({
+      ok: true,
+      rest: '50 heads',
+      choice: null,
+    })
+  })
+
+  it('refuses two different sides', () => {
+    expect(splitChoice('h 50 t', sides)).toEqual({ ok: false, error: 'Pick one: heads or tails.' })
+    const three = [['red'], ['black'], ['green']] as const
+    expect(splitChoice('red green', three)).toEqual({
+      ok: false,
+      error: 'Pick one: red, black or green.',
+    })
   })
 })
 

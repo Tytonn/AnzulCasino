@@ -18,7 +18,7 @@ import {
 } from 'motion/react'
 import { type Ref, useImperativeHandle, useRef } from 'react'
 
-import type { CoinflipDetail, Side } from '../../../shared/games/coinflip.ts'
+import { type CoinflipDetail, SIDE_NAMES, type Side } from '../../../shared/games/coinflip.ts'
 import type { RoundView } from '../../../shared/rounds.ts'
 import { CrownIcon, StarIcon } from '../../kit/icons.tsx'
 
@@ -29,6 +29,8 @@ export interface CoinHandle {
   land(face: Side, ms: number, onLanded: () => void): void
   /** Puts the coin down on `face` at once: a failed bet, or a page load. */
   rest(face: Side): void
+  /** Ends a landing in progress at once, and calls its `onLanded`. False when none is. */
+  finish(): boolean
 }
 
 /** Degrees per second while waiting for the answer. */
@@ -69,19 +71,26 @@ function Face({ side }: { side: Side }) {
 
 export function Coin({
   initialFace,
+  rise = 120,
   className = '',
+  label,
   ref,
 }: {
   initialFace: Side
+  /** How high a toss lifts the coin, in pixels: less on a small card in the stream. */
+  rise?: number
   /** Sets the coin's size, such as `size-40 text-[10px]`: the rim scales with the font size. */
   className?: string
+  /** What the coin shows, for a screen reader, such as "The coin landed Tails". */
+  label?: string
   ref?: Ref<CoinHandle>
 }) {
   const reduced = useReducedMotion()
   const angle = useMotionValue(initialFace === 'tails' ? 180 : 0)
   const lift = useMotionValue(0)
-  const shadowScale = useTransform(lift, [-140, 0], [0.45, 1])
-  const shadowOpacity = useTransform(lift, [-140, 0], [0.25, 0.6])
+  const top = -rise * 1.17
+  const shadowScale = useTransform(lift, [top, 0], [0.45, 1])
+  const shadowOpacity = useTransform(lift, [top, 0], [0.25, 0.6])
 
   const running = useRef<AnimationPlaybackControls[]>([])
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -112,7 +121,7 @@ export function Coin({
       const from = angle.get()
       running.current = [
         animate(angle, from + SPIN_SPEED * 20, { duration: 20, ease: 'linear' }),
-        animate(lift, -120, { duration: 0.28, ease: [0.22, 1, 0.36, 1] }),
+        animate(lift, -rise, { duration: 0.28, ease: [0.22, 1, 0.36, 1] }),
       ]
     },
     land(face, ms, onLanded) {
@@ -136,7 +145,7 @@ export function Coin({
           ease: [0.18, 0.9, 0.3, 1],
           onComplete: finishLanding,
         }),
-        animate(lift, [lift.get(), -70, 0], {
+        animate(lift, [lift.get(), -rise * 0.58, 0], {
           duration: seconds,
           times: [0, 0.35, 1],
           ease: ['easeOut', 'easeIn'],
@@ -149,10 +158,19 @@ export function Coin({
       angle.jump(face === 'tails' ? 180 : 0)
       lift.jump(0)
     },
+    finish() {
+      if (!pending.current) return false
+      finishLanding()
+      return true
+    },
   }))
 
   return (
-    <div className={`relative [perspective:900px] ${className}`}>
+    <div
+      role={label ? 'img' : undefined}
+      aria-label={label}
+      className={`relative [perspective:900px] ${className}`}
+    >
       <motion.div
         aria-hidden="true"
         className="absolute -bottom-[14%] left-1/2 h-[12%] w-[70%] -translate-x-1/2 rounded-[50%] bg-bg blur-[3px]"
@@ -165,6 +183,25 @@ export function Coin({
         <Face side="heads" />
         <Face side="tails" />
       </motion.div>
+    </div>
+  )
+}
+
+/** A coin lying on `face`, for a replay. */
+export function StillCoin({ face, className = '' }: { face: Side; className?: string }) {
+  return (
+    <div
+      role="img"
+      aria-label={`The coin landed ${SIDE_NAMES[face]}`}
+      className={`relative shrink-0 [perspective:300px] ${className}`}
+    >
+      <div
+        className="relative size-full [transform-style:preserve-3d]"
+        style={{ transform: face === 'tails' ? 'rotateX(180deg)' : undefined }}
+      >
+        <Face side="heads" />
+        <Face side="tails" />
+      </div>
     </div>
   )
 }
