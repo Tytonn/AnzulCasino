@@ -84,6 +84,11 @@ export function LiveSync({ me }: { me: Me }) {
     for (const queryKey of SHARED) void queryClient.invalidateQueries({ queryKey })
   })
 
+  // An admin changed a setting, such as a command's words: fetch them again.
+  useLiveEvent('feed', 'config.changed', () => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.config })
+  })
+
   useLiveEvent('chat', 'chat.message', (message) => {
     const add = () =>
       queryClient.setQueryData<ChatPage>(queryKeys.chat, (old) => addMessage(old, message))

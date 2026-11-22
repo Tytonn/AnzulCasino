@@ -11,10 +11,12 @@
  * database clock inside the query (rule 8). Rows are never edited or
  * deleted, so the table is also the history of every change.
  */
-import { desc, eq, gt, lte, sql } from 'drizzle-orm'
+import { desc, eq, gt, inArray, lte, sql } from 'drizzle-orm'
 
 import { config } from '../../db/schema/core.ts'
 import {
+  COMMAND_KEYS,
+  commandWordClash,
   type ConfigKey,
   type ConfigValue,
   type ConfigValues,
@@ -24,12 +26,14 @@ import {
   formatConfigValue,
   isConfigKey,
   parseConfigValue,
+  setting,
   waitsForReset,
 } from '../../shared/config.ts'
 import { nextReset } from '../../shared/game-day.ts'
 import { writeAudit } from './audit.ts'
 import type { Executor, Tx } from './db.ts'
 import { badRequest } from './errors.ts'
+import { liveEvent, type Outgoing } from './live.ts'
 
 /** Every config value in effect right now. One small query. */
 export async function loadConfig(executor: Executor): Promise<ConfigValues> {
@@ -62,12 +66,20 @@ export interface ConfigChange {
   now: Date
 }
 
+export interface ConfigChanged {
+  /** When it takes effect: now, or at the next daily reset. */
+  effectiveAt: Date
+  /** The `config.changed` event. Publish it after the commit. */
+  news: Outgoing[]
+}
+
 /**
  * Schedules a change, writes it to the audit log, and returns when it takes
  * effect: at once, or at the next daily reset for the economy and steals.
- * For the admin lane's config editor.
+ * For the admin lane's config editor, which publishes `news` after the
+ * commit so open browsers fetch the new values.
  */
-export async function changeConfig(tx: Tx, change: ConfigChange): Promise<{ effectiveAt: Date }> {
+export async function changeConfig(tx: Tx, change: ConfigChange): Promise<ConfigChanged> {
   if (!isConfigKey(change.key)) throw badRequest(`There is no setting called ${change.key}.`)
   const key = change.key
   const parsed = parseConfigValue(key, change.value)
@@ -76,15 +88,19 @@ export async function changeConfig(tx: Tx, change: ConfigChange): Promise<{ effe
   const before = (await loadConfig(tx))[key]
   const pair = configPair(key)
   if (pair) await checkPair(tx, pair, key, parsed.value)
+  if (setting(key).unit === 'words') await checkWords(tx, key, parsed.value as readonly string[])
 
   const effectiveAt = waitsForReset(key) ? nextReset(change.now) : change.now
-  await tx.insert(config).values({
-    key,
-    value: configWireValue(parsed.value),
-    description: change.reason ?? null,
-    effectiveAt,
-    updatedBy: change.actorId,
-  })
+  const [row] = await tx
+    .insert(config)
+    .values({
+      key,
+      value: configWireValue(parsed.value),
+      description: change.reason ?? null,
+      effectiveAt,
+      updatedBy: change.actorId,
+    })
+    .returning({ id: config.id })
   await writeAudit(tx, {
     actorId: change.actorId,
     action: 'config.changed',
@@ -93,7 +109,35 @@ export async function changeConfig(tx: Tx, change: ConfigChange): Promise<{ effe
     after: { value: configWireValue(parsed.value), effectiveAt: effectiveAt.toISOString() },
     reason: change.reason,
   })
-  return { effectiveAt }
+  const news = liveEvent(
+    'feed',
+    'config.changed',
+    { key, effectiveAt: effectiveAt.toISOString() },
+    Number(row?.id ?? 0),
+  )
+  return { effectiveAt, news: [news] }
+}
+
+/**
+ * Refuses a word another command already has. The others are compared at
+ * their newest scheduled values; commands take effect at once, so that is
+ * what they are now.
+ */
+async function checkWords(tx: Tx, key: ConfigKey, value: readonly string[]): Promise<void> {
+  const others = COMMAND_KEYS.filter((k) => k !== key)
+  const rows = await tx
+    .selectDistinctOn([config.key], { key: config.key, value: config.value })
+    .from(config)
+    .where(inArray(config.key, others))
+    .orderBy(config.key, desc(config.effectiveAt), desc(config.id))
+  const current: Partial<Record<ConfigKey, ConfigValue>> = {}
+  for (const row of rows) {
+    if (!isConfigKey(row.key)) continue
+    const parsed = parseConfigValue(row.key, row.value)
+    if (parsed.ok) current[row.key] = parsed.value
+  }
+  const clash = commandWordClash(key, value, current)
+  if (clash) throw badRequest(clash, 'invalid_config_value')
 }
 
 /**
@@ -116,7 +160,7 @@ async function checkPair(
     .limit(1)
   const parsed = latest ? parseConfigValue(other, latest.value) : null
   const otherValue = parsed?.ok ? parsed.value : configDefaults()[other]
-  // Pairs are chips or whole numbers, never lines.
+  // Pairs are chips or whole numbers, never text or lists.
   const mine = BigInt(value as bigint | number)
   const theirs = BigInt(otherValue as bigint | number)
   const shown = formatConfigValue(other, otherValue)

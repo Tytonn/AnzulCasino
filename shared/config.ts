@@ -12,10 +12,14 @@
  * - `text`: one short plain-text name, such as a button's label.
  * - `lines`: a list of short plain-text lines, such as the flavor lines
  *   shown with a work or crime result.
+ * - `choice`: one of a few named options, such as `fold` or `separate`.
+ * - `words`: a command's words, typed after the prefix: its name first,
+ *   then its aliases. No word belongs to two commands.
  * - everything else: a whole number in the unit its name ends with.
  *
  * On the wire and in the table, every value is a plain number (chips as
- * hundredths), except `text`, a string, and `lines`, an array of strings.
+ * hundredths), except `text` and `choice`, a string, and `lines` and
+ * `words`, an array of strings.
  *
  * Changes to the economy, ranks, giveaways, steals, shields and the vault
  * take effect at the next daily reset; the rest take effect at once (spec:
@@ -50,6 +54,8 @@ export const CONFIG_GROUPS = [
   'games',
   'social',
   'text',
+  'commands',
+  'stream',
 ] as const
 export type ConfigGroup = (typeof CONFIG_GROUPS)[number]
 
@@ -92,6 +98,8 @@ export interface TextSetting extends SettingBase {
   default: string
   /** Longest name, in characters. */
   maxLength: number
+  /** Symbols only: no letters, digits, spaces or @. The command prefix. */
+  symbolsOnly?: true
 }
 
 export interface LinesSetting extends SettingBase {
@@ -103,7 +111,34 @@ export interface LinesSetting extends SettingBase {
   maxLength: number
 }
 
-export type ConfigSetting = ChipsSetting | NumberSetting | TextSetting | LinesSetting
+export interface ChoiceOption<V extends string = string> {
+  /** What is stored and what code compares. */
+  value: V
+  /** What the admin panel shows. */
+  label: string
+}
+
+export interface ChoiceSetting<V extends string = string> extends SettingBase {
+  unit: 'choice'
+  default: V
+  /** Two or more options. */
+  options: readonly ChoiceOption<V>[]
+}
+
+export interface WordsSetting extends SettingBase {
+  unit: 'words'
+  /** The command's name in the command list, such as "Blackjack". */
+  label: string
+  /** Its name first, then its aliases. */
+  default: readonly string[]
+  /** Most words the list may hold. It always holds at least one. */
+  maxWords: number
+  /** Longest word, in characters. */
+  maxLength: number
+}
+
+export type ConfigSetting =
+  ChipsSetting | NumberSetting | TextSetting | LinesSetting | ChoiceSetting | WordsSetting
 
 /** A billion chips: far above any sane setting, far below the wire's safe-integer limit. */
 const MAX_CHIPS = 1_000_000_000n * CHIP
@@ -160,9 +195,44 @@ function number(
   }
 }
 
-/** A short plain-text name, such as a button label. Up to 20 characters. */
-function text(group: ConfigGroup, value: string, description: string): TextSetting {
-  return { unit: 'text', group, default: value, maxLength: 20, description }
+/** A short plain-text name, such as a button label. Up to 20 characters unless set. */
+function text(
+  group: ConfigGroup,
+  value: string,
+  description: string,
+  options: { maxLength?: number; symbolsOnly?: true } = {},
+): TextSetting {
+  return {
+    unit: 'text',
+    group,
+    default: value,
+    maxLength: options.maxLength ?? 20,
+    description,
+    ...(options.symbolsOnly ? { symbolsOnly: true } : {}),
+  }
+}
+
+/** One of a few named options. The first option listed is not special; `value` is the default. */
+function choice<const V extends string>(
+  group: ConfigGroup,
+  value: NoInfer<V>,
+  options: readonly ChoiceOption<V>[],
+  description: string,
+): ChoiceSetting<V> {
+  return { unit: 'choice', group, default: value, options, description }
+}
+
+/** A command's words: up to 8, each up to 16 lowercase letters and digits. */
+function words(label: string, value: readonly string[], description: string): WordsSetting {
+  return {
+    unit: 'words',
+    group: 'commands',
+    label,
+    default: value,
+    maxWords: 8,
+    maxLength: 16,
+    description,
+  }
 }
 
 /** Plain-text lines, such as flavor text. Up to 100 lines of up to 120 characters. */
@@ -611,6 +681,112 @@ export const CONFIG = {
     HUSTLE_FINE_LINES,
     'Third income button: one line is picked at random to show with a fine.',
   ),
+
+  // Commands typed in the message box (spec: Commands), edited in the admin
+  // panel and taking effect at once. Each command is a list of words: the
+  // first is its name in the command list, the rest are aliases, and no word
+  // belongs to two commands. What each one does and what it takes after it
+  // live in its game's or feature's manifest. Games still to come have
+  // their words already, so their lanes need no shared change.
+  command_prefix: text(
+    'commands',
+    '.',
+    'What starts a command in the message box, such as the dot in .bj 50. One to three symbols.',
+    { maxLength: 3, symbolsOnly: true },
+  ),
+  command_blackjack: words(
+    'Blackjack',
+    ['bj', 'blackjack'],
+    'Blackjack: deals a hand at the bet typed after it.',
+  ),
+  command_roulette: words(
+    'Roulette',
+    ['roulette', 'rl'],
+    'Roulette: bets on the next spin, such as roulette 200 odd.',
+  ),
+  command_coinflip: words(
+    'Coin flip',
+    ['flip', 'coinflip', 'cf'],
+    'Coin flip: flips a coin at the bet typed after it.',
+  ),
+  command_crash: words(
+    'Crash',
+    ['crash'],
+    'Crash: joins the next round at the bet typed after it.',
+  ),
+  command_mines: words('Mines', ['mines'], 'Mines: starts a board at the bet typed after it.'),
+  command_plinko: words('Plinko', ['plinko'], 'Plinko: drops a ball at the bet typed after it.'),
+  command_slots: words('Slots', ['slots'], 'Slots: spins at the bet typed after it.'),
+  command_russian_roulette: words(
+    'Russian roulette',
+    ['rr'],
+    'Russian roulette: opens a lobby at the ante typed after it, or joins the open one.',
+  ),
+  command_race: words('Race', ['race'], 'Race: bets on a runner in the next race.'),
+  command_work: words(
+    'Work',
+    ['work', 'w'],
+    'Work: earns a few chips, then waits out its cooldown.',
+  ),
+  command_hustle: words(
+    'Slut',
+    ['slut'],
+    'The third income command, shown with the name in hustle_name.',
+  ),
+  command_crime: words('Crime', ['crime'], 'Crime: a big payout or a fine, then a long cooldown.'),
+  command_collect: words(
+    'Collect',
+    ['collect'],
+    "Collect: takes the day's income and the streak bonus.",
+  ),
+  command_rob: words(
+    'Rob',
+    ['rob', 'steal'],
+    'Rob: tries to steal from the player named after it.',
+  ),
+  command_deposit: words(
+    'Deposit',
+    ['dep', 'deposit'],
+    'Vault: moves the amount typed after it from the wallet into the vault.',
+  ),
+  command_withdraw: words(
+    'Withdraw',
+    ['with', 'withdraw'],
+    'Vault: moves the amount typed after it from the vault back to the wallet.',
+  ),
+  command_balance: words(
+    'Balance',
+    ['bal', 'balance'],
+    "Balance: shows a player's wallet, vault and rank.",
+  ),
+  command_leaderboard: words(
+    'Leaderboard',
+    ['lb', 'leaderboard', 'top'],
+    "Leaderboard: shows the season's standings.",
+  ),
+  command_shop: words('Shop', ['shop', 'store'], 'Shop: opens the shop.'),
+  command_help: words('Help', ['help', 'commands'], 'Help: lists every command.'),
+  command_admin: words('Admin', ['admin'], 'Admin: opens the admin panel. Admins only.'),
+
+  // The stream (spec: The stream), taking effect at once.
+  stream_round_runs: choice(
+    'stream',
+    'fold',
+    [
+      { value: 'fold', label: 'Fold into one line' },
+      { value: 'separate', label: 'One line per round' },
+    ],
+    "Whether a run of one player's finished rounds folds into one line, such as Bob · 6 hands · +45, or each round keeps its own line.",
+  ),
+  stream_bal_lb: choice(
+    'stream',
+    'private',
+    [
+      { value: 'private', label: 'Only the player who asked' },
+      { value: 'public', label: 'Posted in the stream' },
+    ],
+    'Whether the balance and leaderboard commands answer only the player who typed them, or post in the stream for everyone.',
+  ),
 } satisfies Record<string, ConfigSetting>
 
 /**
@@ -628,18 +804,23 @@ export const CONFIG_PAIRS = [
 
 export type ConfigKey = keyof typeof CONFIG
 
-/** A config value in code: bigint for chips, a string for text, a list for lines, number for the rest. */
+/**
+ * A config value in code: bigint for chips, a string for text and choices, a
+ * list for lines and words, number for the rest.
+ */
 export type ConfigValue = bigint | number | string | readonly string[]
 
-/** Every config value, typed. */
+/** Every config value, typed: a choice as the union of its options. */
 export type ConfigValues = {
   [K in ConfigKey]: (typeof CONFIG)[K] extends ChipsSetting
     ? bigint
     : (typeof CONFIG)[K] extends TextSetting
       ? string
-      : (typeof CONFIG)[K] extends LinesSetting
-        ? readonly string[]
-        : number
+      : (typeof CONFIG)[K] extends ChoiceSetting<infer V>
+        ? V
+        : (typeof CONFIG)[K] extends LinesSetting | WordsSetting
+          ? readonly string[]
+          : number
 }
 
 export const CONFIG_KEYS = Object.keys(CONFIG) as ConfigKey[]
@@ -670,6 +851,9 @@ export type ParsedValue = { ok: true; value: ConfigValue } | { ok: false; error:
 // eslint-disable-next-line no-control-regex
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/
 
+// What a symbols-only setting refuses. An @ would turn every mention into a command.
+const NOT_A_SYMBOL = /[\p{L}\p{N}\s@]/u
+
 function parseText(key: ConfigKey, s: TextSetting, raw: unknown): ParsedValue {
   if (typeof raw !== 'string') return { ok: false, error: `${key} must be text.` }
   const value = raw.trim()
@@ -678,6 +862,49 @@ function parseText(key: ConfigKey, s: TextSetting, raw: unknown): ParsedValue {
   }
   if (CONTROL_CHARACTERS.test(value)) {
     return { ok: false, error: `${key} must be plain text on one line.` }
+  }
+  if (s.symbolsOnly && NOT_A_SYMBOL.test(value)) {
+    return {
+      ok: false,
+      error: `${key} must be 1 to ${s.maxLength} symbols, with no letters, digits, spaces or @.`,
+    }
+  }
+  return { ok: true, value }
+}
+
+function parseChoice(key: ConfigKey, s: ChoiceSetting, raw: unknown): ParsedValue {
+  const option = s.options.find((o) => o.value === raw)
+  if (!option) {
+    const names = s.options.map((o) => o.value)
+    return {
+      ok: false,
+      error: `${key} must be ${names.slice(0, -1).join(', ')} or ${names.at(-1)}.`,
+    }
+  }
+  return { ok: true, value: option.value }
+}
+
+/** A word after the prefix: lowercase letters and digits, starting with a letter. */
+const COMMAND_WORD = /^[a-z][a-z0-9]*$/
+
+function parseWords(key: ConfigKey, s: WordsSetting, raw: unknown): ParsedValue {
+  if (!Array.isArray(raw) || raw.some((word) => typeof word !== 'string')) {
+    return { ok: false, error: `${key} must be a list of words.` }
+  }
+  const value = (raw as string[]).map((word) => word.trim().toLowerCase())
+  if (value.length === 0 || value.length > s.maxWords) {
+    return { ok: false, error: `${s.label} needs between 1 and ${s.maxWords} words.` }
+  }
+  for (const [i, word] of value.entries()) {
+    if (!COMMAND_WORD.test(word) || word.length > s.maxLength) {
+      return {
+        ok: false,
+        error: `${word ? `"${word}"` : 'An empty word'} cannot be a word for ${s.label}: use 1 to ${s.maxLength} letters and digits, starting with a letter.`,
+      }
+    }
+    if (value.indexOf(word) !== i) {
+      return { ok: false, error: `${s.label} has "${word}" twice.` }
+    }
   }
   return { ok: true, value }
 }
@@ -711,6 +938,8 @@ export function parseConfigValue(key: ConfigKey, raw: unknown): ParsedValue {
   const s = setting(key)
   if (s.unit === 'text') return parseText(key, s, raw)
   if (s.unit === 'lines') return parseLines(key, s, raw)
+  if (s.unit === 'choice') return parseChoice(key, s, raw)
+  if (s.unit === 'words') return parseWords(key, s, raw)
   if (typeof raw !== 'number' || !Number.isSafeInteger(raw)) {
     return { ok: false, error: `${key} must be a whole number.` }
   }
@@ -734,6 +963,8 @@ export function parseConfigValue(key: ConfigKey, raw: unknown): ParsedValue {
 }
 
 function formatValue(s: ConfigSetting, value: ConfigValue): string {
+  if (s.unit === 'choice') return s.options.find((o) => o.value === value)?.label ?? String(value)
+  if (s.unit === 'words' && typeof value === 'object') return value.join(', ')
   if (typeof value === 'string') return value
   if (typeof value === 'object') return value.length === 1 ? '1 line' : `${value.length} lines`
   if (s.unit === 'chips') return chipCount(BigInt(value))
@@ -750,7 +981,10 @@ function formatValue(s: ConfigSetting, value: ConfigValue): string {
   }
 }
 
-/** A value for people: "100 chips", "1.5%", "3 hours", "1000x", "8 lines". */
+/**
+ * A value for people: "100 chips", "1.5%", "3 hours", "1000x", "8 lines",
+ * "bj, blackjack", or a choice's label.
+ */
 export function formatConfigValue(key: ConfigKey, value: ConfigValue): string {
   return formatValue(setting(key), value)
 }
@@ -767,6 +1001,37 @@ export function configWireValue(value: ConfigValue): number | string | string[] 
  */
 export function configPair(key: ConfigKey): readonly [ConfigKey, ConfigKey] | undefined {
   return CONFIG_PAIRS.find(([min, max]) => min === key || max === key)
+}
+
+/** A command's key: a words setting, such as command_blackjack. */
+export type CommandKey = {
+  [K in ConfigKey]: (typeof CONFIG)[K] extends WordsSetting ? K : never
+}[ConfigKey]
+
+/** Every command's key. Their words share one set: no word belongs to two. */
+export const COMMAND_KEYS = CONFIG_KEYS.filter(
+  (key): key is CommandKey => setting(key).unit === 'words',
+)
+
+/**
+ * Why `value` cannot be `key`'s words, if another command already has one of
+ * them, as a sentence for the admin panel: "rl already belongs to Roulette."
+ * `current` holds the other commands' words; a key it lacks counts at its
+ * default. changeConfig refuses the change with this sentence, and the
+ * admin panel can call it first to warn as the admin types.
+ */
+export function commandWordClash(
+  key: ConfigKey,
+  value: readonly string[],
+  current: Partial<Record<ConfigKey, ConfigValue>>,
+): string | undefined {
+  for (const other of COMMAND_KEYS) {
+    if (other === key) continue
+    const theirs = (current[other] ?? setting(other).default) as readonly string[]
+    const word = value.find((w) => theirs.includes(w))
+    if (word) return `"${word}" already belongs to ${(setting(other) as WordsSetting).label}.`
+  }
+  return undefined
 }
 
 export interface TierSettings {
