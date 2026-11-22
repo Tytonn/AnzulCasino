@@ -5,7 +5,8 @@
  *   const db = await useTestDatabase()
  *
  * Call it at the top level of a test file, before importing server code that
- * reads the database.
+ * reads the database. `{ empty: true }` gives a database with no migrations
+ * applied, like the live one before Netlify first publishes a deploy.
  */
 import { randomBytes } from 'node:crypto'
 
@@ -25,7 +26,7 @@ export interface TestDatabase {
   ): Promise<T[]>
 }
 
-export async function useTestDatabase(): Promise<TestDatabase> {
+export async function useTestDatabase(options: { empty?: boolean } = {}): Promise<TestDatabase> {
   loadDotEnv()
   const base = process.env.TEST_DATABASE_URL
   if (!base) throw new Error('TEST_DATABASE_URL is not set (see .env.example).')
@@ -34,7 +35,7 @@ export async function useTestDatabase(): Promise<TestDatabase> {
     base,
     `${template.replace(/_template$/, '')}_${randomBytes(4).toString('hex')}`,
   )
-  await recreate(url, template)
+  await recreate(url, options.empty ? undefined : template)
   process.env.DATABASE_URL = url
 
   const pool = new pg.Pool({ connectionString: url, max: 2 })

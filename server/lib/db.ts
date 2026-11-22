@@ -24,6 +24,17 @@ export type Executor = Db | Tx
 
 let instance: { db: Db; close: () => Promise<void> } | undefined
 
+/** Neither NETLIFY_DB_URL nor DATABASE_URL is set, so there is no database to use. */
+export class NoDatabaseError extends Error {
+  constructor() {
+    super(
+      'No database configured. On Netlify, NETLIFY_DB_URL is set automatically. ' +
+        'Locally, set DATABASE_URL (see .env.example).',
+    )
+    this.name = 'NoDatabaseError'
+  }
+}
+
 function connect(): { db: Db; close: () => Promise<void> } {
   if (process.env.NETLIFY_DB_URL) {
     const db = netlifyDrizzle()
@@ -43,10 +54,7 @@ function connect(): { db: Db; close: () => Promise<void> } {
     })
     return { db: pgDrizzle({ client: pool }) as unknown as Db, close: () => endPool(pool) }
   }
-  throw new Error(
-    'No database configured. On Netlify, NETLIFY_DB_URL is set automatically. ' +
-      'Locally, set DATABASE_URL (see .env.example).',
-  )
+  throw new NoDatabaseError()
 }
 
 export function db(): Db {
