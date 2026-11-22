@@ -151,6 +151,15 @@ function firstCard(hand: Hand): string {
   return cardName(card)
 }
 
+// A failure mid-hand would leave Alice's hand open, and every later test that deals
+// for her, in this file or another lane's, would be refused until it is finished.
+test.afterEach(async ({ browser }, testInfo) => {
+  if (testInfo.status === testInfo.expectedStatus) return
+  const alice = await openAs(browser, 'alice')
+  await finishOpenHands(alice.page)
+  await alice.close()
+})
+
 test('a hand dealt from the message box plays live for everyone, then folds', async ({
   browser,
 }, testInfo) => {
@@ -246,7 +255,7 @@ test('a hand dealt from the message box plays live for everyone, then folds', as
       const res = await answer
       await expectOk(res)
       const dealt = (await res.json()) as Hand
-      expect(dealt.round.stake).toBe(100)
+      expect(dealt.round.stake).toBe(1)
       // The new hand takes the pin at once; the finished one goes back to the stream.
       await expect(pinned(alice.page).locator(`[data-round="${dealt.round.id}"]`)).toBeVisible()
       await expect(pinned(alice.page).locator(`[data-round="${first.round.id}"]`)).toHaveCount(0)
